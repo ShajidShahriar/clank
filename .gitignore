@@ -17,6 +17,11 @@ release
 /vite.config.js
 /vite.config.d.ts
 
+# Python
+.venv
+__pycache__
+*.pyc
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
