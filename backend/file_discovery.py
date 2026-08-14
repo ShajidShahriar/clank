@@ -1,6 +1,37 @@
 from pathlib import Path
 import pathspec
 
+# ---------------------------------------------------------
+# load_gitignore(repo_path):
+#   look for a .gitignore file at the root of repo_path
+#   if it doesn't exist:
+#       return an empty rule set (nothing gets ignored by gitignore)
+#   else:
+#       read its lines and compile them into a matcher
+#       return that matcher
+#
+# discover_files(repo_path):
+#   convert repo_path to an absolute, normalized path
+#   load the gitignore matcher for this repo
+#   matched_files = []
+#
+#   for every file/folder anywhere under repo_path (recursive):
+#       if it's a folder            -> skip it, keep going
+#       if any part of its path is in HARD_IGNORE_DIRS
+#           (.git, node_modules, venv, dist, build, etc.) -> skip it
+#       if the gitignore matcher says this path is ignored -> skip it
+#       if its extension is not one we care about
+#           (.py, .js, .md, .json, etc.)                   -> skip it
+#
+#       otherwise -> keep it, add to matched_files
+#
+#   return matched_files
+# ---------------------------------------------------------
+
+
+
+
+
 # Extensions we actually care about indexing
 SOURCE_EXTENSIONS = {
     ".py", ".js", ".ts", ".tsx", ".jsx",
@@ -32,11 +63,15 @@ def discover_files(repo_path: str) -> list[Path]:
         if path.is_dir():
             continue
 
-        # skip hardcoded ignored directories anywhere in the path
-        if any(part in HARD_IGNORE_DIRS for part in path.parts):
-            continue
+        should_skip = False
+        for part in path.parts:
+            if part in HARD_IGNORE_DIRS:
+                should_skip = True
+                break
 
-        # skip files matched by .gitignore (paths must be relative for pathspec)
+            if should_skip:
+                continue
+
         relative_path = path.relative_to(repo_path)
         if spec.match_file(str(relative_path)):
             continue
