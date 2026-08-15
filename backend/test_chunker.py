@@ -1,6 +1,6 @@
-from chunker import chunk_python_file
+from chunker import chunk_file
 
-chunks = chunk_python_file("dummy_class_body.py")
+chunks = chunk_file("dummy_js.js")
 
 print(f"Found {len(chunks)} chunks:\n")
 for c in chunks:

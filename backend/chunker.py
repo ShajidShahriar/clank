@@ -68,6 +68,7 @@
 
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
+from languages import LANGUAGE_CONFIGS
 
 PY_LANGUAGE = Language(tspython.language())
 MAX_CHUNK_TOKENS = 400
@@ -147,119 +148,77 @@ def get_signature(node, source_code, text_node=None) -> str:
     end = body.start_byte if body else node.end_byte
     return source_code[text_node.start_byte:end].decode("utf-8").strip()
 
-def chunk_class(node, source_code, file_path, text_node=None, parent_prefix=None):
-    text_node = text_node or node
-    class_name = node.child_by_field_name("name").text.decode("utf-8")
+def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None):
+    name_node = class_node.child_by_field_name("name")
+    class_name = name_node.text.decode("utf-8") if name_node else "anonymous"
     full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
-    chunks = []
 
-    docstring_node = get_docstring_node(node)
-    docstring = None
-    if docstring_node:
-        docstring = source_code[docstring_node.start_byte:docstring_node.end_byte].decode("utf-8")
-
-    method_signatures = []
-    class_level_statements = []
-    body = node.child_by_field_name("body")
-
-    for child in body.children:
-        if child is docstring_node:
-            continue  # already captured separately, skip to avoid duplicating it
-
-        m_text_node, m_def_node = unwrap_decorated(child)
-
-        if m_def_node.type == "function_definition":
-            method_name = m_def_node.child_by_field_name("name").text.decode("utf-8")
-            method_signatures.append(get_signature(m_def_node, source_code, m_text_node))
-            method_text = source_code[m_text_node.start_byte:m_text_node.end_byte].decode("utf-8")
-            method_chunk = {
-                "type": "method",
-                "name": method_name,
-                "parent": full_name,
-                "file_path": file_path,
-                "start_line": m_text_node.start_point[0] + 1,
-                "end_line": m_text_node.end_point[0] + 1,
-                "text": f"# Inside class {full_name}:\n{method_text}",
-            }
-            chunks.extend(finalize_chunk(method_chunk))
-
-        elif m_def_node.type == "class_definition":
-            # nested class: recurse, tag it with a dotted name so retrieval can tell it's nested
-            nested_name = m_def_node.child_by_field_name("name").text.decode("utf-8")
-            chunks.extend(chunk_class(m_def_node, source_code, file_path, m_text_node, parent_prefix=full_name))
-            method_signatures.append(f"class {nested_name}: ...")
-
-        else:
-            # class-level attribute, pass statement, etc. — small enough to fold into the overview directly
-            stmt_text = source_code[child.start_byte:child.end_byte].decode("utf-8")
-            class_level_statements.append(stmt_text)
-
-    overview_text = f"class {full_name}:\n"
-    if docstring:
-        overview_text += f"    {docstring}\n"
-    if class_level_statements:
-        overview_text += "\n".join(f"    {s}" for s in class_level_statements) + "\n"
-    overview_text += "\n".join(f"    {sig}" for sig in method_signatures)
+    chunks, method_signatures = [], []
+    body = class_node.child_by_field_name("body")
+    if body:
+        for child in body.children:
+            result = classify_node(child)
+            if not result:
+                continue
+            if result["kind"] == "function":
+                text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8")
+                chunk = {
+                    "type": "method", "name": result["name"], "parent": full_name,
+                    "file_path": file_path,
+                    "start_line": result["text_node"].start_point[0] + 1,
+                    "end_line": result["text_node"].end_point[0] + 1,
+                    "text": f"# Inside {full_name}:\n{text}",
+                }
+                chunks.extend(finalize_chunk(chunk))
+                method_signatures.append(result["name"])
+            elif result["kind"] == "class":
+                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name))
 
     overview_chunk = {
-        "type": "class_overview",
-        "name": full_name,
-        "parent": parent_prefix,
+        "type": "class_overview", "name": full_name, "parent": parent_prefix,
         "file_path": file_path,
-        "start_line": text_node.start_point[0] + 1,
-        "end_line": text_node.end_point[0] + 1,
-        "text": overview_text,
+        "start_line": text_node.start_point[0] + 1, "end_line": text_node.end_point[0] + 1,
+        "text": f"class {full_name}:\n" + "\n".join(f"    {m}" for m in method_signatures),
     }
     chunks.append(overview_chunk)
-
     return chunks
 
-def chunk_python_file(file_path: str) -> list[dict]:
-    parser = Parser(PY_LANGUAGE)
+
+def chunk_file(file_path: str) -> list[dict]:
+    ext = file_path[file_path.rfind("."):]
+    config = LANGUAGE_CONFIGS.get(ext)
+    if not config:
+        return []
+
+    parser = Parser(config["language"])
     with open(file_path, "rb") as f:
         source_code = f.read()
-
     tree = parser.parse(source_code)
-    root_node = tree.root_node
 
-    chunks = []
-    module_level_ranges = []  # bytes NOT covered by a function/class, for module_level chunk
-
-    for child in root_node.children:
-        text_node, def_node = unwrap_decorated(child)
-
-        if def_node.type == "class_definition":
-            chunks.extend(chunk_class(def_node, source_code, file_path, text_node))
-        elif def_node.type == "function_definition":
-            func_name = def_node.child_by_field_name("name").text.decode("utf-8")
-            func_text = source_code[text_node.start_byte:text_node.end_byte].decode("utf-8")
-            func_chunk = {
-                "type": "function",
-                "name": func_name,
-                "parent": None,
-                "file_path": file_path,
-                "start_line": text_node.start_point[0] + 1,
-                "end_line": text_node.end_point[0] + 1,
-                "text": func_text,
-            }
-            chunks.extend(finalize_chunk(func_chunk))
-        else:
+    chunks, module_level_ranges = [], []
+    for child in tree.root_node.children:
+        result = config["classify_node"](child)
+        if not result:
             module_level_ranges.append((child.start_byte, child.end_byte))
+            continue
+        if result["kind"] == "class":
+            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"]))
+        else:
+            text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8")
+            chunks.extend(finalize_chunk({
+                "type": "function", "name": result["name"], "parent": None,
+                "file_path": file_path,
+                "start_line": result["text_node"].start_point[0] + 1,
+                "end_line": result["text_node"].end_point[0] + 1,
+                "text": text,
+            }))
 
     if module_level_ranges:
-        module_text = "\n".join(
-            source_code[s:e].decode("utf-8") for s, e in module_level_ranges
-        ).strip()
+        module_text = "\n".join(source_code[s:e].decode("utf-8") for s, e in module_level_ranges).strip()
         if module_text:
-            module_chunk = {
-                "type": "module_level",
-                "name": None,
-                "parent": None,
-                "file_path": file_path,
-                "start_line": None,
-                "end_line": None,
+            chunks.extend(finalize_chunk({
+                "type": "module_level", "name": None, "parent": None,
+                "file_path": file_path, "start_line": None, "end_line": None,
                 "text": module_text,
-            }
-            chunks.extend(finalize_chunk(module_chunk))
-
+            }))
     return chunks
