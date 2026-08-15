@@ -58,7 +58,7 @@
 # finalize_chunk(chunk):
 #   estimate token count of chunk's text
 #   if over MAX_CHUNK_TOKENS:
-#       return split_oversized(chunk)   <- fixed-size word windows, with overlap
+#       return split_oversized(chunk)   <- fixed-size line  windows, with overlap
 #   else:
 #       return [chunk]
 # ---------------------------------------------------------
@@ -134,56 +134,77 @@ def finalize_chunk(chunk: dict) -> list[dict]:
         return split_oversized(chunk)
     return [chunk]
 
-def get_docstring(node, source_code: bytes) -> str | None:
+def get_docstring_node(node):
     body = node.child_by_field_name("body")
     if body and body.children:
         first_stmt = body.children[0]
         if first_stmt.type == "expression_statement" and first_stmt.children[0].type == "string":
-            return source_code[first_stmt.start_byte:first_stmt.end_byte].decode("utf-8")
+            return first_stmt
     return None
-
 def get_signature(node, source_code, text_node=None) -> str:
     text_node = text_node or node
     body = node.child_by_field_name("body")
     end = body.start_byte if body else node.end_byte
     return source_code[text_node.start_byte:end].decode("utf-8").strip()
 
-def chunk_class(node, source_code, file_path, text_node=None):
+def chunk_class(node, source_code, file_path, text_node=None, parent_prefix=None):
     text_node = text_node or node
     class_name = node.child_by_field_name("name").text.decode("utf-8")
+    full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
     chunks = []
 
-    docstring = get_docstring(node, source_code)
+    docstring_node = get_docstring_node(node)
+    docstring = None
+    if docstring_node:
+        docstring = source_code[docstring_node.start_byte:docstring_node.end_byte].decode("utf-8")
+
     method_signatures = []
+    class_level_statements = []
     body = node.child_by_field_name("body")
 
     for child in body.children:
+        if child is docstring_node:
+            continue  # already captured separately, skip to avoid duplicating it
+
         m_text_node, m_def_node = unwrap_decorated(child)
+
         if m_def_node.type == "function_definition":
             method_name = m_def_node.child_by_field_name("name").text.decode("utf-8")
             method_signatures.append(get_signature(m_def_node, source_code, m_text_node))
-
             method_text = source_code[m_text_node.start_byte:m_text_node.end_byte].decode("utf-8")
             method_chunk = {
                 "type": "method",
                 "name": method_name,
-                "parent": class_name,
+                "parent": full_name,
                 "file_path": file_path,
                 "start_line": m_text_node.start_point[0] + 1,
                 "end_line": m_text_node.end_point[0] + 1,
-                "text": f"# Inside class {class_name}:\n{method_text}",
+                "text": f"# Inside class {full_name}:\n{method_text}",
             }
             chunks.extend(finalize_chunk(method_chunk))
 
-    overview_text = f"class {class_name}:\n"
+        elif m_def_node.type == "class_definition":
+            # nested class: recurse, tag it with a dotted name so retrieval can tell it's nested
+            nested_name = m_def_node.child_by_field_name("name").text.decode("utf-8")
+            chunks.extend(chunk_class(m_def_node, source_code, file_path, m_text_node, parent_prefix=full_name))
+            method_signatures.append(f"class {nested_name}: ...")
+
+        else:
+            # class-level attribute, pass statement, etc. — small enough to fold into the overview directly
+            stmt_text = source_code[child.start_byte:child.end_byte].decode("utf-8")
+            class_level_statements.append(stmt_text)
+
+    overview_text = f"class {full_name}:\n"
     if docstring:
         overview_text += f"    {docstring}\n"
+    if class_level_statements:
+        overview_text += "\n".join(f"    {s}" for s in class_level_statements) + "\n"
     overview_text += "\n".join(f"    {sig}" for sig in method_signatures)
 
     overview_chunk = {
         "type": "class_overview",
-        "name": class_name,
-        "parent": None,
+        "name": full_name,
+        "parent": parent_prefix,
         "file_path": file_path,
         "start_line": text_node.start_point[0] + 1,
         "end_line": text_node.end_point[0] + 1,
