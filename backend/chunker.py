@@ -1,4 +1,12 @@
 # ---------------------------------------------------------
+# unwrap_decorated(node):
+#   if node is a decorated_definition:
+#       find its function_definition/class_definition child
+#       return (node, that child)        <- (text_node, def_node)
+#   else:
+#       return (node, node)              <- undecorated: both are the same node
+#
+#
 # chunk_python_file(file_path):
 #   load a Python-aware parser (tree-sitter)
 #   read the file as raw bytes, parse into a syntax tree
@@ -7,11 +15,14 @@
 #   module_level_ranges = []   <- byte ranges not claimed by any def/class
 #
 #   for each top-level child of the file's root node:
-#       if child is a class_definition:
-#           chunks += chunk_class(child)          <- see below
-#       elif child is a function_definition:
-#           chunk = {whole function text, type "function"}
-#           chunks += finalize_chunk(chunk)       <- splits it if oversized
+#       text_node, def_node = unwrap_decorated(child)
+#       <- text_node includes the decorator line(s) if present, def_node is the real def
+#
+#       if def_node is a class_definition:
+#           chunks += chunk_class(def_node, text_node)      <- see below
+#       elif def_node is a function_definition:
+#           chunk = {text_node's full text (decorators included), type "function"}
+#           chunks += finalize_chunk(chunk)                 <- splits it if oversized
 #       else:
 #           remember this child's byte range in module_level_ranges
 #           (imports, top-level constants, top-level statements, ...)
@@ -23,17 +34,18 @@
 #   return chunks
 #
 #
-# chunk_class(node):
+# chunk_class(node, text_node):
 #   class_name = the class's name
 #   docstring  = class body's first statement, if it's a bare string
 #   method_signatures = []
 #   chunks = []
 #
 #   for each direct child of the class body:
-#       if child is a function_definition (a method):
-#           record its "def ...():" line into method_signatures
-#           chunk = {whole method text, type "method", parent = class_name}
-#           chunks += finalize_chunk(chunk)       <- splits it if oversized
+#       m_text_node, m_def_node = unwrap_decorated(child)
+#       if m_def_node is a function_definition (a method, decorated or not):
+#           record its "def ...():" line (decorators included) into method_signatures
+#           chunk = {m_text_node's full text, type "method", parent = class_name}
+#           chunks += finalize_chunk(chunk)                 <- splits it if oversized
 #
 #   overview_chunk = "class <name>:" + docstring (if any)
 #                    + all collected method signatures
@@ -50,6 +62,7 @@
 #   else:
 #       return [chunk]
 # ---------------------------------------------------------
+
 
 
 
@@ -76,24 +89,43 @@ def unwrap_decorated(node):
     return node, node
 
 def split_oversized(chunk: dict) -> list[dict]:
-    """Fallback: fixed-size split with overlap, only called on oversized chunks."""
-    words = chunk["text"].split()
-    window_size = int(MAX_CHUNK_TOKENS * 0.75)   # convert token target back to word count
-    overlap_size = int(OVERLAP_TOKENS * 0.75)
+    """Fallback: fixed-size split with overlap, only called on oversized chunks.
+    Splits by LINE, not word, to preserve code structure/indentation."""
+    lines = chunk["text"].split("\n")
+    total_tokens = estimate_tokens(chunk["text"])
+
+    if total_tokens == 0 or not lines:
+        return [chunk]
+
+    tokens_per_line = total_tokens / len(lines)
+    window_lines = max(1, int(MAX_CHUNK_TOKENS / tokens_per_line))
+    overlap_lines = min(int(OVERLAP_TOKENS / tokens_per_line), window_lines - 1)
+    step = max(1, window_lines - overlap_lines)  # guard against infinite loop
 
     sub_chunks = []
     start = 0
     part_num = 0
-    while start < len(words):
-        end = start + window_size
-        sub_text = " ".join(words[start:end])
+    while start < len(lines):
+        end = min(start + window_lines, len(lines))
+        sub_text = "\n".join(lines[start:end])
+
+        if chunk["start_line"] is not None:
+            sub_start_line = chunk["start_line"] + start
+            sub_end_line = chunk["start_line"] + end - 1
+        else:
+            sub_start_line = None
+            sub_end_line = None
+
         sub_chunks.append({
             **chunk,
             "text": sub_text,
             "name": f"{chunk['name']}_part{part_num}" if chunk["name"] else None,
+            "start_line": sub_start_line,
+            "end_line": sub_end_line,
         })
-        start += (window_size - overlap_size)
+        start += step
         part_num += 1
+
     return sub_chunks
 
 def finalize_chunk(chunk: dict) -> list[dict]:
