@@ -1,6 +1,6 @@
 from chunker import chunk_file
 
-chunks = chunk_file("dummy_js_jsdoc.js")
+chunks = chunk_file("dummy_js_class_body.js")
 
 print(f"Found {len(chunks)} chunks:\n")
 for c in chunks:
@@ -8,6 +8,9 @@ for c in chunks:
         print(c['text'])
     if c['name'] == "Config": 
         print(c['text'])
+    if c['type'] == "class_overview": 
+        print(c['text'])
+        
     print(f"--- {c['type']} (lines {c['start_line']}-{c['end_line']}) ---")
     print(f"name: {c['name']}, parent: {c['parent']}")
     print()

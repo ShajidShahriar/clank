@@ -153,12 +153,15 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     class_name = name_node.text.decode("utf-8") if name_node else "anonymous"
     full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
 
-    chunks, method_signatures = [], []
+    chunks, method_signatures, other_statements = [], [], []
     body = class_node.child_by_field_name("body")
     if body:
         for child in body.children:
             result = classify_node(child)
             if not result:
+                if child.is_named:
+                    stmt_text = source_code[child.start_byte:child.end_byte].decode("utf-8")
+                    other_statements.append(stmt_text)
                 continue
             if result["kind"] == "function":
                 text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8")
@@ -174,11 +177,15 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
             elif result["kind"] == "class":
                 chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name))
 
+    overview_lines = [f"class {full_name}:"]
+    overview_lines += [f"    {s}" for s in other_statements]
+    overview_lines += [f"    {m}" for m in method_signatures]
+
     overview_chunk = {
         "type": "class_overview", "name": full_name, "parent": parent_prefix,
         "file_path": file_path,
         "start_line": text_node.start_point[0] + 1, "end_line": text_node.end_point[0] + 1,
-        "text": f"class {full_name}:\n" + "\n".join(f"    {m}" for m in method_signatures),
+        "text": "\n".join(overview_lines),
     }
     chunks.append(overview_chunk)
     return chunks
