@@ -173,9 +173,11 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
                     "text": f"# Inside {full_name}:\n{text}",
                 }
                 chunks.extend(finalize_chunk(chunk))
-                method_signatures.append(result["name"])
+                signature = get_signature(result["def_node"], source_code, result["text_node"])
+                method_signatures.append(signature)
             elif result["kind"] == "class":
                 chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name))
+                method_signatures.append(f"class {result['name']}: ...")
 
     overview_lines = [f"class {full_name}:"]
     overview_lines += [f"    {s}" for s in other_statements]
@@ -189,6 +191,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     }
     chunks.append(overview_chunk)
     return chunks
+
 
 
 def chunk_file(file_path: str) -> list[dict]:
