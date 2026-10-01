@@ -188,10 +188,10 @@ def statement_segments(lines, units, base_row):
     cuts = [0] + starts
     return [(lo, (cuts[i + 1] - 1) if i + 1 < len(cuts) else len(lines) - 1) for i, lo in enumerate(cuts)]
 
-def split_by_lines(lines, lo, hi):
+def split_by_lines(lines, lo, hi, max_tokens=None):
     """Windows of whole lines with a little overlap. A single line over the cap is cut by
     characters. Returns (lo, hi, text_override); text_override is only set for a cut-up line."""
-    max_chars, overlap_chars = MAX_CHUNK_TOKENS * 3, OVERLAP_TOKENS * 3
+    max_chars, overlap_chars = (max_tokens or MAX_CHUNK_TOKENS) * 3, OVERLAP_TOKENS * 3
     groups, i = [], lo
     while i <= hi:
         if len(lines[i]) >= max_chars:  # too long on its own: hard character split
@@ -215,31 +215,34 @@ def split_by_lines(lines, lo, hi):
         i = max(i + 1, back + 1) if j <= hi else j
     return groups
 
-def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
+def split_oversized(chunk: dict, units=None, signature=None, text_prefix=None) -> list[dict]:
     """Cut an oversized chunk into parts under the token cap, preferring clean boundaries:
       (a) at statement boundaries (`units`), grouping statements until the cap is reached;
       (b) if one statement alone is over the cap, by whole lines (with a little overlap);
       (c) if one line alone is over the cap, by characters.
     Each part gets an honest line range, and every part after the first carries the
-    function's `signature` in its embed_text so it still says what it belongs to."""
+    function's `signature` in its embed_text so it still says what it belongs to.
+    `text_prefix` (class overviews) is repeated at the top of every part's text, first one included,
+    and the cap shrinks by its size so each part still fits. For a synthetic chunk `units` are row
+    ranges within its own text."""
     lines = chunk["text"].split("\n")
-    base_row = chunk["start_line"] - 1
-    if units and not chunk["synthetic"]:
-        segments = statement_segments(lines, units, base_row)
-    else:
-        segments = [(0, len(lines) - 1)]
+    base_row = 0 if chunk["synthetic"] else chunk["start_line"] - 1
+    cap = MAX_CHUNK_TOKENS
+    if text_prefix:
+        cap = max(MAX_CHUNK_TOKENS - estimate_tokens(text_prefix + "\n"), MAX_CHUNK_TOKENS // 4)
+    segments = statement_segments(lines, units, base_row) if units else [(0, len(lines) - 1)]
 
     def tokens(lo, hi):
         return estimate_tokens("\n".join(lines[lo:hi + 1]))
 
     groups, current = [], None
     for lo, hi in segments:
-        if tokens(lo, hi) > MAX_CHUNK_TOKENS:
+        if tokens(lo, hi) > cap:
             if current:
                 groups.append((*current, None))
                 current = None
-            groups.extend(split_by_lines(lines, lo, hi))
-        elif current and tokens(current[0], hi) <= MAX_CHUNK_TOKENS:
+            groups.extend(split_by_lines(lines, lo, hi, cap))
+        elif current and tokens(current[0], hi) <= cap:
             current = (current[0], hi)
         else:
             if current:
@@ -248,7 +251,7 @@ def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
     if current:
         groups.append((*current, None))
 
-    if len(groups) == 1 and groups[0][2] is None:
+    if len(groups) == 1 and groups[0][2] is None and not text_prefix:
         return [chunk]
     parts = []
     for n, (lo, hi, override) in enumerate(groups):
@@ -259,7 +262,7 @@ def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
             parent=chunk["parent"], file_path=chunk["file_path"], rel_path=chunk["rel_path"],
             start_line=chunk["start_line"] if whole else chunk["start_line"] + lo,
             end_line=chunk["end_line"] if whole else chunk["start_line"] + hi,
-            text=override if override is not None else "\n".join(lines[lo:hi + 1]),
+            text=(text_prefix + "\n" if text_prefix else "") + (override if override is not None else "\n".join(lines[lo:hi + 1])),
             synthetic=chunk["synthetic"] or override is not None,
             parse_error=chunk["parse_error"],
             context=signature if n > 0 else None,
@@ -363,19 +366,27 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
         for c in pending:
             keep_as_statement(c)
 
-    overview_lines = [decode_text(c.text) for c in lead]
     # The class line exactly as written (decorators, `export`, bases, `extends`), because
     # "what subclasses X?" is answered by this line.
-    overview_lines.append(get_signature(class_node, source_code, text_node))
-    overview_lines += [f"    {s}" for s in other_statements]
-    overview_lines += [f"    {m}" for m in method_signatures]
+    header = "\n".join([decode_text(c.text) for c in lead] + [get_signature(class_node, source_code, text_node)])
+    entries = [f"    {s}" for s in other_statements] + [f"    {m}" for m in method_signatures]
+    body = "\n".join(entries)
 
     overview_chunk = make_chunk(
         kind="class_overview", symbol=class_name, parent=parent_prefix, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
         start_line=first_row(text_node, lead) + 1, end_line=text_node.end_point[0] + 1,
-        text="\n".join(overview_lines), synthetic=True,  # a built summary, not source lines
+        text=header + ("\n" + body if body else ""), synthetic=True,  # a built summary, not source lines
     )
-    chunks.extend(finalize_chunk(overview_chunk))  # capped like every other chunk
+    if estimate_tokens(overview_chunk["text"]) <= MAX_CHUNK_TOKENS or not entries:
+        chunks.append(overview_chunk)
+    else:
+        # Too big for one chunk: split the members, never separate them from the class line. Every
+        # part starts with the full header, so a part is never a bare list of signatures.
+        units, row = [], 0
+        for entry in entries:
+            units.append((row, row + entry.count("\n")))
+            row += entry.count("\n") + 1
+        chunks.extend(split_oversized({**overview_chunk, "text": body}, units=units, text_prefix=header))
     return chunks
 
 
