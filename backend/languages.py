@@ -54,6 +54,17 @@ def classify_js_node(node):
             return {"kind": "function", "def_node": value, "text_node": text_node, "name": name}
         return None
 
+    # `res.send = function send() {}`, `exports.render = (v) => v`, `Foo.prototype.bar = function () {}`
+    if target.type == "expression_statement" and target.children:
+        expr = target.children[0]
+        if expr.type == "assignment_expression":
+            left, right = expr.child_by_field_name("left"), expr.child_by_field_name("right")
+            if (left is not None and left.type in ("member_expression", "identifier")
+                    and right is not None and right.type in ("arrow_function", "function_expression")):
+                name = "".join(left.text.decode("utf-8", errors="replace").split())
+                return {"kind": "function", "def_node": right, "text_node": text_node, "name": name}
+        return None
+
     if target.type in ("lexical_declaration", "variable_declaration"):
         for declarator in target.children:
             if declarator.type != "variable_declarator":
