@@ -59,7 +59,7 @@ def test_js_jsdoc_travels_with_function(tmp_path):
 def test_js_detached_comment_stays_module_level(tmp_path):
     chunks = chunks_of(tmp_path, "a.js", JS)
     assert "// detached note" not in one(chunks, symbol="add")["text"]
-    assert "// detached note" in one(chunks, kind="module_level")["text"]
+    assert "// detached note" in one(chunks, kind="module_code")["text"]
 
 
 def test_js_jsdoc_not_duplicated_in_module_level(tmp_path):
@@ -90,7 +90,7 @@ def test_py_comment_above_def_attached(tmp_path):
 def test_py_trailing_comment_not_attached_to_next_def(tmp_path):
     chunks = chunks_of(tmp_path, "b.py", PY)
     assert "trailing note" not in one(chunks, symbol="first")["text"]
-    assert "trailing note" in one(chunks, kind="module_level")["text"]
+    assert "trailing note" in one(chunks, kind="module_code")["text"]
 
 
 def test_py_class_docstring_in_overview(tmp_path):
@@ -108,7 +108,7 @@ def test_py_license_sized_comment_above_def_is_not_absorbed(tmp_path):
     header = "\n".join(f"# license line {i}" for i in range(40))
     chunks = chunks_of(tmp_path, "c.py", (header + "\ndef first():\n    pass\n").encode())
     assert "license" not in one(chunks, symbol="first")["text"]
-    assert "license line 0" in one(chunks, kind="module_level")["text"]
+    assert "license line 0" in one(chunks, kind="module_code")["text"]
 
 
 def test_py_comment_just_under_the_cap_is_absorbed(tmp_path):

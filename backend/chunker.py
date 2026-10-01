@@ -273,16 +273,20 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
 
     source_lines = source_code.decode("utf-8", errors="replace").split("\n")
     chunks, run = [], []
+    run_kind = None  # "imports" or "module_code"; None while the run holds only comments
 
     def flush_run():
-        """Emit one module_level chunk for a run of adjacent unclaimed top-level nodes.
-        Text is the whole lines the run spans, so it matches its line pointer exactly."""
+        """Emit one chunk for a run of adjacent unclaimed top-level nodes: kind "imports" if the
+        run is import/require statements, otherwise "module_code". Text is the whole lines the
+        run spans (gaps, blank lines and comments included), so it matches its line pointer."""
+        nonlocal run_kind
+        kind, run_kind = run_kind or "module_code", None
         if not run:
             return
         start_row, end_row = run[0].start_point[0], run[-1].end_point[0]
         if lines_text(source_lines, start_row, end_row).strip():
             chunks.extend(finalize_chunk(make_chunk(
-                kind="module_level", symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
+                kind=kind, symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
                 start_line=start_row + 1, end_line=end_row + 1, source_lines=source_lines,
             )))
         run.clear()
@@ -290,6 +294,16 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
     for child in tree.root_node.children:
         result = config["classify_node"](child)
         if not result:
+            if child.type != "comment":
+                category = "imports" if config["is_import"](child) else "module_code"
+                if run_kind and category != run_kind:
+                    # kind changes here: comments right above this statement go with it, not the old run
+                    carried = []
+                    while run and run[-1].type == "comment":
+                        carried.insert(0, run.pop())
+                    flush_run()
+                    run.extend(carried)
+                run_kind = category
             run.append(child)
             continue
         lead = take_leading_comments(run, result["text_node"])
