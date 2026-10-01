@@ -4,13 +4,13 @@ chunks = chunk_file("dummy_class_body.py")
 
 print(f"Found {len(chunks)} chunks:\n")
 for c in chunks:
-    if c['type'] == "module_level":
+    if c['kind'] == "module_level":
         print(c['text'])
-    if c['name'] == "Config": 
+    if c['symbol'] == "Config": 
         print(c['text'])
-    if c['type'] == "class_overview": 
+    if c['kind'] == "class_overview": 
         print(c['text'])
         
-    print(f"--- {c['type']} (lines {c['start_line']}-{c['end_line']}) ---")
-    print(f"name: {c['name']}, parent: {c['parent']}")
+    print(f"--- {c['kind']} (lines {c['start_line']}-{c['end_line']}) ---")
+    print(f"name: {c['symbol']}, parent: {c['parent']}")
     print()
