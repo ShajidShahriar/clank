@@ -148,12 +148,29 @@ def get_signature(node, source_code, text_node=None) -> str:
     end = body.start_byte if body else node.end_byte
     return source_code[text_node.start_byte:end].decode("utf-8", errors="replace").strip()
 
-def node_lines_text(source_lines, node) -> str:
-    """The whole source lines a node spans, verbatim (indentation and any \\r kept),
-    so a chunk's text always equals source_lines[start_line - 1 : end_line]."""
-    return "\n".join(source_lines[node.start_point[0]:node.end_point[0] + 1])
+def lines_text(source_lines, start_row, end_row) -> str:
+    """Whole source lines start_row..end_row (0-indexed, inclusive), verbatim (indentation
+    and any \\r kept), so a chunk's text always equals source_lines[start_line - 1 : end_line]."""
+    return "\n".join(source_lines[start_row:end_row + 1])
 
-def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None):
+def take_leading_comments(pending, node):
+    """Remove and return the comments at the end of `pending` that sit directly above `node`
+    (no blank line between). That is how a JSDoc / # comment gets attached to its definition.
+    A comment trailing another statement on its own line (`x = 1  # note`) is not leading."""
+    lead, next_row = [], node.start_point[0]
+    while pending and pending[-1].type == "comment" and pending[-1].end_point[0] == next_row - 1:
+        before = pending[-1].prev_sibling
+        if before is not None and before.end_point[0] == pending[-1].start_point[0]:
+            break
+        comment = pending.pop()
+        lead.insert(0, comment)
+        next_row = comment.start_point[0]
+    return lead
+
+def first_row(node, lead):
+    return (lead[0] if lead else node).start_point[0]
+
+def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None, lead=()):
     if source_lines is None:
         source_lines = source_code.decode("utf-8", errors="replace").split("\n")
     name_node = class_node.child_by_field_name("name")
@@ -163,30 +180,46 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     chunks, method_signatures, other_statements = [], [], []
     body = class_node.child_by_field_name("body")
     if body:
+        pending = []  # comments seen since the last member, waiting to see what they sit above
+        def keep_as_statement(node):
+            other_statements.append(source_code[node.start_byte:node.end_byte].decode("utf-8", errors="replace"))
         for child in body.children:
+            if child.type == "comment":
+                pending.append(child)
+                continue
             result = classify_node(child)
             if not result:
                 if child.is_named:
-                    stmt_text = source_code[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
-                    other_statements.append(stmt_text)
-                continue
+                    for c in pending:
+                        keep_as_statement(c)
+                    pending.clear()
+                    keep_as_statement(child)
+                continue  # unnamed tokens like "{" and ";" don't end a comment's wait
+            member_lead = take_leading_comments(pending, result["text_node"])
+            for c in pending:
+                keep_as_statement(c)
+            pending.clear()
             if result["kind"] == "function":
+                start_row = first_row(result["text_node"], member_lead)
                 chunk = {
                     "type": "method", "name": result["name"], "parent": full_name,
                     "file_path": file_path,
-                    "start_line": result["text_node"].start_point[0] + 1,
+                    "start_line": start_row + 1,
                     "end_line": result["text_node"].end_point[0] + 1,
-                    "text": node_lines_text(source_lines, result["text_node"]),
+                    "text": lines_text(source_lines, start_row, result["text_node"].end_point[0]),
                     "header": f"# Inside {full_name}:",
                 }
                 chunks.extend(finalize_chunk(chunk))
                 signature = get_signature(result["def_node"], source_code, result["text_node"])
                 method_signatures.append(signature)
             elif result["kind"] == "class":
-                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines))
+                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines, member_lead))
                 method_signatures.append(f"class {result['name']}: ...")
+        for c in pending:
+            keep_as_statement(c)
 
-    overview_lines = [f"class {full_name}:"]
+    overview_lines = [c.text.decode("utf-8", errors="replace") for c in lead]
+    overview_lines.append(f"class {full_name}:")
     overview_lines += [f"    {s}" for s in other_statements]
     overview_lines += [f"    {m}" for m in method_signatures]
 
@@ -194,7 +227,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
         "type": "class_overview", "name": full_name, "parent": parent_prefix,
         "synthetic": True,  # text is a built summary, not source lines
         "file_path": file_path,
-        "start_line": text_node.start_point[0] + 1, "end_line": text_node.end_point[0] + 1,
+        "start_line": first_row(text_node, lead) + 1, "end_line": text_node.end_point[0] + 1,
         "text": "\n".join(overview_lines),
     }
     chunks.append(overview_chunk)
@@ -237,16 +270,18 @@ def chunk_file(file_path: str) -> list[dict]:
         if not result:
             run.append(child)
             continue
+        lead = take_leading_comments(run, result["text_node"])
         flush_run()
         if result["kind"] == "class":
-            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines))
+            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines, lead=lead))
         else:
+            start_row = first_row(result["text_node"], lead)
             chunks.extend(finalize_chunk({
                 "type": "function", "name": result["name"], "parent": None,
                 "file_path": file_path,
-                "start_line": result["text_node"].start_point[0] + 1,
+                "start_line": start_row + 1,
                 "end_line": result["text_node"].end_point[0] + 1,
-                "text": node_lines_text(source_lines, result["text_node"]),
+                "text": lines_text(source_lines, start_row, result["text_node"].end_point[0]),
             }))
     flush_run()
     return chunks
