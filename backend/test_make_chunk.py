@@ -4,7 +4,7 @@ from chunker import chunk_file, make_chunk
 from test_invariants import fixture_paths
 
 KEYS = {"kind", "symbol", "parent", "file_path", "rel_path", "start_line", "end_line",
-        "text", "embed_text", "rel_path", "synthetic", "parse_error", "part", "names",
+        "text", "embed_text", "rel_path", "synthetic", "parse_error", "part", "part_count", "names",
         "id", "content_hash", "ordinal"}
 LINES = ["def f():", "    return 1", "", "x = 2"]
 
