@@ -145,8 +145,9 @@ def split_oversized(chunk: dict) -> list[dict]:
             kind=chunk["kind"],
             symbol=f"{chunk['symbol']}_part{part_num}" if chunk["symbol"] else None,
             parent=chunk["parent"], file_path=chunk["file_path"], rel_path=chunk["rel_path"],
-            start_line=chunk["start_line"] + start,
-            end_line=chunk["start_line"] + end - 1,
+            # a synthetic chunk's lines are not source lines, so every piece keeps the full range it summarizes
+            start_line=chunk["start_line"] if chunk["synthetic"] else chunk["start_line"] + start,
+            end_line=chunk["end_line"] if chunk["synthetic"] else chunk["start_line"] + end - 1,
             text=sub_text, synthetic=chunk["synthetic"],
         ))
         start += step
@@ -254,7 +255,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
         start_line=first_row(text_node, lead) + 1, end_line=text_node.end_point[0] + 1,
         text="\n".join(overview_lines), synthetic=True,  # a built summary, not source lines
     )
-    chunks.append(overview_chunk)
+    chunks.extend(finalize_chunk(overview_chunk))  # capped like every other chunk
     return chunks
 
 
