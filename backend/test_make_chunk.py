@@ -51,7 +51,7 @@ def test_embed_text_is_label_plus_verbatim_text():
 
 def test_embed_text_label_for_plain_function_and_unnamed_chunk():
     assert build(rel_path="a.py")["embed_text"].startswith("a.py · f\n")
-    assert build(kind="module_level", symbol=None, rel_path="a.py")["embed_text"].startswith("a.py · module_level\n")
+    assert build(kind="module_code", symbol=None, rel_path="a.py")["embed_text"].startswith("a.py · module_code\n")
 
 
 def test_chunk_file_uses_path_relative_to_repo_root(tmp_path):

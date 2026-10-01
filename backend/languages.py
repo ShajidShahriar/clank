@@ -57,8 +57,34 @@ def classify_js_node(node):
     return None
 
 
+PY_IMPORT_TYPES = {"import_statement", "import_from_statement", "future_import_statement"}
+
+
+def is_python_import(node):
+    return node.type in PY_IMPORT_TYPES
+
+
+def _is_require_call(node):
+    if node is None or node.type != "call_expression":
+        return False
+    fn = node.child_by_field_name("function")
+    return fn is not None and fn.type == "identifier" and fn.text == b"require"
+
+
+def is_js_import(node):
+    """`import ... from`, `const x = require('x')` and a bare `require('x')`."""
+    if node.type == "import_statement":
+        return True
+    if node.type in ("lexical_declaration", "variable_declaration"):
+        declarators = [c for c in node.children if c.type == "variable_declarator"]
+        return bool(declarators) and all(_is_require_call(d.child_by_field_name("value")) for d in declarators)
+    if node.type == "expression_statement" and node.children:
+        return _is_require_call(node.children[0])
+    return False
+
+
 LANGUAGE_CONFIGS = {
-    ".py": {"language": PY_LANGUAGE, "classify_node": classify_python_node},
-    ".js": {"language": JS_LANGUAGE, "classify_node": classify_js_node},
-    ".jsx": {"language": JS_LANGUAGE, "classify_node": classify_js_node},
+    ".py": {"language": PY_LANGUAGE, "classify_node": classify_python_node, "is_import": is_python_import},
+    ".js": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import},
+    ".jsx": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import},
 }
