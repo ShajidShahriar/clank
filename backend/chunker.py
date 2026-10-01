@@ -89,6 +89,29 @@ def unwrap_decorated(node):
                 return node, child
     return node, node
 
+def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
+               source_lines=None, text=None, header=None, synthetic=False) -> dict:
+    """The only place a chunk dict is created. Every rule about chunk shape goes here.
+
+    start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
+    raises instead of slipping through. With no `text`, the text is the verbatim source lines
+    start_line..end_line. A caller passes `text` only for built text (class_overview, which is
+    marked synthetic) or for a split piece whose lines are already cut.
+    `embed_text` is empty for now: it will hold what actually gets embedded.
+    """
+    if start_line is None or end_line is None:
+        raise ValueError(f"chunk {kind} {symbol!r} in {file_path} needs start_line and end_line")
+    if text is None:
+        if source_lines is None:
+            raise ValueError("make_chunk needs source_lines or text")
+        text = lines_text(source_lines, start_line - 1, end_line - 1)
+    return {
+        "kind": kind, "symbol": symbol, "parent": parent, "file_path": file_path,
+        "start_line": start_line, "end_line": end_line,
+        "text": text, "embed_text": "",
+        "header": header, "synthetic": synthetic,
+    }
+
 def split_oversized(chunk: dict) -> list[dict]:
     """Fallback: fixed-size split with overlap, only called on oversized chunks.
     Splits by LINE, not word, to preserve code structure/indentation."""
@@ -110,20 +133,14 @@ def split_oversized(chunk: dict) -> list[dict]:
         end = min(start + window_lines, len(lines))
         sub_text = "\n".join(lines[start:end])
 
-        if chunk["start_line"] is not None:
-            sub_start_line = chunk["start_line"] + start
-            sub_end_line = chunk["start_line"] + end - 1
-        else:
-            sub_start_line = None
-            sub_end_line = None
-
-        sub_chunks.append({
-            **chunk,
-            "text": sub_text,
-            "name": f"{chunk['name']}_part{part_num}" if chunk["name"] else None,
-            "start_line": sub_start_line,
-            "end_line": sub_end_line,
-        })
+        sub_chunks.append(make_chunk(
+            kind=chunk["kind"],
+            symbol=f"{chunk['symbol']}_part{part_num}" if chunk["symbol"] else None,
+            parent=chunk["parent"], file_path=chunk["file_path"],
+            start_line=chunk["start_line"] + start,
+            end_line=chunk["start_line"] + end - 1,
+            text=sub_text, header=chunk["header"], synthetic=chunk["synthetic"],
+        ))
         start += step
         part_num += 1
 
@@ -201,14 +218,11 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
             pending.clear()
             if result["kind"] == "function":
                 start_row = first_row(result["text_node"], member_lead)
-                chunk = {
-                    "type": "method", "name": result["name"], "parent": full_name,
-                    "file_path": file_path,
-                    "start_line": start_row + 1,
-                    "end_line": result["text_node"].end_point[0] + 1,
-                    "text": lines_text(source_lines, start_row, result["text_node"].end_point[0]),
-                    "header": f"# Inside {full_name}:",
-                }
+                chunk = make_chunk(
+                    kind="method", symbol=result["name"], parent=full_name, file_path=file_path,
+                    start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
+                    source_lines=source_lines, header=f"# Inside {full_name}:",
+                )
                 chunks.extend(finalize_chunk(chunk))
                 signature = get_signature(result["def_node"], source_code, result["text_node"])
                 method_signatures.append(signature)
@@ -223,13 +237,11 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     overview_lines += [f"    {s}" for s in other_statements]
     overview_lines += [f"    {m}" for m in method_signatures]
 
-    overview_chunk = {
-        "type": "class_overview", "name": full_name, "parent": parent_prefix,
-        "synthetic": True,  # text is a built summary, not source lines
-        "file_path": file_path,
-        "start_line": first_row(text_node, lead) + 1, "end_line": text_node.end_point[0] + 1,
-        "text": "\n".join(overview_lines),
-    }
+    overview_chunk = make_chunk(
+        kind="class_overview", symbol=full_name, parent=parent_prefix, file_path=file_path,
+        start_line=first_row(text_node, lead) + 1, end_line=text_node.end_point[0] + 1,
+        text="\n".join(overview_lines), synthetic=True,  # a built summary, not source lines
+    )
     chunks.append(overview_chunk)
     return chunks
 
@@ -255,14 +267,11 @@ def chunk_file(file_path: str) -> list[dict]:
         if not run:
             return
         start_row, end_row = run[0].start_point[0], run[-1].end_point[0]
-        text = "\n".join(source_lines[start_row:end_row + 1])
-        if text.strip():
-            chunks.extend(finalize_chunk({
-                "type": "module_level", "name": None, "parent": None,
-                "file_path": file_path,
-                "start_line": start_row + 1, "end_line": end_row + 1,
-                "text": text,
-            }))
+        if lines_text(source_lines, start_row, end_row).strip():
+            chunks.extend(finalize_chunk(make_chunk(
+                kind="module_level", symbol=None, parent=None, file_path=file_path,
+                start_line=start_row + 1, end_line=end_row + 1, source_lines=source_lines,
+            )))
         run.clear()
 
     for child in tree.root_node.children:
@@ -276,12 +285,10 @@ def chunk_file(file_path: str) -> list[dict]:
             chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines, lead=lead))
         else:
             start_row = first_row(result["text_node"], lead)
-            chunks.extend(finalize_chunk({
-                "type": "function", "name": result["name"], "parent": None,
-                "file_path": file_path,
-                "start_line": start_row + 1,
-                "end_line": result["text_node"].end_point[0] + 1,
-                "text": lines_text(source_lines, start_row, result["text_node"].end_point[0]),
-            }))
+            chunks.extend(finalize_chunk(make_chunk(
+                kind="function", symbol=result["name"], parent=None, file_path=file_path,
+                start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
+                source_lines=source_lines,
+            )))
     flush_run()
     return chunks

@@ -68,7 +68,7 @@ def test_no_crashes_no_empties(source_file):
     chunks = run_chunker(path)
     problems = []
     for i, c in enumerate(chunks):
-        label = f"#{i} {c['type']} {c['name']!r}"
+        label = f"#{i} {c['kind']} {c['symbol']!r}"
         if not has_pointer(c):
             problems.append(f"{label}: null line numbers ({c['start_line']}, {c['end_line']})")
         if not c["text"] or not c["text"].strip():
@@ -88,7 +88,7 @@ def test_pointer_truth(source_file):
         pointed = pointed_lines(source_lines, c)
         if pointed != c["text"]:
             problems.append(
-                f"#{i} {c['type']} {c['name']!r} lines {c['start_line']}-{c['end_line']}:\n"
+                f"#{i} {c['kind']} {c['symbol']!r} lines {c['start_line']}-{c['end_line']}:\n"
                 f"    text:    {c['text'][:70]!r}\n"
                 f"    pointed: {pointed[:70]!r}"
             )
