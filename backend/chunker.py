@@ -205,12 +205,31 @@ def chunk_file(file_path: str) -> list[dict]:
         source_code = f.read()
     tree = parser.parse(source_code)
 
-    chunks, module_level_ranges = [], []
+    source_lines = source_code.decode("utf-8", errors="replace").split("\n")
+    chunks, run = [], []
+
+    def flush_run():
+        """Emit one module_level chunk for a run of adjacent unclaimed top-level nodes.
+        Text is the whole lines the run spans, so it matches its line pointer exactly."""
+        if not run:
+            return
+        start_row, end_row = run[0].start_point[0], run[-1].end_point[0]
+        text = "\n".join(source_lines[start_row:end_row + 1])
+        if text.strip():
+            chunks.extend(finalize_chunk({
+                "type": "module_level", "name": None, "parent": None,
+                "file_path": file_path,
+                "start_line": start_row + 1, "end_line": end_row + 1,
+                "text": text,
+            }))
+        run.clear()
+
     for child in tree.root_node.children:
         result = config["classify_node"](child)
         if not result:
-            module_level_ranges.append((child.start_byte, child.end_byte))
+            run.append(child)
             continue
+        flush_run()
         if result["kind"] == "class":
             chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"]))
         else:
@@ -222,13 +241,5 @@ def chunk_file(file_path: str) -> list[dict]:
                 "end_line": result["text_node"].end_point[0] + 1,
                 "text": text,
             }))
-
-    if module_level_ranges:
-        module_text = "\n".join(source_code[s:e].decode("utf-8", errors="replace") for s, e in module_level_ranges).strip()
-        if module_text:
-            chunks.extend(finalize_chunk({
-                "type": "module_level", "name": None, "parent": None,
-                "file_path": file_path, "start_line": None, "end_line": None,
-                "text": module_text,
-            }))
+    flush_run()
     return chunks
