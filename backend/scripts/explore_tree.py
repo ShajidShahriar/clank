@@ -1,3 +1,7 @@
+"""Manual script, not a test: print the top-level node types of a Python file's syntax tree.
+Run from backend/:  uv run python scripts/explore_tree.py
+"""
+
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
 

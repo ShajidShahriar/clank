@@ -1,3 +1,11 @@
+"""Manual script, not a test: create a project, a conversation and messages in app.db (writes to app.db in the current folder).
+Run from backend/:  uv run python scripts/test_db.py
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from db import init_db, create_project, create_conversation, create_message, get_conversations_for_project, get_messages_for_conversation
 
 init_db()
