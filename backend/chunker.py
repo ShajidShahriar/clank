@@ -192,6 +192,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
 
     overview_chunk = {
         "type": "class_overview", "name": full_name, "parent": parent_prefix,
+        "synthetic": True,  # text is a built summary, not source lines
         "file_path": file_path,
         "start_line": text_node.start_point[0] + 1, "end_line": text_node.end_point[0] + 1,
         "text": "\n".join(overview_lines),
