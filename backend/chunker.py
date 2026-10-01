@@ -123,7 +123,7 @@ def sha1_hex(text: str, length: int = 16) -> str:
 
 def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
                source_lines=None, text=None, rel_path=None, synthetic=False, parse_error=False,
-               context=None, ordinals=None, ordinal=0, part=None, names=None, label=None, id_key=None) -> dict:
+               context=None, ordinals=None, ordinal=0, part=None, names=None, label=None, id_key=None, part_count=None) -> dict:
     """The only place a chunk dict is created. Every rule about chunk shape goes here.
 
     start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
@@ -140,6 +140,8 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
     parts of a split chunk reuse their parent's, plus a `part` number). `content_hash` is
     sha1(embed_text)[:16]: it changes exactly when the chunk's embedded content (or its path or
     symbol label) changes, which tells an indexer what to re-embed.
+    A piece of a split chunk keeps the real `symbol`; `part` (0-based) and `part_count` say which
+    piece it is, and "(part 1/3)" appears in embed_text only, never in the symbol.
     `names` lists the symbols the chunk contains (a function's own name by default, a constant's
     name for a module_code run); a group lists all its members'. `label` overrides the name shown
     in embed_text; `id_key` replaces the qualified symbol in the id (a group uses its first
@@ -160,11 +162,12 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
     if ordinals is not None:
         ordinal = ordinals.next(kind, parent, symbol)
     ordinal_key = f"{ordinal}" if part is None else f"{ordinal}.{part}"
-    embed_text = f"{rel_path} · {label}\n" + (f"{context}\n" if context else "") + text
+    part_note = f" (part {part + 1}/{part_count})" if part is not None and part_count else ""
+    embed_text = f"{rel_path} · {label}{part_note}\n" + (f"{context}\n" if context else "") + text
     return {
         "id": sha1_hex(f"{rel_path}::{id_key if id_key is not None else qualified}::{kind}::{ordinal_key}"),
         "content_hash": sha1_hex(embed_text),
-        "ordinal": ordinal, "part": part, "names": names,
+        "ordinal": ordinal, "part": part, "part_count": part_count, "names": names,
         "kind": kind, "symbol": symbol, "parent": parent,
         "file_path": file_path, "rel_path": rel_path,
         "start_line": start_line, "end_line": end_line,
@@ -252,7 +255,7 @@ def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
         whole = chunk["synthetic"]  # a summary's pieces all point at the full range they summarize
         parts.append(make_chunk(
             kind=chunk["kind"],
-            symbol=f"{chunk['symbol']}_part{n}" if chunk["symbol"] else None,
+            symbol=chunk["symbol"],
             parent=chunk["parent"], file_path=chunk["file_path"], rel_path=chunk["rel_path"],
             start_line=chunk["start_line"] if whole else chunk["start_line"] + lo,
             end_line=chunk["end_line"] if whole else chunk["start_line"] + hi,
@@ -260,7 +263,7 @@ def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
             synthetic=chunk["synthetic"] or override is not None,
             parse_error=chunk["parse_error"],
             context=signature if n > 0 else None,
-            ordinal=chunk["ordinal"], part=n, names=chunk["names"],
+            ordinal=chunk["ordinal"], part=n, part_count=len(groups), names=chunk["names"],
         ))
     return parts
 

@@ -84,7 +84,9 @@ def test_long_section_splits_at_paragraphs_and_keeps_fences_whole(tmp_path):
     for c in chunks:
         assert estimate_tokens(c["text"]) <= MAX_CHUNK_TOKENS
         assert c["text"].count("```") % 2 == 0  # never cut a code fence in half
-    assert [c["symbol"] for c in chunks[:2]] == ["Big_part0", "Big_part1"]
+    assert [c["symbol"] for c in chunks] == ["Big"] * len(chunks)
+    assert [c["part"] for c in chunks] == list(range(len(chunks)))
+    assert chunks[1]["embed_text"].startswith(f"big.md · Big (part 2/{len(chunks)})\n")
 
 
 def test_crlf_markdown_has_no_carriage_returns(tmp_path):

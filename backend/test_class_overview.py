@@ -1,5 +1,3 @@
-import re
-
 from chunker import MAX_CHUNK_TOKENS, chunk_file, estimate_tokens
 
 BIG_BODY = "\n".join(f"    this.total += {i};" for i in range(300))
@@ -33,8 +31,8 @@ def chunks_of(tmp_path, name, source):
 
 def test_js_function_fields_become_methods(tmp_path):
     chunks = chunks_of(tmp_path, "w.js", JS)
-    # oversized ones come back as handle_part0, handle_part1, ...: strip the suffix
-    methods = sorted({re.sub(r"_part\d+$", "", c["symbol"]) for c in chunks if c["kind"] == "method"})
+    # an oversized method comes back as several chunks that all keep its real symbol
+    methods = sorted({c["symbol"] for c in chunks if c["kind"] == "method"})
     assert methods == ["handle", "make", "other", "render"]
 
 
@@ -45,7 +43,7 @@ def test_big_arrow_field_gives_small_overview_plus_method_chunk(tmp_path):
     assert "handle = (e) =>" in overview["text"]       # signature only
     assert "count = 0" in overview["text"] and "#secret = 1" in overview["text"]  # plain fields stay
     assert len(overview["text"].splitlines()) < 15
-    handle_parts = [c for c in chunks if c["kind"] == "method" and c["symbol"].startswith("handle")]
+    handle_parts = [c for c in chunks if c["kind"] == "method" and c["symbol"] == "handle"]
     assert "this.total += 299;" in "\n".join(c["text"] for c in handle_parts)
 
 

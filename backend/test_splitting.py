@@ -43,7 +43,11 @@ def test_200_line_function_splits_at_statements(tmp_path):
     # parts after the first say what they belong to
     assert chunks[0]["embed_text"].count("def big(a, b):") == 1
     assert all("def big(a, b):\n" in c["embed_text"] for c in chunks[1:])
-    assert [c["symbol"] for c in chunks] == [f"big_part{i}" for i in range(len(chunks))]
+    assert {c["symbol"] for c in chunks} == {"big"}  # the real name, not big_part0
+    assert [c["part"] for c in chunks] == list(range(len(chunks)))
+    assert all(c["part_count"] == len(chunks) for c in chunks)
+    assert all(f"(part {i + 1}/{len(chunks)})" in c["embed_text"].split("\n")[0] for i, c in enumerate(chunks))
+    assert not any("part" in c["symbol"] for c in chunks)
 
 
 def test_parts_do_not_cut_inside_a_multiline_statement(tmp_path):
@@ -97,7 +101,8 @@ def test_oversized_js_method_parts_carry_the_signature(tmp_path):
     assert len(methods) > 1
     assert_all_under_cap(methods)
     assert all("run(x)" in c["embed_text"] for c in methods)
-    assert all(c["embed_text"].startswith("w.js · W.run_part") for c in methods)
+    assert all(c["symbol"] == "run" and c["parent"] == "W" for c in methods)
+    assert methods[0]["embed_text"].startswith(f"w.js · W.run (part 1/{len(methods)})\n")
 
 
 def test_module_code_run_splits_at_top_level_statements(tmp_path):
