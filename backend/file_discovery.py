@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import pathspec
 
@@ -52,6 +53,19 @@ IGNORE_FILENAMES = {
     "yarn.lock", "composer.lock", "poetry.lock", "uv.lock",
 }
 
+# Files bigger than this are almost never hand-written source (bundles, data dumps)
+MAX_FILE_BYTES = 1_000_000
+
+# A null byte in the first few KB means binary (the same test git uses)
+BINARY_SNIFF_BYTES = 8192
+
+def is_binary(path: Path) -> bool:
+    try:
+        with open(path, "rb") as f:
+            return b"\0" in f.read(BINARY_SNIFF_BYTES)
+    except OSError:
+        return True  # unreadable: don't try to index it
+
 def load_gitignore(repo_path: Path) -> pathspec.PathSpec:
     gitignore_path = repo_path / ".gitignore"
     if not gitignore_path.exists():
@@ -65,26 +79,38 @@ def discover_files(repo_path: str) -> list[Path]:
     spec = load_gitignore(repo_path)
     matched_files = []
 
-    for path in repo_path.rglob("*"):
-        if path.is_dir():
-            continue
+    for dirpath, dirnames, filenames in os.walk(repo_path):
+        current = Path(dirpath)
 
-        relative_path = path.relative_to(repo_path)
+        # Pruning dirnames in place stops os.walk from ever entering these folders.
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in HARD_IGNORE_DIRS
+            and not spec.match_file(str((current / d).relative_to(repo_path)) + "/")
+        ]
 
-        # judge folders by the path *inside* the repo, so a parent like ~/build/ can't hide everything
-        if any(part in HARD_IGNORE_DIRS for part in relative_path.parts):
-            continue
+        for name in filenames:
+            path = current / name
 
-        if path.name in IGNORE_FILENAMES:
-            continue
+            if name in IGNORE_FILENAMES or name.endswith(".min.js"):
+                continue
 
-        if spec.match_file(str(relative_path)):
-            continue
+            # only keep files with extensions we actually want to index
+            if path.suffix not in SOURCE_EXTENSIONS:
+                continue
 
-        # only keep files with extensions we actually want to index
-        if path.suffix not in SOURCE_EXTENSIONS:
-            continue
+            if spec.match_file(str(path.relative_to(repo_path))):
+                continue
 
-        matched_files.append(path)
+            try:
+                if path.stat().st_size > MAX_FILE_BYTES:
+                    continue
+            except OSError:
+                continue
+
+            if is_binary(path):
+                continue
+
+            matched_files.append(path)
 
     return matched_files
