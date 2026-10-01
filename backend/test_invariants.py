@@ -1,5 +1,6 @@
 """Chunker invariants. Written BEFORE changing the chunker: the failures are the to-do list.
 
+CRLF is read as one line break (the chunker normalizes it to LF in chunk text).
 Line convention (matches chunker.py today): start_line / end_line are 1-indexed and
 inclusive, so a chunk's pointer covers source_lines[start_line - 1 : end_line]. If the
 convention ever changes, change `pointed_lines` and nothing else.
@@ -78,7 +79,7 @@ def test_no_crashes_no_empties(source_file):
 
 def test_pointer_truth(source_file):
     path, source = source_file
-    source_lines = source.decode("utf-8", errors="replace").split("\n")
+    source_lines = source.decode("utf-8", errors="replace").replace("\r\n", "\n").split("\n")
     problems = []
     for i, c in enumerate(run_chunker(path)):
         if not has_pointer(c):
@@ -102,7 +103,7 @@ def test_coverage(source_file):
     so line coverage here is byte coverage. Chunks with null pointers cover nothing.
     """
     path, source = source_file
-    source_lines = source.decode("utf-8", errors="replace").split("\n")
+    source_lines = source.decode("utf-8", errors="replace").replace("\r\n", "\n").split("\n")
     covered = set()
     for c in run_chunker(path):
         if has_pointer(c):
