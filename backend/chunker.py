@@ -1,80 +1,60 @@
 # ---------------------------------------------------------
-# unwrap_decorated(node):
-#   if node is a decorated_definition:
-#       find its function_definition/class_definition child
-#       return (node, that child)        <- (text_node, def_node)
-#   else:
-#       return (node, node)              <- undecorated: both are the same node
+# Turns one file into a list of chunks (dicts) for retrieval. Every chunk is a verbatim run of the
+# file's lines with a line range (`text`), plus `embed_text`: what actually gets embedded.
+# This is pseudocode of the current design; keep it in step with the code.
 #
+# chunk_file(path, repo_root):
+#   .md / .markdown   -> chunk_markdown: one "doc_section" per heading (symbol "README > Setup"),
+#                        text before the first heading is "doc_intro"; fenced code is never a heading
+#   .json/.yaml/.yml  -> chunk_plain_text: kind "config", plain line windows (discovery skips big ones)
+#   .py / .js / .jsx  -> the code path below (languages.py supplies, per language: the tree-sitter
+#                        grammar, classify_node, is_import, defined_names)
+#   anything else     -> []   (no chunker yet, e.g. .ts)
+#   an empty or whitespace-only file -> []   (on purpose)
 #
-# chunk_python_file(file_path):
-#   load a Python-aware parser (tree-sitter)
-#   read the file as raw bytes, parse into a syntax tree
+#   code path:
+#     read bytes, parse with tree-sitter
+#     if the tree has a syntax error: don't guess structure. Emit the whole file as kind
+#         "text_fallback" line windows with parse_error=True, and log a warning
 #
-#   chunks = []
-#   module_level_ranges = []   <- byte ranges not claimed by any def/class
+#     for each top-level node:
+#         classify_node says "function" or "class" (a def claimed) or nothing (unclaimed)
+#         - statements sharing a line with another statement are treated as unclaimed, because a chunk
+#           is whole lines (this keeps minified code from copying one huge line per function)
+#         - unclaimed nodes pile up in a run; the run closes at a def/class or when its category flips
+#           between "imports" (import/require) and "module_code" (everything else)
+#         - a comment block right above a def (no blank line, at most 30 lines) moves into that def
+#         - function -> one "function" chunk;  class -> chunk_class_generic
 #
-#   for each top-level child of the file's root node:
-#       text_node, def_node = unwrap_decorated(child)
-#       <- text_node includes the decorator line(s) if present, def_node is the real def
+#   chunk_class_generic(class):
+#       each method (including JS class fields holding an arrow/function) -> a "method" chunk
+#       everything else in the body + each method's signature -> one "class_overview" chunk, whose
+#           text is BUILT (synthetic=True): the class line as written (decorators, bases, extends),
+#           then attributes and signatures. If it is over the cap, every part repeats the class line.
+#       nested classes recurse
 #
-#       if def_node is a class_definition:
-#           chunks += chunk_class(def_node, text_node)      <- see below
-#       elif def_node is a function_definition:
-#           chunk = {text_node's full text (decorators included), type "function"}
-#           chunks += finalize_chunk(chunk)                 <- splits it if oversized
-#       else:
-#           remember this child's byte range in module_level_ranges
-#           (imports, top-level constants, top-level statements, ...)
+#   group_small_chunks: neighbouring tiny chunks (each < MIN_MERGE_TOKENS, same scope, imports only
+#       with imports, never across a class) merge into one kind="group" chunk, up to the cap;
+#       its embed_text lists every member's name
 #
-#   if module_level_ranges is non-empty:
-#       join their text into one module_level chunk
-#       chunks += finalize_chunk(that chunk)
-#
-#   return chunks
-#
-#
-# chunk_class(node, text_node):
-#   class_name = the class's name
-#   docstring  = class body's first statement, if it's a bare string
-#   method_signatures = []
-#   chunks = []
-#
-#   for each direct child of the class body:
-#       m_text_node, m_def_node = unwrap_decorated(child)
-#       if m_def_node is a function_definition (a method, decorated or not):
-#           record its "def ...():" line (decorators included) into method_signatures
-#           chunk = {m_text_node's full text, type "method", parent = class_name}
-#           chunks += finalize_chunk(chunk)                 <- splits it if oversized
-#
-#   overview_chunk = "class <name>:" + docstring (if any)
-#                    + all collected method signatures
-#                    (signatures only — no method bodies)
-#   chunks += [overview_chunk]                    <- small by construction, never split
-#
-#   return chunks
-#
-#
-# finalize_chunk(chunk):
-#   estimate token count of chunk's text
-#   if over MAX_CHUNK_TOKENS:
-#       return split_oversized(chunk)   <- fixed-size line  windows, with overlap
-#   else:
-#       return [chunk]
+# make_chunk(...)       the ONLY place a chunk dict is created: requires start/end line, builds
+#                       embed_text ("<rel path> · <Class.symbol>" + text), id, content_hash, ordinal
+# finalize_chunk(chunk) the funnel every chunk passes through: if over MAX_CHUNK_TOKENS (800, counted as
+#                       len(text) // 3 until a real tokenizer is chosen) -> split_oversized:
+#                         (a) between statements, grouping them up to the cap
+#                         (b) one statement still too big: by whole lines, with a little overlap
+#                         (c) one line still too big: by characters
+#                       every part keeps the real symbol and gets part / part_count; later parts carry
+#                       the function signature in embed_text
 # ---------------------------------------------------------
-
-
-
 
 import hashlib
 import logging
 import os
 import re
-import tree_sitter_python as tspython
-from tree_sitter import Language, Parser
+from tree_sitter import Parser
 from languages import LANGUAGE_CONFIGS
 
-PY_LANGUAGE = Language(tspython.language())
 log = logging.getLogger(__name__)
 MAX_CHUNK_TOKENS = 800
 OVERLAP_TOKENS = 50
@@ -94,18 +74,6 @@ def estimate_tokens(text: str) -> int:
     """Rough token count: about 3 characters per token. Replace with the embedding model's real
     tokenizer once one is chosen; this is the only place that needs to change."""
     return len(text) // 3
-
-def unwrap_decorated(node):
-    """
-    Given any node, return (text_node, def_node):
-    - text_node: where the chunk's TEXT should start from (includes decorators if present)
-    - def_node: the actual function_definition/class_definition to inspect for name/body
-    """
-    if node.type == "decorated_definition":
-        for child in node.children:
-            if child.type in ("function_definition", "class_definition"):
-                return node, child
-    return node, node
 
 class Ordinals:
     """Counts chunks that would otherwise share an identity within one file: two `def f`, a
@@ -281,13 +249,6 @@ def body_units(def_node):
     body = def_node.child_by_field_name("body")
     return [(c.start_point[0], c.end_point[0]) for c in body.children if c.is_named] if body else []
 
-def get_docstring_node(node):
-    body = node.child_by_field_name("body")
-    if body and body.children:
-        first_stmt = body.children[0]
-        if first_stmt.type == "expression_statement" and first_stmt.children[0].type == "string":
-            return first_stmt
-    return None
 def get_signature(node, source_code, text_node=None) -> str:
     text_node = text_node or node
     body = node.child_by_field_name("body")
