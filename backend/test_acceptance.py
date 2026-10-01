@@ -18,7 +18,7 @@ MINIFIED = ("".join(f"function f{i}(a){{return a*{i}+1}}var v{i}=f{i}({i});" for
 
 @pytest.fixture(params=[False, True], ids=["ungrouped", "grouped"], autouse=True)
 def grouping(request, monkeypatch):
-    monkeypatch.setattr(chunker, "GROUP_SMALL_CHUNKS", request.param)
+    monkeypatch.setattr(chunker.grouping, "GROUP_SMALL_CHUNKS", request.param)
 
 
 def every_file(tmp_path):

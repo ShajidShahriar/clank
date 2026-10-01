@@ -7,4 +7,4 @@ import chunker
 
 @pytest.fixture(autouse=True)
 def no_grouping_by_default(monkeypatch):
-    monkeypatch.setattr(chunker, "GROUP_SMALL_CHUNKS", False)
+    monkeypatch.setattr(chunker.grouping, "GROUP_SMALL_CHUNKS", False)

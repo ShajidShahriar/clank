@@ -8,7 +8,7 @@ from test_invariants import GENERATED, fixture_paths
 
 @pytest.fixture(autouse=True)
 def grouping_on(monkeypatch):
-    monkeypatch.setattr(chunker, "GROUP_SMALL_CHUNKS", True)
+    monkeypatch.setattr(chunker.grouping, "GROUP_SMALL_CHUNKS", True)
 
 
 def chunks_of(tmp_path, name, source, grouped=True):
