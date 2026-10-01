@@ -74,6 +74,8 @@ from languages import LANGUAGE_CONFIGS
 PY_LANGUAGE = Language(tspython.language())
 MAX_CHUNK_TOKENS = 400
 OVERLAP_TOKENS = 50
+# A comment block taller than this above a definition is a file header (license, banner), not its doc
+MAX_LEADING_COMMENT_LINES = 30
 
 def estimate_tokens(text: str) -> int:
     return int(len(text.split()) / 0.75)
@@ -179,6 +181,7 @@ def lines_text(source_lines, start_row, end_row) -> str:
 def take_leading_comments(pending, node):
     """Remove and return the comments at the end of `pending` that sit directly above `node`
     (no blank line between). That is how a JSDoc / # comment gets attached to its definition.
+    A block taller than MAX_LEADING_COMMENT_LINES is not attached (a license header would be).
     A comment trailing another statement on its own line (`x = 1  # note`) is not leading."""
     lead, next_row = [], node.start_point[0]
     while pending and pending[-1].type == "comment" and pending[-1].end_point[0] == next_row - 1:
@@ -188,6 +191,9 @@ def take_leading_comments(pending, node):
         comment = pending.pop()
         lead.insert(0, comment)
         next_row = comment.start_point[0]
+    if lead and lead[-1].end_point[0] - lead[0].start_point[0] + 1 > MAX_LEADING_COMMENT_LINES:
+        pending.extend(lead)  # too tall to be a docstring: leave it where it was
+        return []
     return lead
 
 def first_row(node, lead):
