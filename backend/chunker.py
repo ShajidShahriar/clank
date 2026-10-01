@@ -364,7 +364,9 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
             keep_as_statement(c)
 
     overview_lines = [decode_text(c.text) for c in lead]
-    overview_lines.append(f"class {full_name}:")
+    # The class line exactly as written (decorators, `export`, bases, `extends`), because
+    # "what subclasses X?" is answered by this line.
+    overview_lines.append(get_signature(class_node, source_code, text_node))
     overview_lines += [f"    {s}" for s in other_statements]
     overview_lines += [f"    {m}" for m in method_signatures]
 
