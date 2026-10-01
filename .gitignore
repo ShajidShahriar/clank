@@ -33,3 +33,5 @@ __pycache__
 *.sln
 *.sw?
 *.md
+# Local databases
+*.db
