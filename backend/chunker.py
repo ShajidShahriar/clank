@@ -148,7 +148,14 @@ def get_signature(node, source_code, text_node=None) -> str:
     end = body.start_byte if body else node.end_byte
     return source_code[text_node.start_byte:end].decode("utf-8", errors="replace").strip()
 
-def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None):
+def node_lines_text(source_lines, node) -> str:
+    """The whole source lines a node spans, verbatim (indentation and any \\r kept),
+    so a chunk's text always equals source_lines[start_line - 1 : end_line]."""
+    return "\n".join(source_lines[node.start_point[0]:node.end_point[0] + 1])
+
+def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None):
+    if source_lines is None:
+        source_lines = source_code.decode("utf-8", errors="replace").split("\n")
     name_node = class_node.child_by_field_name("name")
     class_name = name_node.text.decode("utf-8", errors="replace") if name_node else "anonymous"
     full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
@@ -164,19 +171,19 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
                     other_statements.append(stmt_text)
                 continue
             if result["kind"] == "function":
-                text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8", errors="replace")
                 chunk = {
                     "type": "method", "name": result["name"], "parent": full_name,
                     "file_path": file_path,
                     "start_line": result["text_node"].start_point[0] + 1,
                     "end_line": result["text_node"].end_point[0] + 1,
-                    "text": f"# Inside {full_name}:\n{text}",
+                    "text": node_lines_text(source_lines, result["text_node"]),
+                    "header": f"# Inside {full_name}:",
                 }
                 chunks.extend(finalize_chunk(chunk))
                 signature = get_signature(result["def_node"], source_code, result["text_node"])
                 method_signatures.append(signature)
             elif result["kind"] == "class":
-                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name))
+                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines))
                 method_signatures.append(f"class {result['name']}: ...")
 
     overview_lines = [f"class {full_name}:"]
@@ -231,15 +238,14 @@ def chunk_file(file_path: str) -> list[dict]:
             continue
         flush_run()
         if result["kind"] == "class":
-            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"]))
+            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines))
         else:
-            text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8", errors="replace")
             chunks.extend(finalize_chunk({
                 "type": "function", "name": result["name"], "parent": None,
                 "file_path": file_path,
                 "start_line": result["text_node"].start_point[0] + 1,
                 "end_line": result["text_node"].end_point[0] + 1,
-                "text": text,
+                "text": node_lines_text(source_lines, result["text_node"]),
             }))
     flush_run()
     return chunks
