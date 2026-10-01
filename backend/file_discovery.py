@@ -46,6 +46,12 @@ HARD_IGNORE_DIRS = {
     "dist", "build", ".next", ".cache", "coverage",
 }
 
+# Generated files that match an indexed extension but are never worth indexing
+IGNORE_FILENAMES = {
+    "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml",
+    "yarn.lock", "composer.lock", "poetry.lock", "uv.lock",
+}
+
 def load_gitignore(repo_path: Path) -> pathspec.PathSpec:
     gitignore_path = repo_path / ".gitignore"
     if not gitignore_path.exists():
@@ -63,16 +69,15 @@ def discover_files(repo_path: str) -> list[Path]:
         if path.is_dir():
             continue
 
-        should_skip = False
-        for part in path.parts:
-            if part in HARD_IGNORE_DIRS:
-                should_skip = True
-                break
-
-            if should_skip:
-                continue
-
         relative_path = path.relative_to(repo_path)
+
+        # judge folders by the path *inside* the repo, so a parent like ~/build/ can't hide everything
+        if any(part in HARD_IGNORE_DIRS for part in relative_path.parts):
+            continue
+
+        if path.name in IGNORE_FILENAMES:
+            continue
+
         if spec.match_file(str(relative_path)):
             continue
 
