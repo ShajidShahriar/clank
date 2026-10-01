@@ -10,7 +10,8 @@ from file_discovery import discover_files
 from test_invariants import GENERATED, fixture_paths
 
 HERE = pathlib.Path(__file__).parent
-REPO = HERE.parent
+REPO = HERE.parent.parent  # the repo root (tests live in backend/tests)
+DUMMY = HERE / "fixtures" / "dummy"
 OLD_HEADER = "# In" + "side"  # built in two pieces so this file does not contain the marker itself
 BLOB = ('BLOB = "' + "x" * 50_000 + '"\n').encode()
 MINIFIED = ("".join(f"function f{i}(a){{return a*{i}+1}}var v{i}=f{i}({i});" for i in range(1500)) + "\n").encode()
@@ -63,7 +64,7 @@ def test_4_text_is_exactly_the_files_lines_with_nothing_prepended(tmp_path):
 
 
 def test_4_the_class_context_lives_only_in_embed_text():
-    method = next(c for c in chunk_file(str(HERE / "dummy_js_class_body.js")) if c["kind"] == "method")
+    method = next(c for c in chunk_file(str(DUMMY / "dummy_js_class_body.js")) if c["kind"] == "method")
     assert method["symbol"] == "increment" and method["parent"] == "Counter"
     assert method["text"] == "  increment() {\n    this.count++;\n  }"
     assert method["embed_text"] == "dummy_js_class_body.js · Counter.increment\n" + method["text"]
@@ -72,7 +73,7 @@ def test_4_the_class_context_lives_only_in_embed_text():
 
 
 def test_5_the_jsdoc_lives_inside_adds_chunk():
-    chunks = chunk_file(str(HERE / "dummy_js_jsdoc.js"))
+    chunks = chunk_file(str(DUMMY / "dummy_js_jsdoc.js"))
     add = next(c for c in chunks if c["symbol"] == "add")
     assert add["text"] == "/**\n * Adds two numbers together.\n */\nfunction add(a, b) {\n  return a + b;\n}"
     assert add["start_line"] == 1

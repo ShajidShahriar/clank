@@ -18,5 +18,6 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["backend"]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
 norecursedirs = ["scripts", "fixtures", ".venv", "node_modules"]

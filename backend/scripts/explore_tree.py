@@ -9,7 +9,7 @@ PY_LANGUAGE = Language(tspython.language())
 
 parser = Parser(PY_LANGUAGE)
 
-with open("dummy_decorators.py", "rb") as f:
+with open("tests/fixtures/dummy/dummy_decorators.py", "rb") as f:
     source_code = f.read()
 
 tree = parser.parse(source_code)

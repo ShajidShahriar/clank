@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chunker import chunk_file
 
-chunks = chunk_file("dummy_class_body.py")
+chunks = chunk_file("tests/fixtures/dummy/dummy_class_body.py")
 
 print(f"Found {len(chunks)} chunks:\n")
 for c in chunks:

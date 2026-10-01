@@ -11,7 +11,7 @@ from languages import JS_LANGUAGE
 
 parser = Parser(JS_LANGUAGE)
 
-with open("dummy_js_class_body.js", "rb") as f:
+with open("tests/fixtures/dummy/dummy_js_class_body.js", "rb") as f:
     source_code = f.read()
 
 tree = parser.parse(source_code)

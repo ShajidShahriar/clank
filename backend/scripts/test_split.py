@@ -11,10 +11,10 @@ from chunker import chunk_file
 lines = "\n".join(f"    x{i} = {i}" for i in range(200))
 source = f"def big_function():\n{lines}\n    return x0\n"
 
-with open("dummy_oversized.py", "w") as f:
+with open("tests/fixtures/dummy/dummy_oversized.py", "w") as f:
     f.write(source)
 
-chunks = chunk_file("dummy_oversized.py")
+chunks = chunk_file("tests/fixtures/dummy/dummy_oversized.py")
 print(f"Found {len(chunks)} chunks\n")
 for c in chunks:
     print(f"--- {c['kind']} {c['symbol']} part {c['part']}/{c['part_count']} (lines {c['start_line']}-{c['end_line']}) ---")
