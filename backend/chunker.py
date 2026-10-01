@@ -76,8 +76,11 @@ from languages import LANGUAGE_CONFIGS
 
 PY_LANGUAGE = Language(tspython.language())
 log = logging.getLogger(__name__)
-MAX_CHUNK_TOKENS = 400
+MAX_CHUNK_TOKENS = 800
 OVERLAP_TOKENS = 50
+# Neighbouring chunks that are each smaller than this get merged into one group (see group_small_chunks)
+MIN_MERGE_TOKENS = 125
+GROUP_SMALL_CHUNKS = True
 # A comment block taller than this above a definition is a file header (license, banner), not its doc
 MAX_LEADING_COMMENT_LINES = 30
 
@@ -120,7 +123,7 @@ def sha1_hex(text: str, length: int = 16) -> str:
 
 def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
                source_lines=None, text=None, rel_path=None, synthetic=False, parse_error=False,
-               context=None, ordinals=None, ordinal=0, part=None) -> dict:
+               context=None, ordinals=None, ordinal=0, part=None, names=None, label=None, id_key=None) -> dict:
     """The only place a chunk dict is created. Every rule about chunk shape goes here.
 
     start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
@@ -137,6 +140,10 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
     parts of a split chunk reuse their parent's, plus a `part` number). `content_hash` is
     sha1(embed_text)[:16]: it changes exactly when the chunk's embedded content (or its path or
     symbol label) changes, which tells an indexer what to re-embed.
+    `names` lists the symbols the chunk contains (a function's own name by default, a constant's
+    name for a module_code run); a group lists all its members'. `label` overrides the name shown
+    in embed_text; `id_key` replaces the qualified symbol in the id (a group uses its first
+    member's id so it stays stable while that member does).
     `synthetic` means the text is NOT exactly source_lines[start_line-1:end_line]: a built summary
     (class_overview) or a piece of one over-long line.
     """
@@ -147,15 +154,17 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
             raise ValueError("make_chunk needs source_lines or text")
         text = lines_text(source_lines, start_line - 1, end_line - 1)
     rel_path = rel_path or os.path.basename(file_path)
-    label = f"{parent}.{symbol}" if parent and symbol else (symbol or kind)
+    qualified = f"{parent}.{symbol}" if parent and symbol else (symbol or "")
+    label = label or qualified or kind
+    names = names if names is not None else ([qualified] if qualified else [])
     if ordinals is not None:
         ordinal = ordinals.next(kind, parent, symbol)
     ordinal_key = f"{ordinal}" if part is None else f"{ordinal}.{part}"
     embed_text = f"{rel_path} · {label}\n" + (f"{context}\n" if context else "") + text
     return {
-        "id": sha1_hex(f"{rel_path}::{parent + '.' if parent else ''}{symbol or ''}::{kind}::{ordinal_key}"),
+        "id": sha1_hex(f"{rel_path}::{id_key if id_key is not None else qualified}::{kind}::{ordinal_key}"),
         "content_hash": sha1_hex(embed_text),
-        "ordinal": ordinal,
+        "ordinal": ordinal, "part": part, "names": names,
         "kind": kind, "symbol": symbol, "parent": parent,
         "file_path": file_path, "rel_path": rel_path,
         "start_line": start_line, "end_line": end_line,
@@ -251,7 +260,7 @@ def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
             synthetic=chunk["synthetic"] or override is not None,
             parse_error=chunk["parse_error"],
             context=signature if n > 0 else None,
-            ordinal=chunk["ordinal"], part=n,
+            ordinal=chunk["ordinal"], part=n, names=chunk["names"],
         ))
     return parts
 
@@ -365,6 +374,60 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     return chunks
 
 
+
+# --- Grouping tiny neighbours ---------------------------------------------------------------
+
+def group_small_chunks(chunks, source_lines, file_path, rel_path):
+    """Merge neighbouring tiny chunks (each under MIN_MERGE_TOKENS) into one `group` chunk, up to
+    the cap, so a file of ten 3-line helpers is not ten near-empty chunks.
+
+    Only chunks that sit side by side in the same scope merge (same `parent`: top level, or the
+    methods of one class). Anything else between them (a class, a big function, a split piece)
+    ends the run, so nothing merges across a class boundary. Imports merge only with imports,
+    never with code. The group's text is the verbatim lines from its first member to its last
+    (blank lines and comments in between included); its embed_text label lists every member's
+    name so retrieval can still find each one: "utils.py · helper_a, helper_b, MAX_RETRIES".
+    """
+    def tiny(c):
+        return (c["kind"] in ("function", "method", "module_code", "imports") and not c["synthetic"]
+                and not c["parse_error"] and c["part"] is None
+                and estimate_tokens(c["text"]) < MIN_MERGE_TOKENS)
+
+    def fits(first, nxt):
+        compatible = (first["kind"] == "imports") == (nxt["kind"] == "imports")
+        merged = lines_text(source_lines, first["start_line"] - 1, nxt["end_line"] - 1)
+        return compatible and estimate_tokens(merged) <= MAX_CHUNK_TOKENS
+
+    scopes = {}
+    for c in chunks:
+        scopes.setdefault(c["parent"], []).append(c)
+
+    groups_at, absorbed = {}, set()  # first member's position -> group; ids of all members
+
+    def close(run, scope):
+        if len(run) < 2:
+            return
+        names = [n for c in run for n in c["names"]]
+        group = make_chunk(
+            kind="group", symbol=None, parent=scope, file_path=file_path, rel_path=rel_path,
+            start_line=run[0]["start_line"], end_line=run[-1]["end_line"], source_lines=source_lines,
+            names=names, label=", ".join(names) or run[0]["kind"], id_key=run[0]["id"],
+        )
+        groups_at[id(run[0])] = group
+        absorbed.update(id(c) for c in run)
+
+    for scope, items in scopes.items():
+        items = sorted(items, key=lambda c: (c["start_line"], c["end_line"]))
+        run = []
+        for c in items:
+            if tiny(c) and (not run or fits(run[0], c)):
+                run.append(c)
+                continue
+            close(run, scope)
+            run = [c] if tiny(c) else []
+        close(run, scope)
+
+    return [groups_at.get(id(c), c) for c in chunks if id(c) not in absorbed or id(c) in groups_at]
 
 # --- Markdown and config files -------------------------------------------------------------
 # No parser needed: headings are found line by line, and fenced code blocks are skipped over.
@@ -536,6 +599,7 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
             chunks.extend(finalize_chunk(make_chunk(
                 kind=kind, symbol=None, parent=None, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
                 start_line=start_row + 1, end_line=end_row + 1, source_lines=source_lines,
+                names=[name for n in run for name in config["defined_names"](n)],
             ), units=[(n.start_point[0], n.end_point[0]) for n in run]))
         run.clear()
 
@@ -575,4 +639,6 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
                 source_lines=source_lines,
             ), body_units(result["def_node"]), get_signature(result["def_node"], source_code, result["text_node"])))
     flush_run()
+    if GROUP_SMALL_CHUNKS:
+        chunks = group_small_chunks(chunks, source_lines, file_path, rel_path)
     return chunks

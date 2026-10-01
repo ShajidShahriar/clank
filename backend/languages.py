@@ -103,8 +103,37 @@ def is_js_import(node):
     return False
 
 
+def _identifiers(node):
+    """Names bound by an assignment target: `a`, `a, b`, `(a, b)`."""
+    if node is None:
+        return []
+    if node.type == "identifier":
+        return [node.text.decode("utf-8", errors="replace")]
+    if node.type in ("pattern_list", "tuple_pattern", "list_pattern"):
+        return [n for c in node.children for n in _identifiers(c)]
+    return []
+
+
+def defined_names_python(node):
+    """Names a top-level statement defines, so a group can list `MAX_RETRIES` by name."""
+    if node.type == "expression_statement" and node.children and node.children[0].type == "assignment":
+        return _identifiers(node.children[0].child_by_field_name("left"))
+    return []
+
+
+def defined_names_js(node):
+    if node.type in ("lexical_declaration", "variable_declaration"):
+        return [n for d in node.children if d.type == "variable_declarator"
+                for n in _identifiers(d.child_by_field_name("name"))]
+    if node.type == "expression_statement" and node.children and node.children[0].type == "assignment_expression":
+        left = node.children[0].child_by_field_name("left")
+        if left is not None and left.type in ("identifier", "member_expression"):
+            return ["".join(left.text.decode("utf-8", errors="replace").split())]
+    return []
+
+
 LANGUAGE_CONFIGS = {
-    ".py": {"language": PY_LANGUAGE, "classify_node": classify_python_node, "is_import": is_python_import},
-    ".js": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import},
-    ".jsx": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import},
+    ".py": {"language": PY_LANGUAGE, "classify_node": classify_python_node, "is_import": is_python_import, "defined_names": defined_names_python},
+    ".js": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import, "defined_names": defined_names_js},
+    ".jsx": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import, "defined_names": defined_names_js},
 }
