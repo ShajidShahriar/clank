@@ -86,7 +86,9 @@ def decode_text(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace").replace("\r\n", "\n")
 
 def estimate_tokens(text: str) -> int:
-    return int(len(text.split()) / 0.75)
+    """Rough token count: about 3 characters per token. Replace with the embedding model's real
+    tokenizer once one is chosen; this is the only place that needs to change."""
+    return len(text) // 3
 
 def unwrap_decorated(node):
     """
@@ -101,7 +103,8 @@ def unwrap_decorated(node):
     return node, node
 
 def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
-               source_lines=None, text=None, rel_path=None, synthetic=False, parse_error=False) -> dict:
+               source_lines=None, text=None, rel_path=None, synthetic=False, parse_error=False,
+               context=None) -> dict:
     """The only place a chunk dict is created. Every rule about chunk shape goes here.
 
     start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
@@ -110,7 +113,10 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
     marked synthetic) or for a split piece whose lines are already cut.
     `text` is always what is in the file. `embed_text` is what gets embedded: a one-line label
     ("<relative path> · <Class.method>") on top of the text, so the file and class context
-    travels with the chunk without ever touching `text`.
+    travels with the chunk without ever touching `text`. `context` (a function signature, for
+    the later parts of a split function) goes between the label and the text.
+    `synthetic` means the text is NOT exactly source_lines[start_line-1:end_line]: a built summary
+    (class_overview) or a piece of one over-long line.
     """
     if start_line is None or end_line is None:
         raise ValueError(f"chunk {kind} {symbol!r} in {file_path} needs start_line and end_line")
@@ -124,50 +130,112 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
         "kind": kind, "symbol": symbol, "parent": parent,
         "file_path": file_path, "rel_path": rel_path,
         "start_line": start_line, "end_line": end_line,
-        "text": text, "embed_text": f"{rel_path} · {label}\n{text}",
+        "text": text,
+        "embed_text": f"{rel_path} · {label}\n" + (f"{context}\n" if context else "") + text,
         "synthetic": synthetic, "parse_error": parse_error,
     }
 
-def split_oversized(chunk: dict) -> list[dict]:
-    """Fallback: fixed-size split with overlap, only called on oversized chunks.
-    Splits by LINE, not word, to preserve code structure/indentation."""
+def statement_segments(lines, units, base_row):
+    """Cut a chunk's lines into segments that start at statement boundaries.
+
+    `units` are (start_row, end_row) of the statements inside the chunk (direct children of a
+    function body, or the nodes of a module run). Every line lands in exactly one segment: the
+    first segment also holds whatever comes before the first statement (signature, decorators,
+    leading comment), and the last also holds closing lines such as `}`.
+    Returns inclusive (lo, hi) index ranges into `lines`.
+    """
+    starts = sorted({u[0] - base_row for u in units if 0 < u[0] - base_row < len(lines)})
+    cuts = [0] + starts
+    return [(lo, (cuts[i + 1] - 1) if i + 1 < len(cuts) else len(lines) - 1) for i, lo in enumerate(cuts)]
+
+def split_by_lines(lines, lo, hi):
+    """Windows of whole lines with a little overlap. A single line over the cap is cut by
+    characters. Returns (lo, hi, text_override); text_override is only set for a cut-up line."""
+    max_chars, overlap_chars = MAX_CHUNK_TOKENS * 3, OVERLAP_TOKENS * 3
+    groups, i = [], lo
+    while i <= hi:
+        if len(lines[i]) >= max_chars:  # too long on its own: hard character split
+            step = max(1, max_chars - overlap_chars)
+            for pos in range(0, len(lines[i]), step):
+                groups.append((i, i, lines[i][pos:pos + max_chars]))
+                if pos + max_chars >= len(lines[i]):
+                    break
+            i += 1
+            continue
+        j, size = i, 0
+        while j <= hi and len(lines[j]) < max_chars and size + len(lines[j]) + 1 <= max_chars:
+            size += len(lines[j]) + 1
+            j += 1
+        groups.append((i, j - 1, None))
+        # next window starts a few lines back so neighbouring windows overlap, but always moves forward
+        back, kept = j - 1, 0
+        while back > i and kept + len(lines[back]) + 1 <= overlap_chars:
+            kept += len(lines[back]) + 1
+            back -= 1
+        i = max(i + 1, back + 1) if j <= hi else j
+    return groups
+
+def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
+    """Cut an oversized chunk into parts under the token cap, preferring clean boundaries:
+      (a) at statement boundaries (`units`), grouping statements until the cap is reached;
+      (b) if one statement alone is over the cap, by whole lines (with a little overlap);
+      (c) if one line alone is over the cap, by characters.
+    Each part gets an honest line range, and every part after the first carries the
+    function's `signature` in its embed_text so it still says what it belongs to."""
     lines = chunk["text"].split("\n")
-    total_tokens = estimate_tokens(chunk["text"])
+    base_row = chunk["start_line"] - 1
+    if units and not chunk["synthetic"]:
+        segments = statement_segments(lines, units, base_row)
+    else:
+        segments = [(0, len(lines) - 1)]
 
-    if total_tokens == 0 or not lines:
+    def tokens(lo, hi):
+        return estimate_tokens("\n".join(lines[lo:hi + 1]))
+
+    groups, current = [], None
+    for lo, hi in segments:
+        if tokens(lo, hi) > MAX_CHUNK_TOKENS:
+            if current:
+                groups.append((*current, None))
+                current = None
+            groups.extend(split_by_lines(lines, lo, hi))
+        elif current and tokens(current[0], hi) <= MAX_CHUNK_TOKENS:
+            current = (current[0], hi)
+        else:
+            if current:
+                groups.append((*current, None))
+            current = (lo, hi)
+    if current:
+        groups.append((*current, None))
+
+    if len(groups) == 1 and groups[0][2] is None:
         return [chunk]
-
-    tokens_per_line = total_tokens / len(lines)
-    window_lines = max(1, int(MAX_CHUNK_TOKENS / tokens_per_line))
-    overlap_lines = min(int(OVERLAP_TOKENS / tokens_per_line), window_lines - 1)
-    step = max(1, window_lines - overlap_lines)  # guard against infinite loop
-
-    sub_chunks = []
-    start = 0
-    part_num = 0
-    while start < len(lines):
-        end = min(start + window_lines, len(lines))
-        sub_text = "\n".join(lines[start:end])
-
-        sub_chunks.append(make_chunk(
+    parts = []
+    for n, (lo, hi, override) in enumerate(groups):
+        whole = chunk["synthetic"]  # a summary's pieces all point at the full range they summarize
+        parts.append(make_chunk(
             kind=chunk["kind"],
-            symbol=f"{chunk['symbol']}_part{part_num}" if chunk["symbol"] else None,
+            symbol=f"{chunk['symbol']}_part{n}" if chunk["symbol"] else None,
             parent=chunk["parent"], file_path=chunk["file_path"], rel_path=chunk["rel_path"],
-            # a synthetic chunk's lines are not source lines, so every piece keeps the full range it summarizes
-            start_line=chunk["start_line"] if chunk["synthetic"] else chunk["start_line"] + start,
-            end_line=chunk["end_line"] if chunk["synthetic"] else chunk["start_line"] + end - 1,
-            text=sub_text, synthetic=chunk["synthetic"], parse_error=chunk["parse_error"],
+            start_line=chunk["start_line"] if whole else chunk["start_line"] + lo,
+            end_line=chunk["end_line"] if whole else chunk["start_line"] + hi,
+            text=override if override is not None else "\n".join(lines[lo:hi + 1]),
+            synthetic=chunk["synthetic"] or override is not None,
+            parse_error=chunk["parse_error"],
+            context=signature if n > 0 else None,
         ))
-        start += step
-        part_num += 1
+    return parts
 
-    return sub_chunks
-
-def finalize_chunk(chunk: dict) -> list[dict]:
+def finalize_chunk(chunk: dict, units=None, signature=None) -> list[dict]:
     """Every chunk passes through here — splits it further only if oversized."""
     if estimate_tokens(chunk["text"]) > MAX_CHUNK_TOKENS:
-        return split_oversized(chunk)
+        return split_oversized(chunk, units, signature)
     return [chunk]
+
+def body_units(def_node):
+    """(start_row, end_row) of each statement directly inside a function's body."""
+    body = def_node.child_by_field_name("body")
+    return [(c.start_point[0], c.end_point[0]) for c in body.children if c.is_named] if body else []
 
 def get_docstring_node(node):
     body = node.child_by_field_name("body")
@@ -244,8 +312,8 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
                     start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
                     source_lines=source_lines, rel_path=rel_path,
                 )
-                chunks.extend(finalize_chunk(chunk))
                 signature = get_signature(result["def_node"], source_code, result["text_node"])
+                chunks.extend(finalize_chunk(chunk, body_units(result["def_node"]), signature))
                 method_signatures.append(signature)
             elif result["kind"] == "class":
                 chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines, member_lead, rel_path))
@@ -309,11 +377,20 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
             chunks.extend(finalize_chunk(make_chunk(
                 kind=kind, symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
                 start_line=start_row + 1, end_line=end_row + 1, source_lines=source_lines,
-            )))
+            ), units=[(n.start_point[0], n.end_point[0]) for n in run]))
         run.clear()
+
+    # A chunk is whole lines, so two top-level statements on one line (minified code) cannot each
+    # own it: every one of them would carry the whole line. Treat statements on shared lines as
+    # plain code instead of as separate functions/classes.
+    statements = [n for n in tree.root_node.children if n.type != "comment"]
+    crowded_rows = {b.start_point[0] for a, b in zip(statements, statements[1:]) if b.start_point[0] == a.end_point[0]}
+    crowded_rows |= {a.end_point[0] for a, b in zip(statements, statements[1:]) if b.start_point[0] == a.end_point[0]}
 
     for child in tree.root_node.children:
         result = config["classify_node"](child)
+        if result and {result["text_node"].start_point[0], result["text_node"].end_point[0]} & crowded_rows:
+            result = None
         if not result:
             if child.type != "comment":
                 category = "imports" if config["is_import"](child) else "module_code"
@@ -337,6 +414,6 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
                 kind="function", symbol=result["name"], parent=None, file_path=file_path, rel_path=rel_path,
                 start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
                 source_lines=source_lines,
-            )))
+            ), body_units(result["def_node"]), get_signature(result["def_node"], source_code, result["text_node"])))
     flush_run()
     return chunks
