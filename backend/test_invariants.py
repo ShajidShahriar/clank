@@ -83,6 +83,8 @@ def test_pointer_truth(source_file):
     for i, c in enumerate(run_chunker(path)):
         if not has_pointer(c):
             continue  # reported by test_no_crashes_no_empties
+        if c.get("synthetic"):
+            continue  # built summary (class_overview), not source lines
         pointed = pointed_lines(source_lines, c)
         if pointed != c["text"]:
             problems.append(
