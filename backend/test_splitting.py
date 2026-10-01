@@ -72,7 +72,7 @@ def test_one_giant_statement_falls_back_to_line_windows(tmp_path):
 def test_single_50kb_line_is_hard_split_by_characters(tmp_path):
     src = 'BLOB = "' + "x" * 50_000 + '"\n'
     chunks = chunks_of(tmp_path, "d.py", src)
-    assert len(chunks) > 40
+    assert len(chunks) > 15  # 50 KB at ~2,250 new chars per piece
     assert_all_under_cap(chunks)
     assert {(c["start_line"], c["end_line"]) for c in chunks} == {(1, 1)}
     assert all(c["synthetic"] for c in chunks)  # text is a slice of a line, not whole lines

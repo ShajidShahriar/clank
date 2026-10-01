@@ -78,7 +78,7 @@ def test_repeated_heading_paths_get_distinct_ids(tmp_path):
 def test_long_section_splits_at_paragraphs_and_keeps_fences_whole(tmp_path):
     para = "A paragraph of prose that goes on for a little while, long enough to matter.\n"
     fence = "```python\n" + "x = 1\n" * 5 + "```\n"
-    body = ("\n".join([para * 3, fence, para * 3]) + "\n") * 12
+    body = ("\n".join([para * 3, fence, para * 3]) + "\n") * 30
     chunks = chunks_of(tmp_path, "big.md", "# Big\n\n" + body)
     assert len(chunks) > 5
     for c in chunks:
