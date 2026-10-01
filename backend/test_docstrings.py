@@ -102,3 +102,22 @@ def test_py_method_comment_attached(tmp_path):
     chunks = chunks_of(tmp_path, "b.py", PY)
     assert "# explains method" in one(chunks, symbol="method")["text"]
     assert "explains method" not in one(chunks, kind="class_overview")["text"]
+
+
+def test_py_license_sized_comment_above_def_is_not_absorbed(tmp_path):
+    header = "\n".join(f"# license line {i}" for i in range(40))
+    chunks = chunks_of(tmp_path, "c.py", (header + "\ndef first():\n    pass\n").encode())
+    assert "license" not in one(chunks, symbol="first")["text"]
+    assert "license line 0" in one(chunks, kind="module_level")["text"]
+
+
+def test_py_comment_just_under_the_cap_is_absorbed(tmp_path):
+    block = "\n".join(f"# note {i}" for i in range(30))
+    chunks = chunks_of(tmp_path, "c.py", (block + "\ndef first():\n    pass\n").encode())
+    assert one(chunks, symbol="first")["text"].startswith("# note 0\n")
+
+
+def test_js_tall_block_comment_above_function_is_not_absorbed(tmp_path):
+    banner = "/*\n" + "\n".join(f" * line {i}" for i in range(40)) + "\n */"
+    chunks = chunks_of(tmp_path, "c.js", (banner + "\nfunction f() {}\n").encode())
+    assert "line 0" not in one(chunks, symbol="f")["text"]
