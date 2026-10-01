@@ -6,7 +6,7 @@ inclusive, so a chunk's pointer covers source_lines[start_line - 1 : end_line]. 
 convention ever changes, change `pointed_lines` and nothing else.
 
 Fixtures:
-  - every dummy_* file next to this test
+  - every dummy_* file in fixtures/dummy/
   - every file in fixtures/edge/ (JSDoc, module.exports, class-field arrows, stacked
     decorators, ...), drop new edge cases there and they are picked up automatically
   - a few generated inputs below (empty file, CRLF, syntax error)
@@ -37,7 +37,7 @@ GENERATED = {
 
 
 def fixture_paths():
-    found = [p for p in HERE.glob("dummy_*") if p.suffix in SUPPORTED]
+    found = [p for p in (HERE / "fixtures" / "dummy").glob("dummy_*") if p.suffix in SUPPORTED]
     edge_dir = HERE / "fixtures" / "edge"
     if edge_dir.is_dir():
         found += [p for p in edge_dir.iterdir() if p.suffix in SUPPORTED]
