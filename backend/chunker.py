@@ -146,11 +146,11 @@ def get_signature(node, source_code, text_node=None) -> str:
     text_node = text_node or node
     body = node.child_by_field_name("body")
     end = body.start_byte if body else node.end_byte
-    return source_code[text_node.start_byte:end].decode("utf-8").strip()
+    return source_code[text_node.start_byte:end].decode("utf-8", errors="replace").strip()
 
 def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None):
     name_node = class_node.child_by_field_name("name")
-    class_name = name_node.text.decode("utf-8") if name_node else "anonymous"
+    class_name = name_node.text.decode("utf-8", errors="replace") if name_node else "anonymous"
     full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
 
     chunks, method_signatures, other_statements = [], [], []
@@ -160,11 +160,11 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
             result = classify_node(child)
             if not result:
                 if child.is_named:
-                    stmt_text = source_code[child.start_byte:child.end_byte].decode("utf-8")
+                    stmt_text = source_code[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
                     other_statements.append(stmt_text)
                 continue
             if result["kind"] == "function":
-                text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8")
+                text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8", errors="replace")
                 chunk = {
                     "type": "method", "name": result["name"], "parent": full_name,
                     "file_path": file_path,
@@ -214,7 +214,7 @@ def chunk_file(file_path: str) -> list[dict]:
         if result["kind"] == "class":
             chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"]))
         else:
-            text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8")
+            text = source_code[result["text_node"].start_byte:result["text_node"].end_byte].decode("utf-8", errors="replace")
             chunks.extend(finalize_chunk({
                 "type": "function", "name": result["name"], "parent": None,
                 "file_path": file_path,
@@ -224,7 +224,7 @@ def chunk_file(file_path: str) -> list[dict]:
             }))
 
     if module_level_ranges:
-        module_text = "\n".join(source_code[s:e].decode("utf-8") for s, e in module_level_ranges).strip()
+        module_text = "\n".join(source_code[s:e].decode("utf-8", errors="replace") for s, e in module_level_ranges).strip()
         if module_text:
             chunks.extend(finalize_chunk({
                 "type": "module_level", "name": None, "parent": None,
