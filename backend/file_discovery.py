@@ -56,6 +56,11 @@ IGNORE_FILENAMES = {
 # Files bigger than this are almost never hand-written source (bundles, data dumps)
 MAX_FILE_BYTES = 1_000_000
 
+# Data/config files are only worth indexing when small. Bigger ones (generated schemas, fixtures,
+# lockfile-like dumps) are noise, and the lockfiles themselves are already excluded by name.
+DATA_EXTENSIONS = {".json", ".yaml", ".yml"}
+MAX_DATA_FILE_BYTES = 20_000
+
 # A null byte in the first few KB means binary (the same test git uses)
 BINARY_SNIFF_BYTES = 8192
 
@@ -103,9 +108,10 @@ def discover_files(repo_path: str) -> list[Path]:
                 continue
 
             try:
-                if path.stat().st_size > MAX_FILE_BYTES:
-                    continue
+                size = path.stat().st_size
             except OSError:
+                continue
+            if size > MAX_FILE_BYTES or (path.suffix in DATA_EXTENSIONS and size > MAX_DATA_FILE_BYTES):
                 continue
 
             if is_binary(path):

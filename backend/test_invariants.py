@@ -18,7 +18,7 @@ import pytest
 from chunker import chunk_file
 
 HERE = Path(__file__).parent
-SUPPORTED = {".py", ".js", ".jsx"}
+SUPPORTED = {".py", ".js", ".jsx", ".md", ".json", ".yaml"}
 
 GENERATED = {
     "empty.py": b"",
@@ -26,6 +26,12 @@ GENERATED = {
     "crlf.py": b"import os\r\n\r\n\r\ndef f(x):\r\n    return x + 1\r\n\r\n\r\nclass A:\r\n    def m(self):\r\n        return 1\r\n",
     "crlf.js": b"function f(x) {\r\n  return x + 1;\r\n}\r\n\r\nclass A {\r\n  m() {\r\n    return 1;\r\n  }\r\n}\r\n",
     "syntax_error.py": b"import os\n\ndef broken(:\n    return 1\n\ndef fine():\n    return 2\n",
+    "doc.md": b"# Title\n\nIntro.\n\n## Setup\n\n### Install\nRun it.\n\n```sh\n# not a heading\nmake\n```\n\nSetext\n======\nbody\n\n## Usage\nUse it.\n",
+    "frontmatter.md": b"---\ntitle: x\n---\n\nbefore any heading\n\n# Real\ntext\n",
+    "crlf.md": b"# A\r\n\r\ntext\r\n\r\n## B\r\nmore\r\n",
+    "no_headings.md": b"just a paragraph\n\nand another\n",
+    "a.json": b'{\n  "name": "x",\n  "scripts": {"test": "pytest"}\n}\n',
+    "a.yaml": b"name: x\nitems:\n  - one\n  - two\n",
     "syntax_error.js": b"function broken( {\n  return 1;\n}\n\nfunction fine() {\n  return 2;\n}\n",
 }
 

@@ -78,3 +78,11 @@ def test_binary_files_skipped(tmp_path):
     make(tmp_path, "a.py")
     (tmp_path / "blob.py").write_bytes(b"x = 1\n\x00\x01\x02")
     assert names(tmp_path) == ["a.py"]
+
+
+def test_big_data_files_skipped_small_ones_kept(tmp_path):
+    make(tmp_path, "small.json", "small.yaml", "app.py")
+    (tmp_path / "big.json").write_text('{"a": 1}\n' * 4000)   # ~36 KB
+    (tmp_path / "big.yaml").write_text("a: 1\n" * 6000)       # ~30 KB
+    (tmp_path / "big.py").write_text("x = 1\n" * 6000)         # same size, but code: kept
+    assert names(tmp_path) == ["app.py", "big.py", "small.json", "small.yaml"]
