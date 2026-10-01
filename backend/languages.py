@@ -1,9 +1,12 @@
 import tree_sitter_python as tspython
 import tree_sitter_javascript as tsjavascript
+import tree_sitter_typescript as tstypescript
 from tree_sitter import Language
 
 PY_LANGUAGE = Language(tspython.language())
 JS_LANGUAGE = Language(tsjavascript.language())
+TS_LANGUAGE = Language(tstypescript.language_typescript())
+TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
 
 def classify_python_node(node):
@@ -77,6 +80,50 @@ def classify_js_node(node):
     return None
 
 
+# TypeScript: everything JS has (functions, classes, arrow consts, ...) plus these. Each is its own
+# chunk, because a TS file is mostly types and they are what people search for.
+TS_NAMED_DECLARATIONS = {
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type",
+    "enum_declaration": "enum",
+}
+TS_WRAPPERS = ("export_statement", "ambient_declaration")  # `export ...` and `declare ...`
+
+
+def _node_name(node):
+    name_node = node.child_by_field_name("name")
+    return name_node.text.decode("utf-8", errors="replace").strip("\"'") if name_node else "anonymous"
+
+
+def _ts_declaration(target, text_node):
+    """The classification of a TypeScript-only declaration, or None if `target` is not one."""
+    if target.type in TS_NAMED_DECLARATIONS:
+        return {"kind": "function", "chunk_kind": TS_NAMED_DECLARATIONS[target.type],
+                "def_node": target, "text_node": text_node, "name": _node_name(target)}
+    if target.type in ("abstract_class_declaration", "internal_module", "module"):
+        # `abstract class`, `namespace Foo {}`, `declare module "x" {}`: a container with members
+        return {"kind": "class", "def_node": target, "text_node": text_node, "name": _node_name(target)}
+    if target.type in ("function_signature", "abstract_method_signature", "method_signature"):
+        return {"kind": "function", "def_node": target, "text_node": text_node, "name": _node_name(target)}
+    if target.type == "public_field_definition":  # `handle = (e: Event): void => {...}` in a class
+        value = target.child_by_field_name("value")
+        if value is not None and value.type in ("arrow_function", "function_expression"):
+            return {"kind": "function", "def_node": value, "text_node": text_node, "name": _node_name(target)}
+    return None
+
+
+def classify_ts_node(node):
+    target = node
+    if node.type in TS_WRAPPERS:
+        target = node.child_by_field_name("declaration")
+        if target is None:  # `declare function f(): void;` has no declaration field
+            target = next((c for c in node.children if c.is_named and c.type not in ("decorator", "comment")), None)
+    elif node.type == "expression_statement" and node.children and node.children[0].type == "internal_module":
+        target = node.children[0]  # `namespace Foo {}` parses as an expression statement
+    found = _ts_declaration(target, node) if target is not None else None
+    return found if found else classify_js_node(node)
+
+
 PY_IMPORT_TYPES = {"import_statement", "import_from_statement", "future_import_statement"}
 
 
@@ -122,6 +169,9 @@ def defined_names_python(node):
 
 
 def defined_names_js(node):
+    if node.type == "export_statement":  # `export const X = ...`
+        declaration = node.child_by_field_name("declaration")
+        return defined_names_js(declaration) if declaration is not None else []
     if node.type in ("lexical_declaration", "variable_declaration"):
         return [n for d in node.children if d.type == "variable_declarator"
                 for n in _identifiers(d.child_by_field_name("name"))]
@@ -136,4 +186,6 @@ LANGUAGE_CONFIGS = {
     ".py": {"language": PY_LANGUAGE, "classify_node": classify_python_node, "is_import": is_python_import, "defined_names": defined_names_python},
     ".js": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import, "defined_names": defined_names_js},
     ".jsx": {"language": JS_LANGUAGE, "classify_node": classify_js_node, "is_import": is_js_import, "defined_names": defined_names_js},
+    ".ts": {"language": TS_LANGUAGE, "classify_node": classify_ts_node, "is_import": is_js_import, "defined_names": defined_names_js},
+    ".tsx": {"language": TSX_LANGUAGE, "classify_node": classify_ts_node, "is_import": is_js_import, "defined_names": defined_names_js},
 }

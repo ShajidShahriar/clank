@@ -126,3 +126,13 @@ def test_two_functions_on_one_line_do_not_each_claim_the_line(tmp_path):
 def test_trailing_comment_does_not_demote_a_function(tmp_path):
     chunks = chunks_of(tmp_path, "t.js", "function a() {\n  return 1;\n} // end of a\nfunction b() {}\n")
     assert [c["symbol"] for c in chunks if c["kind"] == "function"] == ["a", "b"]
+
+
+def test_signature_is_not_stranded_before_one_giant_statement(tmp_path):
+    jsx = "".join(f"      <li key={{{i}}} className=\"item\">{{props.items[{i}].label}}</li>\n" for i in range(120))
+    src = "export function List(props: Props) {\n  return (\n    <ul>\n" + jsx + "    </ul>\n  );\n}\n"
+    chunks = [c for c in chunks_of(tmp_path, "list.tsx", src) if c["kind"] == "function"]
+    assert len(chunks) > 1
+    assert chunks[0]["text"].startswith("export function List(props: Props) {\n  return (")
+    assert all(len(c["text"].split("\n")) > 1 for c in chunks)  # no part is a bare signature line
+    assert_all_under_cap(chunks)

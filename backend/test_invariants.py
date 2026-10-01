@@ -18,7 +18,7 @@ import pytest
 from chunker import chunk_file
 
 HERE = Path(__file__).parent
-SUPPORTED = {".py", ".js", ".jsx", ".md", ".json", ".yaml"}
+SUPPORTED = {".py", ".js", ".jsx", ".ts", ".tsx", ".md", ".json", ".yaml"}
 
 GENERATED = {
     "empty.py": b"",

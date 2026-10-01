@@ -206,10 +206,11 @@ def split_oversized(chunk: dict, units=None, signature=None, text_prefix=None) -
     groups, current = [], None
     for lo, hi in segments:
         if tokens(lo, hi) > cap:
-            if current:
-                groups.append((*current, None))
-                current = None
-            groups.extend(split_by_lines(lines, lo, hi, cap))
+            # A statement too big for one part is cut by lines. Whatever small group is waiting
+            # (typically the signature line) joins the start of that cut instead of being stranded
+            # as a part of its own.
+            groups.extend(split_by_lines(lines, current[0] if current else lo, hi, cap))
+            current = None
         elif current and tokens(current[0], hi) <= cap:
             current = (current[0], hi)
         else:
@@ -250,10 +251,13 @@ def body_units(def_node):
     return [(c.start_point[0], c.end_point[0]) for c in body.children if c.is_named] if body else []
 
 def get_signature(node, source_code, text_node=None) -> str:
+    """The definition up to its body. With no body (a type alias, an overload signature) it is
+    the first line, so a long declaration is not repeated whole as "context"."""
     text_node = text_node or node
     body = node.child_by_field_name("body")
     end = body.start_byte if body else node.end_byte
-    return decode_text(source_code[text_node.start_byte:end]).strip()
+    text = decode_text(source_code[text_node.start_byte:end]).strip()
+    return text if body else text.split("\n")[0]
 
 def lines_text(source_lines, start_row, end_row) -> str:
     """Whole source lines start_row..end_row (0-indexed, inclusive), verbatim (indentation
@@ -286,7 +290,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     if source_lines is None:
         source_lines = decode_text(source_code).split("\n")
     name_node = class_node.child_by_field_name("name")
-    class_name = name_node.text.decode("utf-8", errors="replace") if name_node else "anonymous"
+    class_name = name_node.text.decode("utf-8", errors="replace").strip("\"'") if name_node else "anonymous"  # `declare module "x"` has a quoted name
     full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
 
     chunks, method_signatures, other_statements = [], [], []
@@ -314,7 +318,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
             if result["kind"] == "function":
                 start_row = first_row(result["text_node"], member_lead)
                 chunk = make_chunk(
-                    kind="method", symbol=result["name"], parent=full_name, file_path=file_path,
+                    kind=result.get("chunk_kind", "method"), symbol=result["name"], parent=full_name, file_path=file_path,
                     start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
                     source_lines=source_lines, rel_path=rel_path, ordinals=ordinals,
                 )
@@ -366,7 +370,7 @@ def group_small_chunks(chunks, source_lines, file_path, rel_path):
     name so retrieval can still find each one: "utils.py · helper_a, helper_b, MAX_RETRIES".
     """
     def tiny(c):
-        return (c["kind"] in ("function", "method", "module_code", "imports") and not c["synthetic"]
+        return (c["kind"] in ("function", "method", "module_code", "imports", "interface", "type", "enum") and not c["synthetic"]
                 and not c["parse_error"] and c["part"] is None
                 and estimate_tokens(c["text"]) < MIN_MERGE_TOKENS)
 
@@ -611,7 +615,7 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
         else:
             start_row = first_row(result["text_node"], lead)
             chunks.extend(finalize_chunk(make_chunk(
-                kind="function", symbol=result["name"], parent=None, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
+                kind=result.get("chunk_kind", "function"), symbol=result["name"], parent=None, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
                 start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
                 source_lines=source_lines,
             ), body_units(result["def_node"]), get_signature(result["def_node"], source_code, result["text_node"])))
