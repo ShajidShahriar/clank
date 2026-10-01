@@ -66,6 +66,7 @@
 
 
 
+import hashlib
 import logging
 import os
 import tree_sitter_python as tspython
@@ -102,9 +103,23 @@ def unwrap_decorated(node):
                 return node, child
     return node, node
 
+class Ordinals:
+    """Counts chunks that would otherwise share an identity within one file: two `def f`, a
+    property getter and its setter, several import runs. The first is 0, the next 1, and so on."""
+    def __init__(self):
+        self.seen = {}
+
+    def next(self, kind, parent, symbol):
+        key = (kind, parent, symbol)
+        self.seen[key] = self.seen.get(key, -1) + 1
+        return self.seen[key]
+
+def sha1_hex(text: str, length: int = 16) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:length]
+
 def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
                source_lines=None, text=None, rel_path=None, synthetic=False, parse_error=False,
-               context=None) -> dict:
+               context=None, ordinals=None, ordinal=0, part=None) -> dict:
     """The only place a chunk dict is created. Every rule about chunk shape goes here.
 
     start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
@@ -115,6 +130,12 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
     ("<relative path> · <Class.method>") on top of the text, so the file and class context
     travels with the chunk without ever touching `text`. `context` (a function signature, for
     the later parts of a split function) goes between the label and the text.
+    Identity: `id` = sha1(rel_path :: qualified symbol :: kind :: ordinal)[:16]. It does not
+    depend on line numbers or on the text, so it survives edits above it and edits to the chunk
+    itself. `ordinal` comes from the file's `Ordinals` counter (or is passed explicitly: the
+    parts of a split chunk reuse their parent's, plus a `part` number). `content_hash` is
+    sha1(embed_text)[:16]: it changes exactly when the chunk's embedded content (or its path or
+    symbol label) changes, which tells an indexer what to re-embed.
     `synthetic` means the text is NOT exactly source_lines[start_line-1:end_line]: a built summary
     (class_overview) or a piece of one over-long line.
     """
@@ -126,12 +147,18 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
         text = lines_text(source_lines, start_line - 1, end_line - 1)
     rel_path = rel_path or os.path.basename(file_path)
     label = f"{parent}.{symbol}" if parent and symbol else (symbol or kind)
+    if ordinals is not None:
+        ordinal = ordinals.next(kind, parent, symbol)
+    ordinal_key = f"{ordinal}" if part is None else f"{ordinal}.{part}"
+    embed_text = f"{rel_path} · {label}\n" + (f"{context}\n" if context else "") + text
     return {
+        "id": sha1_hex(f"{rel_path}::{parent + '.' if parent else ''}{symbol or ''}::{kind}::{ordinal_key}"),
+        "content_hash": sha1_hex(embed_text),
+        "ordinal": ordinal,
         "kind": kind, "symbol": symbol, "parent": parent,
         "file_path": file_path, "rel_path": rel_path,
         "start_line": start_line, "end_line": end_line,
-        "text": text,
-        "embed_text": f"{rel_path} · {label}\n" + (f"{context}\n" if context else "") + text,
+        "text": text, "embed_text": embed_text,
         "synthetic": synthetic, "parse_error": parse_error,
     }
 
@@ -223,6 +250,7 @@ def split_oversized(chunk: dict, units=None, signature=None) -> list[dict]:
             synthetic=chunk["synthetic"] or override is not None,
             parse_error=chunk["parse_error"],
             context=signature if n > 0 else None,
+            ordinal=chunk["ordinal"], part=n,
         ))
     return parts
 
@@ -276,7 +304,8 @@ def take_leading_comments(pending, node):
 def first_row(node, lead):
     return (lead[0] if lead else node).start_point[0]
 
-def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None, lead=(), rel_path=None):
+def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None, lead=(), rel_path=None, ordinals=None):
+    ordinals = ordinals if ordinals is not None else Ordinals()
     if source_lines is None:
         source_lines = decode_text(source_code).split("\n")
     name_node = class_node.child_by_field_name("name")
@@ -310,13 +339,13 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
                 chunk = make_chunk(
                     kind="method", symbol=result["name"], parent=full_name, file_path=file_path,
                     start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
-                    source_lines=source_lines, rel_path=rel_path,
+                    source_lines=source_lines, rel_path=rel_path, ordinals=ordinals,
                 )
                 signature = get_signature(result["def_node"], source_code, result["text_node"])
                 chunks.extend(finalize_chunk(chunk, body_units(result["def_node"]), signature))
                 method_signatures.append(signature)
             elif result["kind"] == "class":
-                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines, member_lead, rel_path))
+                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines, member_lead, rel_path, ordinals))
                 method_signatures.append(f"class {result['name']}: ...")
         for c in pending:
             keep_as_statement(c)
@@ -327,7 +356,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     overview_lines += [f"    {m}" for m in method_signatures]
 
     overview_chunk = make_chunk(
-        kind="class_overview", symbol=class_name, parent=parent_prefix, file_path=file_path, rel_path=rel_path,
+        kind="class_overview", symbol=class_name, parent=parent_prefix, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
         start_line=first_row(text_node, lead) + 1, end_line=text_node.end_point[0] + 1,
         text="\n".join(overview_lines), synthetic=True,  # a built summary, not source lines
     )
@@ -343,6 +372,7 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
         return []
 
     rel_path = os.path.relpath(file_path, repo_root).replace(os.sep, "/") if repo_root else os.path.basename(file_path)
+    ordinals = Ordinals()
     parser = Parser(config["language"])
     with open(file_path, "rb") as f:
         source_code = f.read()
@@ -357,7 +387,7 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
         log.warning("parse error in %s: indexing as text_fallback windows", rel_path)
         last_line = len(source_lines) - (1 if source_lines[-1] == "" else 0)
         return finalize_chunk(make_chunk(
-            kind="text_fallback", symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
+            kind="text_fallback", symbol=None, parent=None, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
             start_line=1, end_line=last_line, source_lines=source_lines, parse_error=True,
         ))
 
@@ -375,7 +405,7 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
         start_row, end_row = run[0].start_point[0], run[-1].end_point[0]
         if lines_text(source_lines, start_row, end_row).strip():
             chunks.extend(finalize_chunk(make_chunk(
-                kind=kind, symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
+                kind=kind, symbol=None, parent=None, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
                 start_line=start_row + 1, end_line=end_row + 1, source_lines=source_lines,
             ), units=[(n.start_point[0], n.end_point[0]) for n in run]))
         run.clear()
@@ -407,11 +437,11 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
         lead = take_leading_comments(run, result["text_node"])
         flush_run()
         if result["kind"] == "class":
-            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines, lead=lead, rel_path=rel_path))
+            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines, lead=lead, rel_path=rel_path, ordinals=ordinals))
         else:
             start_row = first_row(result["text_node"], lead)
             chunks.extend(finalize_chunk(make_chunk(
-                kind="function", symbol=result["name"], parent=None, file_path=file_path, rel_path=rel_path,
+                kind="function", symbol=result["name"], parent=None, file_path=file_path, rel_path=rel_path, ordinals=ordinals,
                 start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
                 source_lines=source_lines,
             ), body_units(result["def_node"]), get_signature(result["def_node"], source_code, result["text_node"])))
