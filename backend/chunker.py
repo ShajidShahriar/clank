@@ -66,16 +66,24 @@
 
 
 
+import logging
 import os
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
 from languages import LANGUAGE_CONFIGS
 
 PY_LANGUAGE = Language(tspython.language())
+log = logging.getLogger(__name__)
 MAX_CHUNK_TOKENS = 400
 OVERLAP_TOKENS = 50
 # A comment block taller than this above a definition is a file header (license, banner), not its doc
 MAX_LEADING_COMMENT_LINES = 30
+
+def decode_text(raw: bytes) -> str:
+    """Bytes from the file to chunk text: bad bytes become U+FFFD, and CRLF becomes LF so a
+    stray \\r never ends up in a chunk. Byte offsets and line numbers are taken from the
+    original bytes, and a \\r\\n is one line break either way, so they still line up."""
+    return raw.decode("utf-8", errors="replace").replace("\r\n", "\n")
 
 def estimate_tokens(text: str) -> int:
     return int(len(text.split()) / 0.75)
@@ -93,7 +101,7 @@ def unwrap_decorated(node):
     return node, node
 
 def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
-               source_lines=None, text=None, rel_path=None, synthetic=False) -> dict:
+               source_lines=None, text=None, rel_path=None, synthetic=False, parse_error=False) -> dict:
     """The only place a chunk dict is created. Every rule about chunk shape goes here.
 
     start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
@@ -117,7 +125,7 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
         "file_path": file_path, "rel_path": rel_path,
         "start_line": start_line, "end_line": end_line,
         "text": text, "embed_text": f"{rel_path} · {label}\n{text}",
-        "synthetic": synthetic,
+        "synthetic": synthetic, "parse_error": parse_error,
     }
 
 def split_oversized(chunk: dict) -> list[dict]:
@@ -148,7 +156,7 @@ def split_oversized(chunk: dict) -> list[dict]:
             # a synthetic chunk's lines are not source lines, so every piece keeps the full range it summarizes
             start_line=chunk["start_line"] if chunk["synthetic"] else chunk["start_line"] + start,
             end_line=chunk["end_line"] if chunk["synthetic"] else chunk["start_line"] + end - 1,
-            text=sub_text, synthetic=chunk["synthetic"],
+            text=sub_text, synthetic=chunk["synthetic"], parse_error=chunk["parse_error"],
         ))
         start += step
         part_num += 1
@@ -172,7 +180,7 @@ def get_signature(node, source_code, text_node=None) -> str:
     text_node = text_node or node
     body = node.child_by_field_name("body")
     end = body.start_byte if body else node.end_byte
-    return source_code[text_node.start_byte:end].decode("utf-8", errors="replace").strip()
+    return decode_text(source_code[text_node.start_byte:end]).strip()
 
 def lines_text(source_lines, start_row, end_row) -> str:
     """Whole source lines start_row..end_row (0-indexed, inclusive), verbatim (indentation
@@ -202,7 +210,7 @@ def first_row(node, lead):
 
 def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None, lead=(), rel_path=None):
     if source_lines is None:
-        source_lines = source_code.decode("utf-8", errors="replace").split("\n")
+        source_lines = decode_text(source_code).split("\n")
     name_node = class_node.child_by_field_name("name")
     class_name = name_node.text.decode("utf-8", errors="replace") if name_node else "anonymous"
     full_name = f"{parent_prefix}.{class_name}" if parent_prefix else class_name
@@ -212,7 +220,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     if body:
         pending = []  # comments seen since the last member, waiting to see what they sit above
         def keep_as_statement(node):
-            other_statements.append(source_code[node.start_byte:node.end_byte].decode("utf-8", errors="replace"))
+            other_statements.append(decode_text(source_code[node.start_byte:node.end_byte]))
         for child in body.children:
             if child.type == "comment":
                 pending.append(child)
@@ -245,7 +253,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
         for c in pending:
             keep_as_statement(c)
 
-    overview_lines = [c.text.decode("utf-8", errors="replace") for c in lead]
+    overview_lines = [decode_text(c.text) for c in lead]
     overview_lines.append(f"class {full_name}:")
     overview_lines += [f"    {s}" for s in other_statements]
     overview_lines += [f"    {m}" for m in method_signatures]
@@ -270,9 +278,21 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
     parser = Parser(config["language"])
     with open(file_path, "rb") as f:
         source_code = f.read()
-    tree = parser.parse(source_code)
+    if not source_code.strip():
+        return []  # empty or whitespace-only: nothing to index, on purpose
 
-    source_lines = source_code.decode("utf-8", errors="replace").split("\n")
+    tree = parser.parse(source_code)
+    source_lines = decode_text(source_code).split("\n")
+
+    if tree.root_node.has_error:
+        # Don't guess at structure in a file the parser couldn't read: index it as plain text windows.
+        log.warning("parse error in %s: indexing as text_fallback windows", rel_path)
+        last_line = len(source_lines) - (1 if source_lines[-1] == "" else 0)
+        return finalize_chunk(make_chunk(
+            kind="text_fallback", symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
+            start_line=1, end_line=last_line, source_lines=source_lines, parse_error=True,
+        ))
+
     chunks, run = [], []
     run_kind = None  # "imports" or "module_code"; None while the run holds only comments
 
