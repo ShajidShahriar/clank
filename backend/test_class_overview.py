@@ -66,4 +66,4 @@ def test_python_class_docstring_is_in_overview_before_attributes(tmp_path):
 def test_js_jsdoc_still_leads_the_overview(tmp_path):
     chunks = chunks_of(tmp_path, "d.js", b"/** Widget docs. */\nclass W {\n  go = () => 1;\n}\n")
     text = next(c for c in chunks if c["kind"] == "class_overview")["text"]
-    assert text.startswith("/** Widget docs. */\nclass W:")
+    assert text.startswith("/** Widget docs. */\nclass W\n")

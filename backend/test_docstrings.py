@@ -71,7 +71,7 @@ def test_js_jsdoc_not_duplicated_in_module_level(tmp_path):
 def test_js_class_jsdoc_in_overview(tmp_path):
     chunks = chunks_of(tmp_path, "a.js", JS)
     overview = one(chunks, kind="class_overview", symbol="Counter")
-    assert overview["text"].startswith("/** Class doc. */\nclass Counter:")
+    assert overview["text"].startswith("/** Class doc. */\nclass Counter\n")
     assert overview["start_line"] == 6
 
 
