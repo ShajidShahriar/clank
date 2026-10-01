@@ -66,6 +66,7 @@
 
 
 
+import os
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
 from languages import LANGUAGE_CONFIGS
@@ -90,14 +91,16 @@ def unwrap_decorated(node):
     return node, node
 
 def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
-               source_lines=None, text=None, header=None, synthetic=False) -> dict:
+               source_lines=None, text=None, rel_path=None, synthetic=False) -> dict:
     """The only place a chunk dict is created. Every rule about chunk shape goes here.
 
     start_line / end_line are required (1-indexed, inclusive); a chunk with no line pointer
     raises instead of slipping through. With no `text`, the text is the verbatim source lines
     start_line..end_line. A caller passes `text` only for built text (class_overview, which is
     marked synthetic) or for a split piece whose lines are already cut.
-    `embed_text` is empty for now: it will hold what actually gets embedded.
+    `text` is always what is in the file. `embed_text` is what gets embedded: a one-line label
+    ("<relative path> · <Class.method>") on top of the text, so the file and class context
+    travels with the chunk without ever touching `text`.
     """
     if start_line is None or end_line is None:
         raise ValueError(f"chunk {kind} {symbol!r} in {file_path} needs start_line and end_line")
@@ -105,11 +108,14 @@ def make_chunk(*, kind, symbol, parent, file_path, start_line, end_line,
         if source_lines is None:
             raise ValueError("make_chunk needs source_lines or text")
         text = lines_text(source_lines, start_line - 1, end_line - 1)
+    rel_path = rel_path or os.path.basename(file_path)
+    label = f"{parent}.{symbol}" if parent and symbol else (symbol or kind)
     return {
-        "kind": kind, "symbol": symbol, "parent": parent, "file_path": file_path,
+        "kind": kind, "symbol": symbol, "parent": parent,
+        "file_path": file_path, "rel_path": rel_path,
         "start_line": start_line, "end_line": end_line,
-        "text": text, "embed_text": "",
-        "header": header, "synthetic": synthetic,
+        "text": text, "embed_text": f"{rel_path} · {label}\n{text}",
+        "synthetic": synthetic,
     }
 
 def split_oversized(chunk: dict) -> list[dict]:
@@ -136,10 +142,10 @@ def split_oversized(chunk: dict) -> list[dict]:
         sub_chunks.append(make_chunk(
             kind=chunk["kind"],
             symbol=f"{chunk['symbol']}_part{part_num}" if chunk["symbol"] else None,
-            parent=chunk["parent"], file_path=chunk["file_path"],
+            parent=chunk["parent"], file_path=chunk["file_path"], rel_path=chunk["rel_path"],
             start_line=chunk["start_line"] + start,
             end_line=chunk["start_line"] + end - 1,
-            text=sub_text, header=chunk["header"], synthetic=chunk["synthetic"],
+            text=sub_text, synthetic=chunk["synthetic"],
         ))
         start += step
         part_num += 1
@@ -187,7 +193,7 @@ def take_leading_comments(pending, node):
 def first_row(node, lead):
     return (lead[0] if lead else node).start_point[0]
 
-def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None, lead=()):
+def chunk_class_generic(class_node, text_node, source_code, file_path, classify_node, parent_prefix=None, source_lines=None, lead=(), rel_path=None):
     if source_lines is None:
         source_lines = source_code.decode("utf-8", errors="replace").split("\n")
     name_node = class_node.child_by_field_name("name")
@@ -221,13 +227,13 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
                 chunk = make_chunk(
                     kind="method", symbol=result["name"], parent=full_name, file_path=file_path,
                     start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
-                    source_lines=source_lines, header=f"# Inside {full_name}:",
+                    source_lines=source_lines, rel_path=rel_path,
                 )
                 chunks.extend(finalize_chunk(chunk))
                 signature = get_signature(result["def_node"], source_code, result["text_node"])
                 method_signatures.append(signature)
             elif result["kind"] == "class":
-                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines, member_lead))
+                chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, classify_node, full_name, source_lines, member_lead, rel_path))
                 method_signatures.append(f"class {result['name']}: ...")
         for c in pending:
             keep_as_statement(c)
@@ -238,7 +244,7 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
     overview_lines += [f"    {m}" for m in method_signatures]
 
     overview_chunk = make_chunk(
-        kind="class_overview", symbol=full_name, parent=parent_prefix, file_path=file_path,
+        kind="class_overview", symbol=class_name, parent=parent_prefix, file_path=file_path, rel_path=rel_path,
         start_line=first_row(text_node, lead) + 1, end_line=text_node.end_point[0] + 1,
         text="\n".join(overview_lines), synthetic=True,  # a built summary, not source lines
     )
@@ -247,12 +253,13 @@ def chunk_class_generic(class_node, text_node, source_code, file_path, classify_
 
 
 
-def chunk_file(file_path: str) -> list[dict]:
+def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
     ext = file_path[file_path.rfind("."):]
     config = LANGUAGE_CONFIGS.get(ext)
     if not config:
         return []
 
+    rel_path = os.path.relpath(file_path, repo_root).replace(os.sep, "/") if repo_root else os.path.basename(file_path)
     parser = Parser(config["language"])
     with open(file_path, "rb") as f:
         source_code = f.read()
@@ -269,7 +276,7 @@ def chunk_file(file_path: str) -> list[dict]:
         start_row, end_row = run[0].start_point[0], run[-1].end_point[0]
         if lines_text(source_lines, start_row, end_row).strip():
             chunks.extend(finalize_chunk(make_chunk(
-                kind="module_level", symbol=None, parent=None, file_path=file_path,
+                kind="module_level", symbol=None, parent=None, file_path=file_path, rel_path=rel_path,
                 start_line=start_row + 1, end_line=end_row + 1, source_lines=source_lines,
             )))
         run.clear()
@@ -282,11 +289,11 @@ def chunk_file(file_path: str) -> list[dict]:
         lead = take_leading_comments(run, result["text_node"])
         flush_run()
         if result["kind"] == "class":
-            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines, lead=lead))
+            chunks.extend(chunk_class_generic(result["def_node"], result["text_node"], source_code, file_path, config["classify_node"], source_lines=source_lines, lead=lead, rel_path=rel_path))
         else:
             start_row = first_row(result["text_node"], lead)
             chunks.extend(finalize_chunk(make_chunk(
-                kind="function", symbol=result["name"], parent=None, file_path=file_path,
+                kind="function", symbol=result["name"], parent=None, file_path=file_path, rel_path=rel_path,
                 start_line=start_row + 1, end_line=result["text_node"].end_point[0] + 1,
                 source_lines=source_lines,
             )))
