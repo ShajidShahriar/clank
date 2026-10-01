@@ -45,6 +45,15 @@ def classify_js_node(node):
         kind = "class" if target.type == "class_declaration" else "function"
         return {"kind": kind, "def_node": target, "text_node": text_node, "name": name}
 
+    # class field holding a function: `handle = (e) => {...}` is a method in everything but syntax
+    if target.type == "field_definition":
+        value = target.child_by_field_name("value")
+        if value is not None and value.type in ("arrow_function", "function_expression"):
+            name_node = target.child_by_field_name("property")
+            name = name_node.text.decode("utf-8") if name_node else "anonymous"
+            return {"kind": "function", "def_node": value, "text_node": text_node, "name": name}
+        return None
+
     if target.type in ("lexical_declaration", "variable_declaration"):
         for declarator in target.children:
             if declarator.type != "variable_declarator":
