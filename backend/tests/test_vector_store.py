@@ -8,9 +8,12 @@ import math
 
 import pytest
 
-from vectorstore import InMemoryVectorStore
+from vectorstore import ChromaVectorStore, InMemoryVectorStore
 
-FACTORIES = {"memory": lambda tmp_path: InMemoryVectorStore()}
+FACTORIES = {
+    "memory": lambda tmp_path: InMemoryVectorStore(),
+    "chroma": lambda tmp_path: ChromaVectorStore(tmp_path / "chroma", "project_1"),
+}
 
 
 @pytest.fixture(params=list(FACTORIES))
