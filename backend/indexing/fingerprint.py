@@ -1,4 +1,4 @@
-"""A fingerprint of everything that decides what chunks a file turns into: the chunker code, the language rules,
+"""A fingerprint of everything that decides what a file is stored as: the chunker code, the language rules, the tag rules,
 the grammar packages and the grouping switch.
 
 Why it exists: the file-hash shortcut skips re-chunking a file whose bytes did not change. That is only right if the
@@ -17,7 +17,8 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 
 def chunker_source_files() -> list[Path]:
-    return sorted((BACKEND / "chunker").glob("*.py")) + [BACKEND / "languages.py"]
+    # tags.py is here too: the shortcut skips unchanged files, so their stored tags would go stale if the tag rules changed
+    return sorted((BACKEND / "chunker").glob("*.py")) + [BACKEND / "languages.py", BACKEND / "indexing" / "tags.py"]
 
 
 def grammar_versions() -> dict[str, str]:
