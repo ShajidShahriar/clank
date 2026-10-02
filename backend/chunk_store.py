@@ -1,0 +1,110 @@
+"""Save and read chunks in SQLite. SQLite is the truth about a chunk; Chroma only holds vectors.
+
+Every function takes an open connection and a project_id. Chunk ids hash the file path, not the
+project, so two projects can hold the same id: always look chunks up with both.
+"""
+import json
+
+# Fields that are the same in the chunk dict and in the table (see the chunk format in the handoff).
+PLAIN_FIELDS = (
+    "id", "content_hash", "ordinal", "kind", "symbol", "parent", "part", "part_count",
+    "file_path", "rel_path", "start_line", "end_line", "text", "embed_text",
+)
+BOOL_FIELDS = ("synthetic", "parse_error")  # stored as 0/1, read back as bool
+STORED_ONLY_FIELDS = ("embed_model", "embed_dim")  # set when a vector exists, not part of a chunk
+
+_ROW_COLUMNS = PLAIN_FIELDS + ("names",) + BOOL_FIELDS
+_SQL_BATCH = 500  # stay well under SQLite's limit on `?` placeholders
+
+
+def _to_row(project_id, chunk):
+    values = [chunk[f] for f in PLAIN_FIELDS]
+    values.append(json.dumps(chunk["names"]))
+    values.extend(int(chunk[f]) for f in BOOL_FIELDS)
+    return (project_id, *values)
+
+
+def _from_row(row):
+    chunk = {f: row[f] for f in PLAIN_FIELDS}
+    chunk["names"] = json.loads(row["names"])
+    for f in BOOL_FIELDS:
+        chunk[f] = bool(row[f])
+    for f in STORED_ONLY_FIELDS:
+        chunk[f] = row[f]
+    return chunk
+
+
+_INSERT = (
+    f"INSERT INTO chunks (project_id, {', '.join(_ROW_COLUMNS)}) "
+    f"VALUES ({', '.join('?' * (len(_ROW_COLUMNS) + 1))}) "
+    "ON CONFLICT (project_id, id) DO UPDATE SET "
+    + ", ".join(f"{c} = excluded.{c}" for c in _ROW_COLUMNS if c != "id")
+    # The vector no longer matches if the embedded content changed, so clear the record. In DO UPDATE every
+    # right-hand side reads the OLD row, so `content_hash` here is the stored one even though the same SET list
+    # also overwrites it. (Tested: test_changed_chunk_loses_its_embedding_record.)
+    + ", embed_model = CASE WHEN content_hash = excluded.content_hash THEN embed_model END"
+    + ", embed_dim = CASE WHEN content_hash = excluded.content_hash THEN embed_dim END"
+)
+
+
+def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
+                     language=None, is_test=False, is_changelog=False):
+    """Make the file's rows match `chunks`, in one transaction (all or nothing).
+
+    Chunks already stored are updated in place and keep their embed_model / embed_dim unless their
+    content_hash changed. Rows for chunks that are no longer in `chunks` are deleted.
+    """
+    with conn:
+        conn.execute(
+            "INSERT INTO files (project_id, rel_path, hash, is_test, is_changelog, language) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (project_id, rel_path) DO UPDATE SET "
+            "hash = excluded.hash, is_test = excluded.is_test, "
+            "is_changelog = excluded.is_changelog, language = excluded.language",
+            (project_id, rel_path, file_hash, int(is_test), int(is_changelog), language),
+        )
+        old_ids = ids_for_file(conn, project_id, rel_path)
+        conn.executemany(_INSERT, [_to_row(project_id, c) for c in chunks])
+        gone = old_ids - {c["id"] for c in chunks}
+        conn.executemany("DELETE FROM chunks WHERE project_id = ? AND id = ?", [(project_id, i) for i in gone])
+
+
+def get_chunks(conn, project_id, ids):
+    """Rows for `ids`, in the order asked. Unknown ids are skipped (an orphan vector has no row)."""
+    ids = list(dict.fromkeys(ids))
+    found = {}
+    for start in range(0, len(ids), _SQL_BATCH):
+        batch = ids[start:start + _SQL_BATCH]
+        marks = ", ".join("?" * len(batch))
+        for row in conn.execute(f"SELECT * FROM chunks WHERE project_id = ? AND id IN ({marks})", (project_id, *batch)):
+            found[row["id"]] = _from_row(row)
+    return [found[i] for i in ids if i in found]
+
+
+def get_siblings(conn, project_id, chunk_id):
+    """All parts of the same split chunk, in part order. A whole chunk returns just itself; unknown id returns []."""
+    me = conn.execute("SELECT * FROM chunks WHERE project_id = ? AND id = ?", (project_id, chunk_id)).fetchone()
+    if me is None:
+        return []
+    rows = conn.execute(
+        # IS, not =, so a NULL parent or symbol matches a NULL
+        "SELECT * FROM chunks WHERE project_id = ? AND rel_path = ? AND kind = ? "
+        "AND parent IS ? AND symbol IS ? AND ordinal IS ? ORDER BY part",
+        (project_id, me["rel_path"], me["kind"], me["parent"], me["symbol"], me["ordinal"]),
+    )
+    return [_from_row(r) for r in rows]
+
+
+def ids_for_file(conn, project_id, rel_path):
+    rows = conn.execute("SELECT id FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
+    return {r["id"] for r in rows}
+
+
+def all_ids(conn, project_id):
+    return {r["id"] for r in conn.execute("SELECT id FROM chunks WHERE project_id = ?", (project_id,))}
+
+
+def delete_file(conn, project_id, rel_path):
+    """Delete the file row; its chunks go with it (ON DELETE CASCADE). Safe to call twice."""
+    with conn:
+        conn.execute("DELETE FROM files WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
