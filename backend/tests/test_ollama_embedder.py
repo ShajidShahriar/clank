@@ -247,3 +247,74 @@ def test_an_unrelated_400_that_says_exceeds_is_not_blamed_on_the_chunks():
 def test_default_timeout_keeps_the_worst_case_for_a_hung_ollama_short():
     e = OllamaEmbedder()
     assert e.timeout <= 60 and (e.retries + 1) * e.timeout <= 240  # 4 minutes at most, not 8
+
+
+# ---- model identity: the tag AND its digest (task I-5.3) ----
+# A tag such as qwen3-embedding:0.6b can be pulled again and point at different weights. The name does not change, the vectors do.
+# So the identity stored on every row and on the vector store is tag@digest, and the existing "different model -> embed again" rules do the rest.
+
+def test_after_warmup_the_identity_includes_the_models_digest_but_requests_still_use_the_plain_tag():
+    with FakeOllama(dim=DIM, digests={"test-model": "sha256:abcdef0123456789" + "0" * 40}) as server:
+        e = make(server, [])
+        assert e.model_name == "test-model"                       # not known yet: warmup() has not run
+        e.warmup()
+        assert e.model_name == "test-model@abcdef012345"          # first 12 characters, the same short ID `ollama list` shows
+        e.embed_documents(["a"])
+        assert {r["model"] for r in server.requests} == {"test-model"}   # Ollama is always asked for the tag, never for the identity
+
+
+def test_pulling_the_tag_again_changes_the_identity_at_the_next_warmup():
+    with FakeOllama(dim=DIM, digests={"test-model": "sha256:" + "a" * 64}) as server:
+        e = make(server, [])
+        e.warmup()
+        before = e.model_name
+        server.digests["test-model"] = "sha256:" + "b" * 64       # ollama pull gave the tag new weights
+        e.warmup()
+        assert e.model_name != before and e.model_name.startswith("test-model@bbbbbbbbbbbb")
+
+
+def test_a_digest_without_the_sha256_prefix_is_handled():
+    with FakeOllama(dim=DIM, digests={"test-model": "0123456789abcdef" * 4}) as server:
+        e = make(server, [])
+        e.warmup()
+        assert e.model_name == "test-model@0123456789ab"
+
+
+def test_a_model_missing_from_the_tag_list_keeps_the_plain_tag_instead_of_failing():
+    with FakeOllama(dim=DIM, digests={"some-other-model": "sha256:" + "c" * 64}) as server:
+        e = make(server, [])
+        e.warmup()
+        assert e.model_name == "test-model"
+
+
+def test_a_tag_without_a_version_matches_its_latest_entry():
+    with FakeOllama(dim=DIM, models=("embedder:latest",), digests={"embedder:latest": "sha256:" + "d" * 64}) as server:
+        e = make(server, [], model="embedder:latest")
+        e.warmup()
+        plain = OllamaEmbedder(model="embedder", base_url=server.url, dim=DIM, sleep=lambda s: None)
+        assert e.model_name == "embedder:latest@dddddddddddd"
+        assert plain._find_digest({"models": [{"name": "embedder:latest", "digest": "sha256:" + "d" * 64}]}) == "dddddddddddd"
+
+
+@pytest.mark.parametrize("raw", [b"not json", b"[]", b'{"models": "oops"}', b'{"models": [null]}', b'{"models": [{"name": "test-model", "digest": 5}]}'],
+                         ids=lambda b: repr(b)[:30])
+def test_garbage_from_the_tag_list_is_a_bad_response_not_a_silent_loss_of_protection(raw):
+    with FakeOllama(dim=DIM, tags_reply=raw) as server:
+        with pytest.raises(BadResponse):
+            make(server, []).warmup()
+
+
+def test_a_failing_tag_list_is_retried_and_then_reported_like_any_other_ollama_problem(sleeps):
+    with FakeOllama(dim=DIM, tags_status=503, tags_reply=b'{"error": "loading"}') as server:
+        with pytest.raises(OllamaUnavailable, match="503"):
+            make(server, sleeps, retries=2).warmup()
+        assert server.tag_requests == 3 and len(sleeps) == 2
+
+
+def test_the_identity_and_the_dimension_are_checked_with_the_same_embedder_object_over_several_warmups():
+    with FakeOllama(dim=DIM) as server:
+        e = make(server, [])
+        e.warmup()
+        first = e.model_name
+        e.warmup()
+        assert e.model_name == first and server.tag_requests == 2

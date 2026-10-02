@@ -7,14 +7,19 @@ from .errors import EmbeddingTooLong
 
 
 class FakeEmbedder:
-    def __init__(self, dim: int = 8, max_chars: int | None = None):
+    def __init__(self, dim: int = 8, max_chars: int | None = None, digest: str | None = None):
         self.dim = dim
+        self.digest = digest                  # pretend weights identifier: change it to simulate `ollama pull` replacing the weights
         self.max_chars = max_chars            # None = no limit; set it to test the too-long path
-        self.model_name = f"fake-hash-{dim}"  # the name carries dim, so changing dim looks like a model change
         self.embedded_texts: list[str] = []   # every document text, in the order embedded
         self.batch_count = 0                  # embed_documents calls
         self.query_count = 0                  # embed_query calls
         self.warmup_count = 0                 # warmup calls
+
+    @property
+    def model_name(self) -> str:
+        # the identity carries dim (a size change looks like a model change) and the digest (new weights look like a new model)
+        return f"fake-hash-{self.dim}" + (f"@{self.digest}" if self.digest else "")
 
     @property
     def text_count(self) -> int:

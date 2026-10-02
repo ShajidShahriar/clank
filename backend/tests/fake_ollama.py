@@ -15,7 +15,7 @@ from embedding import FakeEmbedder
 class FakeOllama:
     def __init__(self, dim=8, models=("test-model",), fail_first=0, fail_status=503,
                  max_chars=None, wrong_count=False, wrong_dim=False,
-                 fail_message="model is loading", raw_reply=None):
+                 fail_message="model is loading", raw_reply=None, digests=None, tags_reply=None, tags_status=200):
         self.dim = dim
         self.models = models
         self.fail_first = fail_first      # answer the first N requests with fail_status (0 = drop the connection)
@@ -26,12 +26,30 @@ class FakeOllama:
         self.fail_message = fail_message  # the {"error": ...} text of the fail_first answers
         self.raw_reply = raw_reply        # bytes sent back verbatim with status 200, to test garbage answers
         self.requests = []                # every parsed request body, in order
+        self.tag_requests = 0             # how many times GET /api/tags was asked
+        # what `GET /api/tags` says: {model: digest}. Change it to simulate `ollama pull` giving an existing tag new weights.
+        self.digests = digests if digests is not None else {m: "sha256:" + (str(i + 1) * 64)[:64] for i, m in enumerate(models)}
+        self.tags_reply, self.tags_status = tags_reply, tags_status   # raw bytes / status override, to test garbage answers
         self._fake = FakeEmbedder(dim=dim)
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):  # keep test output quiet
                 pass
+
+            def do_GET(self):
+                if self.path != "/api/tags":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                outer.tag_requests += 1
+                payload = outer.tags_reply if outer.tags_reply is not None else json.dumps({"models": [
+                    {"name": m, "model": m, "digest": d, "size": 1} for m, d in outer.digests.items()]}).encode()
+                self.send_response(outer.tags_status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
 
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))

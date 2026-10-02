@@ -26,7 +26,8 @@ class OllamaEmbedder:
                  sleep=time.sleep):
         if batch_size < 1 or retries < 0:
             raise ValueError("batch_size must be at least 1 and retries at least 0")
-        self.model_name = model
+        self.model = model       # the tag, exactly as Ollama knows it: what every request asks for
+        self._digest = None      # learned in warmup(); see model_name
         self.dim = dim
         self.base_url = base_url.rstrip("/")
         self.batch_size = batch_size
@@ -36,6 +37,14 @@ class OllamaEmbedder:
         self.retries = retries
         self.backoff = backoff
         self._sleep = sleep     # a parameter so tests do not really wait
+
+    @property
+    def model_name(self) -> str:
+        """The identity stored on every chunk row and on the vector store: the tag plus the first 12 characters of the model's digest
+        (`qwen3-embedding:0.6b@ac6da0dfba84`, the same short ID `ollama list` shows). A tag can be pulled again and point at different
+        weights; the digest makes that look like a different model, so the vectors are rebuilt. Known only after warmup(); until then
+        (or if Ollama does not list the model) it is the plain tag."""
+        return f"{self.model}@{self._digest}" if self._digest else self.model
 
     def embed_documents(self, texts: list[str], ids: list[str] | None = None) -> list[Vector]:
         if ids is not None and len(ids) != len(texts):
@@ -64,19 +73,35 @@ class OllamaEmbedder:
         if not bad:  # the batch failed but every text passed alone: do not guess, report what Ollama said
             return original
         return EmbeddingTooLong(
-            f"{len(bad)} chunk(s) are too long for '{self.model_name}' (context {self.num_ctx} tokens): "
+            f"{len(bad)} chunk(s) are too long for '{self.model}' (context {self.num_ctx} tokens): "
             f"{', '.join(bad)}. The chunker caps chunk size, so the cap or the token estimate is wrong.", bad)
 
     def embed_query(self, text: str) -> Vector:
         return self._embed_batch([f"Instruct: {QUERY_TASK}\nQuery: {text}"])[0]
 
     def warmup(self) -> None:
-        """Load the model into memory now, so the first real question does not wait for it (decision 10)."""
+        """Load the model into memory now, so the first real question does not wait for it (decision 10), and learn its digest."""
         self._embed_batch(["warmup"])
+        self._digest = self._find_digest(self._request("GET", "/api/tags"))
+
+    def _find_digest(self, reply) -> str | None:
+        """The short digest of our model in an /api/tags answer; None if Ollama does not list it. A garbage answer is an error:
+        silently going without a digest would silently switch off the protection it gives."""
+        models = reply.get("models") if isinstance(reply, dict) else None
+        if not isinstance(models, list) or not all(isinstance(m, dict) for m in models):
+            raise BadResponse(f"Ollama's model list is not a list of models: {str(reply)[:200]}")
+        wanted = {self.model} | ({f"{self.model}:latest"} if ":" not in self.model else set())
+        for entry in models:
+            if entry.get("name") in wanted or entry.get("model") in wanted:
+                digest = entry.get("digest")
+                if not isinstance(digest, str):
+                    raise BadResponse(f"Ollama lists '{self.model}' without a usable digest: {str(entry)[:200]}")
+                return digest.removeprefix("sha256:")[:12] or None
+        return None
 
     def _embed_batch(self, texts: list[str]) -> list[Vector]:
         reply = self._post({
-            "model": self.model_name,
+            "model": self.model,
             "input": texts,
             "truncate": False,
             "keep_alive": self.keep_alive,
@@ -94,7 +119,7 @@ class OllamaEmbedder:
             if len(v) != self.dim:
                 raise BadResponse(
                     f"Ollama returned a vector with {len(v)} numbers, but this embedder expects {self.dim} "
-                    f"(is '{self.model_name}' the model the dimension was set for?)")
+                    f"(is '{self.model}' the model the dimension was set for?)")
             # bool is a number to Python (True == 1), so refuse it by name; NaN and infinity would poison the vector store
             if not all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) for x in v):
                 raise BadResponse("Ollama returned a vector that contains something other than finite numbers")
@@ -102,10 +127,13 @@ class OllamaEmbedder:
         return checked
 
     def _post(self, body: dict) -> dict:
-        """POST to /api/embed. Retries cold starts and dropped connections; fails at once on real errors."""
+        return self._request("POST", "/api/embed", body)
+
+    def _request(self, method: str, path: str, body: dict | None = None) -> dict:
+        """Ask Ollama. Retries cold starts and dropped connections; fails at once on real errors."""
         request = urllib.request.Request(
-            f"{self.base_url}/api/embed", data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"}, method="POST")
+            f"{self.base_url}{path}", data=json.dumps(body).encode("utf-8") if body is not None else None,
+            headers={"Content-Type": "application/json"}, method=method)
         problem = ""
         for attempt in range(self.retries + 1):
             if attempt:
@@ -121,9 +149,9 @@ class OllamaEmbedder:
                 message = self._error_message(e)
                 if e.code == 404 and "model" in message:
                     raise ModelNotFound(
-                        f"Ollama does not have the model '{self.model_name}'. Run: ollama pull {self.model_name}") from e
+                        f"Ollama does not have the model '{self.model}'. Run: ollama pull {self.model}") from e
                 if e.code == 400 and self._says_too_long(message):
-                    raise EmbeddingTooLong(f"Ollama says the input is too long for '{self.model_name}': {message}") from e
+                    raise EmbeddingTooLong(f"Ollama says the input is too long for '{self.model}': {message}") from e
                 if e.code < 500:
                     raise EmbeddingError(f"Ollama answered {e.code}: {message}") from e
                 problem = f"HTTP {e.code}: {message}"  # 5xx: usually the model is still loading, so try again
