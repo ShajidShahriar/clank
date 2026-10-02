@@ -105,3 +105,14 @@ def test_warmup_is_part_of_the_interface_and_the_fake_supports_it():
     e.warmup()
     assert e.warmup_count == 1
     assert e.text_count == 0 and e.batch_count == 0  # warming up embeds nothing that counts
+
+
+# ---- identity with a digest: a fake that can pretend its weights were replaced ----
+
+def test_the_fake_identity_carries_a_digest_when_it_has_one():
+    assert FakeEmbedder().model_name == "fake-hash-8"
+    e = FakeEmbedder(digest="v1")
+    assert e.model_name == "fake-hash-8@v1"
+    e.digest = "v2"                                # "ollama pull" gave it new weights
+    assert e.model_name == "fake-hash-8@v2"
+    assert FakeEmbedder(dim=16, digest="v1").model_name == "fake-hash-16@v1"

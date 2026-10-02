@@ -103,3 +103,11 @@ def test_the_model_stays_loaded_for_the_keep_alive_time(embedder):
     expires = datetime.fromisoformat(loaded[DEFAULT_MODEL]["expires_at"])
     assert expires - datetime.now(timezone.utc) > timedelta(minutes=20)  # the default would be 5 minutes
     assert loaded[DEFAULT_MODEL]["context_length"] == embedder.num_ctx   # a different num_ctx would reload the model
+
+
+def test_the_identity_carries_the_digest_that_ollama_lists(embedder):
+    with urllib.request.urlopen(f"{URL}/api/tags", timeout=5) as r:
+        digests = {m["name"]: m["digest"] for m in json.loads(r.read())["models"]}
+    short = digests[DEFAULT_MODEL].removeprefix("sha256:")[:12]
+    assert embedder.model_name == f"{DEFAULT_MODEL}@{short}"      # the same 12 characters `ollama list` prints as the model's ID
+    assert len(short) == 12

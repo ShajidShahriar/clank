@@ -88,7 +88,6 @@ def index_project(conn, project_id, repo_path, embedder, store, *, progress=None
 def _index_project(conn, project_id, repo_path, embedder, store, progress) -> IndexReport:
     started = time.monotonic()
     root = Path(repo_path).resolve()
-    model, dim = embedder.model_name, embedder.dim
     report = IndexReport()
 
     try:
@@ -98,6 +97,7 @@ def _index_project(conn, project_id, repo_path, embedder, store, progress) -> In
         report.seconds = time.monotonic() - started
         return report
 
+    model, dim = embedder.model_name, embedder.dim   # AFTER warmup: only then does the embedder know its full identity (tag + digest)
     _match_store_to_model(conn, project_id, store, model, dim, report)
     # The other direction of drift: a row that says "embedded" while its vector is gone (a damaged or half-deleted store). The end-of-run
     # sweep only finds vectors without rows. Fixed HERE, before the file shortcut looks at the rows, so this same run repairs them.
