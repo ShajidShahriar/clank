@@ -197,3 +197,53 @@ def test_a_too_long_question_is_an_error_too():
     with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
         with pytest.raises(EmbeddingTooLong):
             make(server, []).embed_query("q" * 500)
+
+
+# ---- hardening from the I-3 review ----
+
+GARBAGE = [
+    b"not json at all",
+    b"",
+    b"\xff\xfe\x00garbage",                       # not even text
+    b'{"embeddings": [null]}',
+    b'{"embeddings": "oops"}',
+    b'{"embeddings": [["a","b","c","d","e","f","g","h"]]}',   # right length, not numbers
+    b'{"embeddings": [[true,true,true,true,true,true,true,true]]}',
+    b'{"embeddings": [[NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN]]}',
+    b"[1, 2, 3]",
+    b"null",
+    b'{"error": "something odd"}',                # a 200 that carries no embeddings
+]
+
+
+@pytest.mark.parametrize("raw", GARBAGE, ids=lambda b: repr(b)[:40])
+def test_garbage_answers_become_bad_response_not_a_raw_python_error(raw):
+    with FakeOllama(dim=DIM, raw_reply=raw) as server:
+        with pytest.raises(BadResponse):
+            make(server, []).embed_documents(["a"], ids=["c1"])
+
+
+def test_garbage_for_a_question_is_also_bad_response():
+    with FakeOllama(dim=DIM, raw_reply=b'{"embeddings": [null]}') as server:
+        with pytest.raises(BadResponse):
+            make(server, []).embed_query("q")
+
+
+def test_integer_numbers_are_returned_as_floats():
+    ints = b'{"embeddings": [[0, 1, 0, 1, 0, 1, 0, 1]]}'
+    with FakeOllama(dim=DIM, raw_reply=ints) as server:
+        (v,) = make(server, []).embed_documents(["a"])
+        assert v == [0.0, 1.0] * 4 and all(type(x) is float for x in v)
+
+
+def test_an_unrelated_400_that_says_exceeds_is_not_blamed_on_the_chunks():
+    with FakeOllama(dim=DIM, fail_first=1, fail_status=400, fail_message="batch size exceeds the limit of 8") as server:
+        with pytest.raises(EmbeddingError) as err:
+            make(server, []).embed_documents(["a"], ids=["c1"])
+        assert not isinstance(err.value, EmbeddingTooLong)
+        assert "exceeds the limit of 8" in str(err.value)  # and the real reason is still shown
+
+
+def test_default_timeout_keeps_the_worst_case_for_a_hung_ollama_short():
+    e = OllamaEmbedder()
+    assert e.timeout <= 60 and (e.retries + 1) * e.timeout <= 240  # 4 minutes at most, not 8

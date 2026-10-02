@@ -14,7 +14,8 @@ from embedding import FakeEmbedder
 
 class FakeOllama:
     def __init__(self, dim=8, models=("test-model",), fail_first=0, fail_status=503,
-                 max_chars=None, wrong_count=False, wrong_dim=False):
+                 max_chars=None, wrong_count=False, wrong_dim=False,
+                 fail_message="model is loading", raw_reply=None):
         self.dim = dim
         self.models = models
         self.fail_first = fail_first      # answer the first N requests with fail_status (0 = drop the connection)
@@ -22,6 +23,8 @@ class FakeOllama:
         self.max_chars = max_chars        # simulated context limit, in characters
         self.wrong_count = wrong_count    # return one vector too few
         self.wrong_dim = wrong_dim        # return vectors one number too long
+        self.fail_message = fail_message  # the {"error": ...} text of the fail_first answers
+        self.raw_reply = raw_reply        # bytes sent back verbatim with status 200, to test garbage answers
         self.requests = []                # every parsed request body, in order
         self._fake = FakeEmbedder(dim=dim)
         outer = self
@@ -37,7 +40,7 @@ class FakeOllama:
                 if status is None:
                     self.connection.close()  # no HTTP answer at all
                     return
-                data = json.dumps(payload).encode()
+                data = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
@@ -50,9 +53,11 @@ class FakeOllama:
             target=lambda: self._server.serve_forever(poll_interval=0.01), daemon=True)  # default 0.5s makes every shutdown slow
 
     def answer(self, body):
+        if self.raw_reply is not None:
+            return 200, self.raw_reply
         if self.fail_first > 0:
             self.fail_first -= 1
-            return (self.fail_status or None), {"error": "model is loading"}
+            return (self.fail_status or None), {"error": self.fail_message}
         if body.get("model") not in self.models:
             return 404, {"error": f"model \"{body.get('model')}\" not found, try pulling it first"}
         inputs = body["input"] if isinstance(body["input"], list) else [body["input"]]
