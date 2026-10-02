@@ -11,7 +11,7 @@ import chromadb
 from chromadb.config import Settings
 from chromadb.errors import InvalidArgumentError
 
-from .base import Vector, check_upsert, check_vector
+from .base import Vector, check_signature, check_upsert, check_vector
 
 
 class ChromaVectorStore:
@@ -62,6 +62,17 @@ class ChromaVectorStore:
             raise ValueError(str(e)) from e
         # cosine distance = 1 - cosine similarity
         return [(i, max(-1.0, min(1.0, 1.0 - d))) for i, d in zip(found["ids"][0], found["distances"][0])]
+
+    def signature(self) -> tuple[str, int] | None:
+        # read fresh: the collection object we hold can have stale metadata
+        meta = self._client.get_collection(self._name, embedding_function=None).metadata or {}
+        if "signature_model" in meta and "signature_dim" in meta:
+            return (meta["signature_model"], int(meta["signature_dim"]))
+        return None
+
+    def set_signature(self, model: str, dim: int) -> None:
+        check_signature(model, dim)
+        self._collection.modify(metadata={"signature_model": model, "signature_dim": dim})
 
     def clear(self) -> None:
         self._client.delete_collection(self._name)

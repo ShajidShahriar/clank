@@ -1,12 +1,13 @@
 """An in-memory vector store: brute-force cosine similarity. For tests, and the reference for what other stores must do."""
 import math
 
-from .base import Vector, check_upsert, check_vector
+from .base import Vector, check_signature, check_upsert, check_vector
 
 
 class InMemoryVectorStore:
     def __init__(self):
         self._vectors: dict[str, Vector] = {}
+        self._signature: tuple[str, int] | None = None
 
     def upsert(self, ids: list[str], vectors: list[Vector]) -> None:
         check_upsert(ids, vectors)
@@ -37,6 +38,14 @@ class InMemoryVectorStore:
 
     def clear(self) -> None:
         self._vectors.clear()
+        self._signature = None
+
+    def signature(self) -> tuple[str, int] | None:
+        return self._signature
+
+    def set_signature(self, model: str, dim: int) -> None:
+        check_signature(model, dim)
+        self._signature = (model, dim)
 
     def _check_dim(self, dim: int, what: str) -> None:
         # The size is whatever is stored now, so an empty store accepts any size (nothing to compare with).
