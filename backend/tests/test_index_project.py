@@ -57,7 +57,7 @@ def test_a_second_run_embeds_nothing(conn, repo):
     before = (e.text_count, dict(store._vectors))
     report, _, _ = run(conn, repo, e, store)
     assert (e.text_count, store._vectors) == before and report.embedded == 0
-    assert report.unchanged > 0
+    assert report.files_unchanged == report.files_seen > 0      # no file changed, so none was even chunked (task 4.6)
 
 
 def test_editing_one_function_embeds_exactly_one_chunk(conn, repo):

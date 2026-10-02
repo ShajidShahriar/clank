@@ -69,7 +69,7 @@ def _check_embedded(embedded, chunk_ids):
 
 
 def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
-                     language=None, is_test=False, is_changelog=False, embedded=None):
+                     language=None, is_test=False, is_changelog=False, embedded=None, chunker_version=None):
     """Make the file's rows match `chunks`, in one transaction (all or nothing).
 
     Chunks already stored are updated in place and keep their embed_model / embed_dim unless their
@@ -78,6 +78,9 @@ def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
 
     `embedded` is {chunk_id: (model_name, dim)} for chunks whose vector is already in Chroma. It is written in the
     same transaction as the rows, so a row either says "embedded by this model" or it still needs embedding.
+
+    `chunker_version` (the chunker fingerprint) is stored with the file so a later run can tell whether the same file
+    bytes would still chunk the same way.
     """
     embedded = embedded or {}
     ids = [c["id"] for c in chunks]
@@ -87,12 +90,13 @@ def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
     _check_embedded(embedded, set(ids))
     with conn:
         conn.execute(
-            "INSERT INTO files (project_id, rel_path, hash, is_test, is_changelog, language) "
-            "VALUES (?, ?, ?, ?, ?, ?) "
+            "INSERT INTO files (project_id, rel_path, hash, is_test, is_changelog, language, chunker_version) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT (project_id, rel_path) DO UPDATE SET "
             "hash = excluded.hash, is_test = excluded.is_test, "
-            "is_changelog = excluded.is_changelog, language = excluded.language",
-            (project_id, rel_path, file_hash, int(is_test), int(is_changelog), language),
+            "is_changelog = excluded.is_changelog, language = excluded.language, "
+            "chunker_version = excluded.chunker_version",
+            (project_id, rel_path, file_hash, int(is_test), int(is_changelog), language, chunker_version),
         )
         old_ids = ids_for_file(conn, project_id, rel_path)
         conn.executemany(_INSERT, [_to_row(project_id, c) for c in chunks])
@@ -154,6 +158,19 @@ def file_hashes(conn, project_id):
     """{rel_path: file hash} for every file stored for the project (a file with no chunks has a row too)."""
     rows = _query(conn, "SELECT rel_path, hash FROM files WHERE project_id = ?", (project_id,))
     return {r["rel_path"]: r["hash"] for r in rows}
+
+
+def file_states(conn, project_id):
+    """{rel_path: (file hash, chunker version)} for every stored file. The version is None if it was never recorded."""
+    rows = _query(conn, "SELECT rel_path, hash, chunker_version FROM files WHERE project_id = ?", (project_id,))
+    return {r["rel_path"]: (r["hash"], r["chunker_version"]) for r in rows}
+
+
+def files_needing_embedding(conn, project_id, model, dim):
+    """rel_paths of files with at least one chunk that has no vector record for this model and dimension."""
+    rows = _query(conn, "SELECT DISTINCT rel_path FROM chunks WHERE project_id = ? AND (embed_model IS NOT ? OR embed_dim IS NOT ?)",
+                  (project_id, model, dim))
+    return {r["rel_path"] for r in rows}
 
 
 def chunks_for_file(conn, project_id, rel_path):
