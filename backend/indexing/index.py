@@ -17,11 +17,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import chunk_store
+import datadir
 from chunker import chunk_file
 from file_discovery import discover_files
 
 from .embed import embed_chunks
 from .fingerprint import chunker_fingerprint
+from .lock import project_lock
 from .sync import plan_sync
 from .tags import classify_file
 
@@ -45,11 +47,17 @@ class IndexReport:
     seconds: float = 0.0
 
 
-def index_project(conn, project_id, repo_path, embedder, store, *, progress=None) -> IndexReport:
+def index_project(conn, project_id, repo_path, embedder, store, *, progress=None, lock_dir=None) -> IndexReport:
     """Bring SQLite and the vector store in line with the repo on disk. Safe to run again after any interruption.
 
-    `progress(done, total, rel_path)` is called after each file.
+    `progress(done, total, rel_path)` is called after each file. Only one run per project at a time: a second call raises
+    `IndexAlreadyRunning` at once, before doing any work.
     """
+    with project_lock(lock_dir if lock_dir is not None else datadir.lock_dir(), project_id):
+        return _index_project(conn, project_id, repo_path, embedder, store, progress)
+
+
+def _index_project(conn, project_id, repo_path, embedder, store, progress) -> IndexReport:
     started = time.monotonic()
     root = Path(repo_path).resolve()
     model, dim = embedder.model_name, embedder.dim

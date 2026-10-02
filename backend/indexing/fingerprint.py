@@ -22,7 +22,15 @@ def chunker_source_files() -> list[Path]:
 
 
 def grammar_versions() -> dict[str, str]:
-    return {d.metadata["Name"]: d.version for d in metadata.distributions() if d.metadata["Name"].lower().startswith("tree-sitter")}
+    versions = {}
+    for dist in metadata.distributions():
+        try:
+            name, version = dist.metadata["Name"], dist.version
+        except Exception:  # a half-uninstalled or corrupt package must not stop indexing
+            continue
+        if isinstance(name, str) and isinstance(version, str) and name.lower().startswith("tree-sitter"):
+            versions[name] = version
+    return versions
 
 
 def compute_fingerprint(source_files: list[Path], dependencies: dict[str, str], grouping_on: bool) -> str:

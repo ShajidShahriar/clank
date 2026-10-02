@@ -11,6 +11,12 @@ def no_grouping_by_default(monkeypatch):
     monkeypatch.setattr(chunker.grouping, "GROUP_SMALL_CHUNKS", False)
 
 
+@pytest.fixture(autouse=True)
+def private_data_folder(tmp_path_factory, monkeypatch):
+    """No test may write into the user's real ~/.clank. Every test gets its own data folder."""
+    monkeypatch.setenv("CLANK_DATA_DIR", str(tmp_path_factory.mktemp("clank-data")))
+
+
 @pytest.fixture
 def conn(tmp_path, monkeypatch):
     """A fresh database in tmp_path with one project (id 1). Never touches app.db."""

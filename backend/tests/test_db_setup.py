@@ -145,3 +145,10 @@ def test_an_old_database_without_chunk_tables_just_gets_them(tmp_path, monkeypat
     assert c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 0
     assert user_version(c) == db.SCHEMA_VERSION
     c.close()
+
+
+def test_the_vector_store_folder_is_git_ignored():
+    # `*.db` does not match Chroma's chroma.sqlite3, and the folder holds the embeddings of the user's code.
+    for name in ("chroma/chroma.sqlite3", "data/chroma/abc/data_level0.bin", "backend/chroma/chroma.sqlite3", ".clank/chroma/x.bin"):
+        result = subprocess.run(["git", "check-ignore", "-q", name], cwd=REPO)
+        assert result.returncode == 0, f"{name} is not ignored by git"
