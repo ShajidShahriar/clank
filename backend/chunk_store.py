@@ -95,7 +95,7 @@ def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
             "ON CONFLICT (project_id, rel_path) DO UPDATE SET "
             "hash = excluded.hash, is_test = excluded.is_test, "
             "is_changelog = excluded.is_changelog, language = excluded.language, "
-            "chunker_version = excluded.chunker_version",
+            "chunker_version = excluded.chunker_version, index_error = NULL",
             (project_id, rel_path, file_hash, int(is_test), int(is_changelog), language, chunker_version),
         )
         old_ids = ids_for_file(conn, project_id, rel_path)
@@ -158,6 +158,26 @@ def file_hashes(conn, project_id):
     """{rel_path: file hash} for every file stored for the project (a file with no chunks has a row too)."""
     rows = _query(conn, "SELECT rel_path, hash FROM files WHERE project_id = ?", (project_id,))
     return {r["rel_path"]: r["hash"] for r in rows}
+
+
+def mark_file_failed(conn, project_id, rel_path, reason, *, file_hash, chunker_version, language=None, is_test=False, is_changelog=False):
+    """Record why a file could not be indexed. Its stored chunks (if it was indexed before) are NOT touched: retrieval hides flagged
+    files, and the next successful save overwrites the rows and clears the flag. A file never seen before gets a row (with the hash it
+    failed on) just to hold the reason; an existing row keeps its hash, which still describes the chunks stored for it."""
+    with conn:
+        updated = conn.execute("UPDATE files SET index_error = ? WHERE project_id = ? AND rel_path = ?",
+                               (reason, project_id, rel_path)).rowcount
+        if not updated:
+            conn.execute(
+                "INSERT INTO files (project_id, rel_path, hash, is_test, is_changelog, language, chunker_version, index_error) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (project_id, rel_path, file_hash, int(is_test), int(is_changelog), language, chunker_version, reason))
+
+
+def failed_files(conn, project_id):
+    """{rel_path: reason} for files whose last indexing attempt failed. Retrieval must hide the chunks of these files."""
+    rows = _query(conn, "SELECT rel_path, index_error FROM files WHERE project_id = ? AND index_error IS NOT NULL", (project_id,))
+    return {r["rel_path"]: r["index_error"] for r in rows}
 
 
 def file_states(conn, project_id):

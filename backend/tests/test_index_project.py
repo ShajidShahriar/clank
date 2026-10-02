@@ -10,7 +10,8 @@ import pytest
 
 import chunk_store
 import indexing
-from embedding import EmbeddingTooLong, FakeEmbedder
+from embedding import FakeEmbedder, OllamaUnavailable
+from failing_embedders import Raising, mentions
 from indexing import index_project
 from vectorstore import InMemoryVectorStore
 
@@ -202,23 +203,22 @@ def test_every_embedding_call_is_for_embed_text_not_text(conn, repo):
 
 # ---- failures ----
 
-def test_a_chunk_that_is_too_long_stops_the_run_loudly_and_leaves_that_file_untouched(conn, repo):
+def test_a_chunk_that_is_too_long_skips_that_file_and_the_run_carries_on(conn, repo):
     (repo / "zbig.py").write_text("def big():\n    return '" + "x" * 400 + "'\n")   # sorts last, after the four good files
     e = FakeEmbedder(max_chars=300)
     store = InMemoryVectorStore()
-    with pytest.raises(EmbeddingTooLong) as err:
-        run(conn, repo, e, store)
-    assert err.value.chunk_ids                                           # names the offending chunk
-    assert "zbig.py" not in chunk_store.file_hashes(conn, 1)             # all or nothing per file
-    assert set(chunk_store.file_hashes(conn, 1)) == set(FILES)           # the files before it are fully done
+    report, _, _ = run(conn, repo, e, store)                             # no exception: this is a skip, not a stop
+    assert [rel for rel, _ in report.skipped] == ["zbig.py"] and report.stopped is None
+    assert chunk_store.ids_for_file(conn, 1, "zbig.py") == set()         # all or nothing per file
+    assert set(chunk_store.file_hashes(conn, 1)) - {"zbig.py"} == set(FILES)   # the good files are fully done
     assert_stores_agree(conn, store, e)                                  # and nothing is half-written anywhere
 
 
 def test_after_the_problem_is_fixed_a_rerun_ends_in_the_same_state_as_a_clean_run(conn, repo):
     (repo / "zbig.py").write_text("def big():\n    return '" + "x" * 400 + "'\n")
     store = InMemoryVectorStore()
-    with pytest.raises(EmbeddingTooLong):
-        run(conn, repo, FakeEmbedder(max_chars=300), store)
+    first, _, _ = run(conn, repo, FakeEmbedder(max_chars=300), store)
+    assert [rel for rel, _ in first.skipped] == ["zbig.py"]
     e = FakeEmbedder()
     run(conn, repo, e, store)                                            # the limit is gone: the re-run finishes the job
 
@@ -246,7 +246,8 @@ def test_a_file_the_chunker_chokes_on_is_reported_and_skipped_not_fatal(conn, re
     monkeypatch.setattr(indexing.index, "chunk_file", flaky)
     report, e, store = run(conn, repo)
     assert [rel for rel, _ in report.skipped] == ["util.py"] and "boom" in report.skipped[0][1]
-    assert "util.py" not in chunk_store.file_hashes(conn, 1) and "shop.py" in chunk_store.file_hashes(conn, 1)
+    assert chunk_store.ids_for_file(conn, 1, "util.py") == set() and "util.py" in chunk_store.failed_files(conn, 1)   # a row holds the reason
+    assert "shop.py" in chunk_store.file_hashes(conn, 1)
 
 
 def test_progress_is_reported_once_per_file(conn, repo):
@@ -319,8 +320,8 @@ def test_a_run_that_stopped_early_does_not_touch_orphans(conn, repo):
     store = InMemoryVectorStore()
     store.set_signature("fake-hash-8", 8)
     store.upsert(["maybe-from-the-file-that-failed"], [[1.0] * 8])
-    with pytest.raises(EmbeddingTooLong):
-        run(conn, repo, FakeEmbedder(max_chars=300), store)
+    report, _, _ = run(conn, repo, Raising(OllamaUnavailable("down"), when=mentions("zbig.py")), store)
+    assert report.stopped and report.stopped.at == "zbig.py"
     assert "maybe-from-the-file-that-failed" in store.ids()              # only a COMPLETED run may call a vector an orphan
 
 
@@ -329,8 +330,8 @@ def test_vectors_of_deleted_functions_are_removed_even_when_a_later_file_stops_t
     _, e, store = run(conn, repo)
     (repo / "shop.py").write_text("import os\n")                                     # shop.py loses its functions
     (repo / "zbig.py").write_text("def big():\n    return '" + "x" * 400 + "'\n")    # and a later file stops the run
-    with pytest.raises(EmbeddingTooLong):
-        run(conn, repo, FakeEmbedder(max_chars=300), store)
+    report, _, _ = run(conn, repo, Raising(OllamaUnavailable("down"), when=mentions("zbig.py")), store)
+    assert report.stopped and report.stopped.at == "zbig.py"
     assert store.ids() == chunk_store.all_ids(conn, 1)
 
 
