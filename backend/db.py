@@ -2,16 +2,10 @@ import sqlite3
 from datetime import datetime
 
 DB_PATH = "app.db"
+SCHEMA_VERSION = 1  # bump when the files/chunks tables change: they are rebuilt, see init_db
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")  
-    conn.row_factory = sqlite3.Row 
-    return conn
-
-def init_db():
-    conn = get_connection()
-    conn.executescript("""
+# Projects, conversations and messages are the user's data: never dropped.
+USER_TABLES_SQL = """
         CREATE TABLE IF NOT EXISTS projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -36,7 +30,10 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         );
+"""
 
+# Derived from the repo, so they can be dropped and rebuilt when SCHEMA_VERSION changes.
+CHUNK_TABLES_SQL = """
         -- One row per indexed file. is_test / is_changelog are tags only: the
         -- chunker ignores them, retrieval decides what to do with them.
         CREATE TABLE IF NOT EXISTS files (
@@ -83,9 +80,41 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_chunks_file ON chunks(project_id, rel_path);
         CREATE INDEX IF NOT EXISTS idx_chunks_symbol ON chunks(project_id, symbol);
-    """)
+"""
+
+
+BUSY_TIMEOUT_SECONDS = 5
+
+
+def get_connection():
+    # The app writes chat messages while indexing writes chunks. WAL lets readers and one writer work at once,
+    # and the timeout makes a second writer wait (up to 5 s) instead of failing at once with "database is locked".
+    conn = sqlite3.connect(DB_PATH, timeout=BUSY_TIMEOUT_SECONDS)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db() -> bool:
+    """Create the tables. Returns True if existing chunk data was dropped because the schema version changed.
+
+    The caller must then also wipe the vector store: its ids no longer match any SQLite row.
+    Projects, conversations and messages are the user's data and are never dropped.
+    """
+    conn = get_connection()
+    conn.executescript(USER_TABLES_SQL)
+    had_chunk_tables = conn.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('files', 'chunks')").fetchone()[0] > 0
+    reset = False
+    if conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
+        # files and chunks are derived from the repo, so rebuilding them loses nothing that re-indexing cannot restore
+        conn.executescript("DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS files;")
+        reset = had_chunk_tables
+    conn.executescript(CHUNK_TABLES_SQL)
+    conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
     conn.close()
+    return reset
 
 # create / read functions
 def create_project(name: str, repo_path: str) -> int:
