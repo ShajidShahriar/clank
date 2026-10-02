@@ -63,7 +63,7 @@ def init_db():
             kind TEXT NOT NULL CHECK (kind <> ''),
             symbol TEXT,
             parent TEXT,
-            names TEXT,
+            names TEXT NOT NULL DEFAULT '[]',
             part INTEGER,
             part_count INTEGER,
             start_line INTEGER NOT NULL CHECK (start_line >= 1),

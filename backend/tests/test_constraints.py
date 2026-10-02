@@ -61,3 +61,8 @@ def test_duplicate_id_in_one_project_is_refused(conn):
 def test_chunk_with_no_file_row_is_refused(conn):
     with pytest.raises(sqlite3.IntegrityError):
         insert(conn, rel_path="missing.py")
+
+
+def test_names_cannot_be_null(conn):
+    with pytest.raises(sqlite3.IntegrityError):
+        insert(conn, names=None)
