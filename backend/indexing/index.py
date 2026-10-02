@@ -21,13 +21,15 @@ from chunker import chunk_file
 from file_discovery import discover_files
 
 from .embed import embed_chunks
+from .fingerprint import chunker_fingerprint
 from .sync import plan_sync
 
 
 @dataclass
 class IndexReport:
     files_seen: int = 0
-    files_written: int = 0       # files whose rows were saved (new or changed)
+    files_written: int = 0       # files that were chunked and saved
+    files_unchanged: int = 0     # files skipped without chunking: same bytes, same chunker, every chunk already embedded
     new: int = 0                 # chunk counts, summed over the files
     changed: int = 0
     needs_vector: int = 0
@@ -57,16 +59,26 @@ def index_project(conn, project_id, repo_path, embedder, store, *, progress=None
     files = sorted(discover_files(str(root)), key=lambda p: p.relative_to(root).as_posix())
     report.files_seen = len(files)
     stored_files = chunk_store.file_hashes(conn, project_id)
+    states = chunk_store.file_states(conn, project_id)
+    unfinished = chunk_store.files_needing_embedding(conn, project_id, model, dim)
+    version = chunker_fingerprint()
 
     for done, path in enumerate(files, start=1):
         rel = path.relative_to(root).as_posix()
         try:
-            file_hash, chunks = _read_and_chunk(path, root)
+            file_hash = hashlib.sha1(path.read_bytes()).hexdigest()
+            if states.get(rel) == (file_hash, version) and rel not in unfinished:
+                chunks = None   # nothing to do: same bytes, same chunker, and every chunk of the file already has its vector
+            else:
+                chunks = chunk_file(str(path), repo_root=str(root))
         except Exception as problem:  # deliberately broad: a bug in the chunker on ONE file must not stop the whole run
             report.skipped.append((rel, f"{type(problem).__name__}: {problem}"))
         else:
-            # not guarded: an embedding, vector store or database error stops the run (see the module docstring)
-            _sync_file(conn, project_id, rel, file_hash, chunks, embedder, store, model, dim, report)
+            if chunks is None:
+                report.files_unchanged += 1
+            else:
+                # not guarded: an embedding, vector store or database error stops the run (see the module docstring)
+                _sync_file(conn, project_id, rel, file_hash, chunks, version, embedder, store, model, dim, report)
         if progress:
             progress(done, len(files), rel)
 
@@ -100,18 +112,14 @@ def _match_store_to_model(conn, project_id, store, model, dim, report):
     report.store_rebuilt = bool(forgotten or had_vectors)
 
 
-def _read_and_chunk(path, root):
-    return hashlib.sha1(path.read_bytes()).hexdigest(), chunk_file(str(path), repo_root=str(root))
-
-
-def _sync_file(conn, project_id, rel, file_hash, chunks, embedder, store, model, dim, report):
+def _sync_file(conn, project_id, rel, file_hash, chunks, version, embedder, store, model, dim, report):
     plan = plan_sync(chunk_store.chunks_for_file(conn, project_id, rel), chunks, model, dim)
 
     vectors = embed_chunks(embedder, plan.to_embed)          # 1. embed: no transaction is open
     if vectors:
         store.upsert(list(vectors), list(vectors.values()))  # 2. vectors first ...
     removed = chunk_store.save_file_chunks(                  # 3. ... then the rows, with the model that embedded them
-        conn, project_id, rel, file_hash, chunks, embedded={i: (model, dim) for i in vectors})
+        conn, project_id, rel, file_hash, chunks, embedded={i: (model, dim) for i in vectors}, chunker_version=version)
     if removed:
         store.delete(list(removed))                          # 4. stale vectors last
 

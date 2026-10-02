@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime
 
 DB_PATH = "app.db"
-SCHEMA_VERSION = 1  # bump when the files/chunks tables change: they are rebuilt, see init_db
+SCHEMA_VERSION = 2  # bump when the files/chunks tables change: they are rebuilt, see init_db
 
 # Projects, conversations and messages are the user's data: never dropped.
 USER_TABLES_SQL = """
@@ -43,6 +43,7 @@ CHUNK_TABLES_SQL = """
             is_test INTEGER NOT NULL DEFAULT 0,
             is_changelog INTEGER NOT NULL DEFAULT 0,
             language TEXT,
+            chunker_version TEXT,
             PRIMARY KEY (project_id, rel_path),
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         );
