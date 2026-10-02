@@ -36,6 +36,49 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         );
+
+        -- One row per indexed file. is_test / is_changelog are tags only: the
+        -- chunker ignores them, retrieval decides what to do with them.
+        CREATE TABLE IF NOT EXISTS files (
+            project_id INTEGER NOT NULL,
+            rel_path TEXT NOT NULL,
+            hash TEXT NOT NULL,
+            is_test INTEGER NOT NULL DEFAULT 0,
+            is_changelog INTEGER NOT NULL DEFAULT 0,
+            language TEXT,
+            PRIMARY KEY (project_id, rel_path),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+
+        -- SQLite is the truth about a chunk. Chroma holds only id -> vector.
+        -- Chunk ids hash the path, not the project, so the key includes project_id.
+        -- names is a JSON list. embed_model / embed_dim stay NULL until a vector exists.
+        CREATE TABLE IF NOT EXISTS chunks (
+            id TEXT NOT NULL,
+            project_id INTEGER NOT NULL,
+            rel_path TEXT NOT NULL,
+            file_path TEXT,
+            content_hash TEXT NOT NULL,
+            ordinal INTEGER,
+            kind TEXT NOT NULL,
+            symbol TEXT,
+            parent TEXT,
+            names TEXT,
+            part INTEGER,
+            part_count INTEGER,
+            start_line INTEGER NOT NULL,
+            end_line INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            embed_text TEXT NOT NULL,
+            synthetic INTEGER NOT NULL DEFAULT 0,
+            parse_error INTEGER NOT NULL DEFAULT 0,
+            embed_model TEXT,
+            embed_dim INTEGER,
+            PRIMARY KEY (project_id, id),
+            FOREIGN KEY (project_id, rel_path) REFERENCES files(project_id, rel_path) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_chunks_file ON chunks(project_id, rel_path);
+        CREATE INDEX IF NOT EXISTS idx_chunks_symbol ON chunks(project_id, symbol);
     """)
     conn.commit()
     conn.close()
