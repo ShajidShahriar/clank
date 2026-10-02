@@ -4,6 +4,7 @@ Every function takes an open connection and a project_id. Chunk ids hash the fil
 project, so two projects can hold the same id: always look chunks up with both.
 """
 import json
+import sqlite3
 
 # Fields that are the same in the chunk dict and in the table (see the chunk format in the handoff).
 PLAIN_FIELDS = (
@@ -15,6 +16,14 @@ STORED_ONLY_FIELDS = ("embed_model", "embed_dim")  # set when a vector exists, n
 
 _ROW_COLUMNS = PLAIN_FIELDS + ("names",) + BOOL_FIELDS
 _SQL_BATCH = 500  # stay well under SQLite's limit on `?` placeholders
+
+
+def _query(conn, sql, params=()):
+    """Run a query and get sqlite3.Row results, whatever row_factory the caller's connection has.
+    (A cursor's own row_factory leaves the connection's setting alone.)"""
+    cur = conn.cursor()
+    cur.row_factory = sqlite3.Row
+    return cur.execute(sql, params)
 
 
 def _to_row(project_id, chunk):
@@ -52,8 +61,13 @@ def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
     """Make the file's rows match `chunks`, in one transaction (all or nothing).
 
     Chunks already stored are updated in place and keep their embed_model / embed_dim unless their
-    content_hash changed. Rows for chunks that are no longer in `chunks` are deleted.
+    content_hash changed. Rows for chunks that are no longer in `chunks` are deleted, and their ids
+    are returned (the indexer must delete the same ids from Chroma).
     """
+    ids = [c["id"] for c in chunks]
+    if len(ids) != len(set(ids)):
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        raise ValueError(f"duplicate chunk ids in one save for {rel_path}: {dupes}")
     with conn:
         conn.execute(
             "INSERT INTO files (project_id, rel_path, hash, is_test, is_changelog, language) "
@@ -67,6 +81,7 @@ def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
         conn.executemany(_INSERT, [_to_row(project_id, c) for c in chunks])
         gone = old_ids - {c["id"] for c in chunks}
         conn.executemany("DELETE FROM chunks WHERE project_id = ? AND id = ?", [(project_id, i) for i in gone])
+    return gone
 
 
 def get_chunks(conn, project_id, ids):
@@ -76,21 +91,22 @@ def get_chunks(conn, project_id, ids):
     for start in range(0, len(ids), _SQL_BATCH):
         batch = ids[start:start + _SQL_BATCH]
         marks = ", ".join("?" * len(batch))
-        for row in conn.execute(f"SELECT * FROM chunks WHERE project_id = ? AND id IN ({marks})", (project_id, *batch)):
+        for row in _query(conn, f"SELECT * FROM chunks WHERE project_id = ? AND id IN ({marks})", (project_id, *batch)):
             found[row["id"]] = _from_row(row)
     return [found[i] for i in ids if i in found]
 
 
 def get_siblings(conn, project_id, chunk_id):
     """All parts of the same split chunk, in part order. A whole chunk returns just itself; unknown id returns []."""
-    me = conn.execute("SELECT * FROM chunks WHERE project_id = ? AND id = ?", (project_id, chunk_id)).fetchone()
+    me = _query(conn, "SELECT * FROM chunks WHERE project_id = ? AND id = ?", (project_id, chunk_id)).fetchone()
     if me is None:
         return []
     if me["part"] is None:
         # Only split pieces have siblings. Two whole chunks can share kind/symbol/parent/ordinal
         # (two `group` chunks in one file do), so the key below would wrongly pair them.
         return [_from_row(me)]
-    rows = conn.execute(
+    rows = _query(
+        conn,
         # IS, not =, so a NULL parent or symbol matches a NULL
         "SELECT * FROM chunks WHERE project_id = ? AND rel_path = ? AND kind = ? "
         "AND parent IS ? AND symbol IS ? AND ordinal IS ? ORDER BY part",
@@ -100,15 +116,23 @@ def get_siblings(conn, project_id, chunk_id):
 
 
 def ids_for_file(conn, project_id, rel_path):
-    rows = conn.execute("SELECT id FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
+    rows = _query(conn, "SELECT id FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
     return {r["id"] for r in rows}
 
 
 def all_ids(conn, project_id):
-    return {r["id"] for r in conn.execute("SELECT id FROM chunks WHERE project_id = ?", (project_id,))}
+    return {r["id"] for r in _query(conn, "SELECT id FROM chunks WHERE project_id = ?", (project_id,))}
 
 
 def delete_file(conn, project_id, rel_path):
-    """Delete the file row; its chunks go with it (ON DELETE CASCADE). Safe to call twice."""
+    """Delete the file's chunks, then the file row. Returns the removed chunk ids. Safe to call twice.
+
+    The chunks are deleted explicitly, not only through ON DELETE CASCADE: SQLite's foreign-key
+    enforcement is off by default on every new connection, and a connection opened without the
+    pragma would otherwise leave the chunks behind (search would keep returning deleted code).
+    """
     with conn:
+        removed = ids_for_file(conn, project_id, rel_path)
+        conn.execute("DELETE FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
         conn.execute("DELETE FROM files WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
+    return removed

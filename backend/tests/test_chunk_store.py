@@ -23,7 +23,7 @@ def chunks(tmp_path):
 
 
 def save(conn, chunks, rel_path="big.py", project_id=1, file_hash="h1"):
-    chunk_store.save_file_chunks(conn, project_id, rel_path, file_hash, chunks)
+    return chunk_store.save_file_chunks(conn, project_id, rel_path, file_hash, chunks)
 
 
 def test_chunk_goes_in_and_comes_out_equal(conn, chunks):
@@ -166,3 +166,54 @@ def test_two_whole_chunks_with_the_same_key_are_not_siblings(conn, chunks):
     save(conn, [c for c in chunks if c["symbol"] != "small"] + [small, twin])
     assert [c["id"] for c in chunk_store.get_siblings(conn, 1, small["id"])] == [small["id"]]
     assert [c["id"] for c in chunk_store.get_siblings(conn, 1, "twin-id")] == ["twin-id"]
+
+
+# ---- hardening, from the I-2 review ----
+
+def other_connection(conn, row_factory=sqlite3.Row):
+    """A second connection to the same file, the way a background job would open one: foreign keys OFF."""
+    path = conn.execute("PRAGMA database_list").fetchone()["file"]
+    c = sqlite3.connect(path)
+    c.row_factory = row_factory
+    assert c.execute("PRAGMA foreign_keys").fetchone()[0] == 0  # SQLite's default; the trap is real
+    return c
+
+
+def test_delete_file_removes_chunks_even_with_foreign_keys_off(conn, chunks):
+    save(conn, chunks)
+    c = other_connection(conn)
+    chunk_store.delete_file(c, 1, "big.py")
+    assert c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 0
+    c.close()
+
+
+def test_store_works_on_a_connection_without_row_factory(conn, chunks):
+    save(conn, chunks)
+    c = other_connection(conn, row_factory=None)
+    ids = [x["id"] for x in chunks]
+    assert [x["id"] for x in chunk_store.get_chunks(c, 1, ids)] == ids
+    assert len(chunk_store.get_siblings(c, 1, ids[1])) == 3
+    assert chunk_store.ids_for_file(c, 1, "big.py") == set(ids)
+    assert chunk_store.all_ids(c, 1) == set(ids)
+    c.close()
+    assert conn.row_factory is sqlite3.Row  # and the store did not change the caller's connection
+
+
+def test_duplicate_ids_in_one_save_are_refused(conn, chunks):
+    twin = dict(chunks[0], text="different text")
+    with pytest.raises(ValueError, match=chunks[0]["id"]):
+        save(conn, chunks + [twin])
+    assert chunk_store.all_ids(conn, 1) == set()  # nothing was written
+
+
+def test_save_returns_the_ids_it_removed(conn, chunks):
+    assert save(conn, chunks) == set()
+    keep = [c for c in chunks if c["symbol"] != "small"]
+    gone = {c["id"] for c in chunks if c["symbol"] == "small"}
+    assert save(conn, keep, file_hash="h2") == gone
+
+
+def test_delete_file_returns_the_ids_it_removed(conn, chunks):
+    save(conn, chunks)
+    assert chunk_store.delete_file(conn, 1, "big.py") == {c["id"] for c in chunks}
+    assert chunk_store.delete_file(conn, 1, "big.py") == set()

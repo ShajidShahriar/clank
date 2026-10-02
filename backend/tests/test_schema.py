@@ -10,17 +10,6 @@ from chunker import chunk_file
 EDGE = Path(__file__).parent / "fixtures" / "edge"
 
 
-@pytest.fixture
-def conn(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
-    db.init_db()
-    c = db.get_connection()
-    c.execute("INSERT INTO projects (name, repo_path, created_at) VALUES ('p', '/r', 'now')")
-    c.commit()
-    yield c
-    c.close()
-
-
 def columns(conn, table):
     return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
 
