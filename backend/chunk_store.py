@@ -56,18 +56,35 @@ _INSERT = (
 )
 
 
+def _check_embedded(embedded, chunk_ids):
+    """Refuse a bad {chunk_id: (model, dim)} before anything is written."""
+    for chunk_id, record in embedded.items():
+        if chunk_id not in chunk_ids:
+            raise ValueError(f"embedded record for {chunk_id}, which is not one of the chunks being saved")
+        model, dim = record
+        if not isinstance(model, str) or not model:
+            raise ValueError(f"embedded record for {chunk_id}: model must be a non-empty string, got {model!r}")
+        if not isinstance(dim, int) or isinstance(dim, bool) or dim < 1:
+            raise ValueError(f"embedded record for {chunk_id}: dim must be a positive integer, got {dim!r}")
+
+
 def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
-                     language=None, is_test=False, is_changelog=False):
+                     language=None, is_test=False, is_changelog=False, embedded=None):
     """Make the file's rows match `chunks`, in one transaction (all or nothing).
 
     Chunks already stored are updated in place and keep their embed_model / embed_dim unless their
     content_hash changed. Rows for chunks that are no longer in `chunks` are deleted, and their ids
     are returned (the indexer must delete the same ids from Chroma).
+
+    `embedded` is {chunk_id: (model_name, dim)} for chunks whose vector is already in Chroma. It is written in the
+    same transaction as the rows, so a row either says "embedded by this model" or it still needs embedding.
     """
+    embedded = embedded or {}
     ids = [c["id"] for c in chunks]
     if len(ids) != len(set(ids)):
         dupes = sorted({i for i in ids if ids.count(i) > 1})
         raise ValueError(f"duplicate chunk ids in one save for {rel_path}: {dupes}")
+    _check_embedded(embedded, set(ids))
     with conn:
         conn.execute(
             "INSERT INTO files (project_id, rel_path, hash, is_test, is_changelog, language) "
@@ -79,6 +96,9 @@ def save_file_chunks(conn, project_id, rel_path, file_hash, chunks, *,
         )
         old_ids = ids_for_file(conn, project_id, rel_path)
         conn.executemany(_INSERT, [_to_row(project_id, c) for c in chunks])
+        conn.executemany(
+            "UPDATE chunks SET embed_model = ?, embed_dim = ? WHERE project_id = ? AND id = ?",
+            [(model, dim, project_id, chunk_id) for chunk_id, (model, dim) in embedded.items()])
         gone = old_ids - {c["id"] for c in chunks}
         conn.executemany("DELETE FROM chunks WHERE project_id = ? AND id = ?", [(project_id, i) for i in gone])
     return gone
@@ -113,6 +133,21 @@ def get_siblings(conn, project_id, chunk_id):
         (project_id, me["rel_path"], me["kind"], me["parent"], me["symbol"], me["ordinal"]),
     )
     return [_from_row(r) for r in rows]
+
+
+def needs_embedding(conn, project_id, model, dim):
+    """Ids of chunks with no vector record for THIS model and dimension, in file and line order.
+
+    Includes rows saved without a record and rows embedded by another model or size. "Same content_hash"
+    is not enough to call a chunk done; this is the question that decides.
+    """
+    rows = _query(
+        conn,
+        # IS NOT, not <>, so a NULL (never embedded) counts as different
+        "SELECT id FROM chunks WHERE project_id = ? AND (embed_model IS NOT ? OR embed_dim IS NOT ?) "
+        "ORDER BY rel_path, start_line, COALESCE(part, 0), id",
+        (project_id, model, dim))
+    return [r["id"] for r in rows]
 
 
 def ids_for_file(conn, project_id, rel_path):
