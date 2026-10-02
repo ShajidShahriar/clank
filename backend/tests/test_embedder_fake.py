@@ -8,6 +8,7 @@ import math
 import pytest
 
 from embedding import Embedder, FakeEmbedder
+from embedding.errors import EmbeddingTooLong
 
 
 def test_fake_satisfies_the_interface():
@@ -79,3 +80,18 @@ def test_ids_argument_is_accepted_and_must_match_the_texts():
 def test_non_string_input_is_refused():
     with pytest.raises(TypeError):
         FakeEmbedder().embed_documents(["fine", 42])
+
+
+# ---- task 3e: the fake can enforce a limit too, so indexer tests can exercise the failure path ----
+
+
+def test_fake_with_a_limit_refuses_long_text_and_names_the_chunk():
+    e = FakeEmbedder(max_chars=20)
+    with pytest.raises(EmbeddingTooLong) as err:
+        e.embed_documents(["short", "x" * 50, "also short"], ids=["a", "b", "c"])
+    assert err.value.chunk_ids == ["b"] and "b" in str(err.value)
+    assert e.text_count == 0 and e.batch_count == 0   # nothing was embedded or counted
+
+
+def test_fake_without_a_limit_accepts_anything():
+    assert len(FakeEmbedder().embed_documents(["x" * 100_000])) == 1

@@ -5,7 +5,7 @@ import pytest
 
 from embedder_contract import check_order_preserved, distinct_texts
 from embedding import Embedder
-from embedding.errors import BadResponse, EmbeddingError, ModelNotFound, OllamaUnavailable
+from embedding.errors import BadResponse, EmbeddingError, EmbeddingTooLong, ModelNotFound, OllamaUnavailable
 from embedding.ollama import OllamaEmbedder
 from fake_ollama import FakeOllama
 
@@ -139,3 +139,61 @@ def test_warmup_loads_the_model_and_survives_a_cold_start(sleeps):
         make(server, sleeps).warmup()
         assert len(server.requests) == 2
         assert server.requests[-1]["keep_alive"]
+
+
+# ---- task 3e: text over the model's limit is an error that names the chunk ----
+
+LIMIT = 100
+SHORT, LONG = "s" * 10, "L" * 500
+
+
+def test_over_limit_text_names_every_offending_chunk_and_returns_nothing(sleeps):
+    with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
+        with pytest.raises(EmbeddingTooLong) as err:
+            make(server, sleeps).embed_documents([SHORT, LONG, SHORT, LONG], ids=["c1", "c2", "c3", "c4"])
+        assert err.value.chunk_ids == ["c2", "c4"]
+        assert "c2" in str(err.value) and "c4" in str(err.value)
+        assert "c1" not in str(err.value) and "c3" not in str(err.value)
+        assert sleeps == []                                   # not retried: waiting cannot make text shorter
+        assert all(r["truncate"] is False for r in server.requests)  # and we never asked Ollama to cut it
+
+
+def test_without_ids_the_error_names_the_position():
+    with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
+        with pytest.raises(EmbeddingTooLong, match=r"text #1") as err:
+            make(server, []).embed_documents([SHORT, LONG])
+        assert err.value.chunk_ids == ["text #1"]
+
+
+def test_one_bad_chunk_in_a_later_batch_still_fails_the_whole_call():
+    texts = [SHORT] * 4 + [LONG] + [SHORT] * 2
+    ids = [f"c{i}" for i in range(len(texts))]
+    with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
+        with pytest.raises(EmbeddingTooLong) as err:
+            make(server, [], batch_size=2).embed_documents(texts, ids=ids)
+        assert err.value.chunk_ids == ["c4"]
+
+
+def test_a_vector_is_never_returned_for_a_cut_text():
+    # The real danger: with truncate left on, Ollama answers with a vector of the CUT text and no error.
+    with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
+        with pytest.raises(EmbeddingTooLong):
+            make(server, []).embed_documents([LONG], ids=["only"])
+
+
+def test_texts_within_the_limit_are_fine():
+    with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
+        assert len(make(server, []).embed_documents([SHORT, "x" * LIMIT])) == 2
+
+
+def test_other_400_errors_are_not_mistaken_for_too_long():
+    with FakeOllama(dim=DIM, fail_first=1, fail_status=400) as server:  # answers {"error": "model is loading"}
+        with pytest.raises(EmbeddingError) as err:
+            make(server, []).embed_documents(["a"], ids=["c1"])
+        assert not isinstance(err.value, EmbeddingTooLong)
+
+
+def test_a_too_long_question_is_an_error_too():
+    with FakeOllama(dim=DIM, max_chars=LIMIT) as server:
+        with pytest.raises(EmbeddingTooLong):
+            make(server, []).embed_query("q" * 500)
