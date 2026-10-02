@@ -18,6 +18,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+markers = ["live: needs a running Ollama with the embedding model (run with: pytest -m live)"]
+addopts = "-m 'not live'"
 testpaths = ["backend/tests"]
 pythonpath = ["backend"]
 norecursedirs = ["scripts", "fixtures", ".venv", "node_modules"]
