@@ -23,6 +23,7 @@ from file_discovery import discover_files
 from .embed import embed_chunks
 from .fingerprint import chunker_fingerprint
 from .sync import plan_sync
+from .tags import classify_file
 
 
 @dataclass
@@ -118,8 +119,10 @@ def _sync_file(conn, project_id, rel, file_hash, chunks, version, embedder, stor
     vectors = embed_chunks(embedder, plan.to_embed)          # 1. embed: no transaction is open
     if vectors:
         store.upsert(list(vectors), list(vectors.values()))  # 2. vectors first ...
+    tags = classify_file(rel)
     removed = chunk_store.save_file_chunks(                  # 3. ... then the rows, with the model that embedded them
-        conn, project_id, rel, file_hash, chunks, embedded={i: (model, dim) for i in vectors}, chunker_version=version)
+        conn, project_id, rel, file_hash, chunks, embedded={i: (model, dim) for i in vectors}, chunker_version=version,
+        language=tags.language, is_test=tags.is_test, is_changelog=tags.is_changelog)
     if removed:
         store.delete(list(removed))                          # 4. stale vectors last
 
