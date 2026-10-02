@@ -255,3 +255,27 @@ def test_forget_embeddings_clears_every_record_of_the_project_only(conn, chunks)
     assert chunk_store.models_in_use(conn, 2) == {("m", 4)}
     assert chunk_store.needs_embedding(conn, 1, "m", 4) == [c["id"] for c in sorted(chunks, key=lambda c: (c["start_line"], c["part"] or 0))]
     assert chunk_store.forget_embeddings(conn, 1) == 0
+
+
+def test_forget_embeddings_for_clears_only_the_named_ids_of_this_project(conn, chunks):
+    conn.execute("INSERT INTO projects (name, repo_path, created_at) VALUES ('q', '/s', 'now')")
+    conn.commit()
+    everything = {c["id"]: ("m", 4) for c in chunks}
+    save(conn, chunks, embedded=everything)
+    save(conn, chunks, project_id=2, embedded=everything)
+    named = {chunks[0]["id"], chunks[1]["id"], "not-a-chunk"}
+    assert chunk_store.forget_embeddings_for(conn, 1, named) == 2             # counts rows that HAD a record
+    assert set(chunk_store.needs_embedding(conn, 1, "m", 4)) == {chunks[0]["id"], chunks[1]["id"]}
+    assert chunk_store.needs_embedding(conn, 2, "m", 4) == []                 # the other project is untouched
+    assert chunk_store.forget_embeddings_for(conn, 1, named) == 0             # already forgotten: nothing to count
+    assert chunk_store.forget_embeddings_for(conn, 1, set()) == 0
+
+
+def test_forget_embeddings_for_handles_more_ids_than_sqlite_allows_in_one_statement(conn, tmp_path):
+    from chunker import chunk_file
+    (tmp_path / "many.py").write_text("".join(f"def f{i}():\n    return {i}\n\n\n" for i in range(1300)))
+    many = chunk_file(str(tmp_path / "many.py"), repo_root=str(tmp_path))
+    assert len(many) > 1200
+    save(conn, many, rel_path="many.py", embedded={c["id"]: ("m", 4) for c in many})
+    assert chunk_store.forget_embeddings_for(conn, 1, {c["id"] for c in many}) == len(many)
+    assert len(chunk_store.needs_embedding(conn, 1, "m", 4)) == len(many)

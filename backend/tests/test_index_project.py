@@ -350,3 +350,82 @@ def test_end_to_end_with_the_real_chroma_store_including_reopening_it(conn, repo
     assert reopened.ids() == chunk_store.all_ids(conn, 1)
     top = reopened.query(e.embed_query(e.embedded_texts[-1]), 1)
     assert top[0][0] in chunk_store.ids_for_file(conn, 1, "shop.py") and top[0][1] > 0.99   # the edited chunk finds itself
+
+
+# ---- rows that claim a vector the store no longer has (task I-5.1) ----
+
+def lose_vectors(conn, store, rel_path, how_many=3):
+    ids = sorted(chunk_store.ids_for_file(conn, 1, rel_path))[:how_many]
+    store.delete(ids)                                                  # behind the indexer's back: a damaged or half-deleted store
+    assert not (set(ids) & store.ids())
+    return ids
+
+
+def test_vectors_that_vanished_from_the_store_are_found_and_embedded_again(conn, repo):
+    _, e, store = run(conn, repo)
+    lost = lose_vectors(conn, store, "shop.py")
+    rows = {r["id"]: r for r in chunk_store.chunks_for_file(conn, 1, "shop.py")}
+    seen = e.text_count
+    report, _, _ = run(conn, repo, e, store)
+    assert report.vectors_lost == len(lost) and report.embedded == len(lost)
+    assert sorted(e.embedded_texts[seen:]) == sorted(rows[i]["embed_text"] for i in lost)    # exactly the lost ones, nothing else
+    assert_stores_agree(conn, store, e)
+
+
+def test_the_file_shortcut_does_not_hide_a_lost_vector(conn, repo, monkeypatch):
+    # The review's scenario: re-running reported "embedded 0, files unchanged all" while rows had no vector, so those chunks were invisible to search forever.
+    _, e, store = run(conn, repo)
+    lose_vectors(conn, store, "util.py", 1)
+    report, _, _ = run(conn, repo, e, store)
+    assert report.files_unchanged == report.files_seen - 1 and report.embedded == 1
+    assert_stores_agree(conn, store, e)
+
+
+def test_an_emptied_store_that_still_has_its_stamp_is_refilled(conn, repo):
+    _, e, store = run(conn, repo)
+    store.delete(list(store.ids()))                                    # the signature survives; the vectors do not
+    assert store.signature() == (e.model_name, e.dim) and store.count() == 0
+    n = len(chunk_store.all_ids(conn, 1))
+    report, _, _ = run(conn, repo, e, store)
+    assert report.vectors_lost == n == report.embedded
+    assert_stores_agree(conn, store, e)
+
+
+def test_healing_happens_once(conn, repo):
+    _, e, store = run(conn, repo)
+    lose_vectors(conn, store, "shop.py")
+    run(conn, repo, e, store)
+    seen = e.text_count
+    again, _, _ = run(conn, repo, e, store)
+    assert again.vectors_lost == 0 and again.embedded == 0 and e.text_count == seen
+
+
+def test_a_lost_vector_in_a_file_that_also_changed_is_embedded_once(conn, repo):
+    _, e, store = run(conn, repo)
+    lose_vectors(conn, store, "shop.py", 2)
+    (repo / "shop.py").write_text(FILES["shop.py"].replace("x + 1", "x + 100"))
+    seen = e.text_count
+    run(conn, repo, e, store)
+    texts = e.embedded_texts[seen:]
+    assert len(texts) == len(set(texts))                               # no chunk embedded twice
+    assert_stores_agree(conn, store, e)
+
+
+def test_vectors_with_no_row_and_rows_with_no_vector_are_both_repaired_in_one_run(conn, repo):
+    _, e, store = run(conn, repo)
+    lose_vectors(conn, store, "shop.py", 2)
+    store.upsert(["stray-vector"], [[1.0] * e.dim])
+    report, _, _ = run(conn, repo, e, store)
+    assert report.vectors_lost == 2 and report.orphans_removed == 1
+    assert_stores_agree(conn, store, e)
+
+
+def test_lost_vectors_are_healed_on_the_real_chroma_store_too(conn, repo, tmp_path):
+    from vectorstore import open_project_store
+    e = FakeEmbedder()
+    store = open_project_store(tmp_path / "data", 1)
+    index_project(conn, 1, repo, e, store)
+    lost = lose_vectors(conn, store, "shop.py")
+    report = index_project(conn, 1, repo, e, open_project_store(tmp_path / "data", 1))
+    assert report.vectors_lost == len(lost) and report.embedded == len(lost)
+    assert store.ids() == chunk_store.all_ids(conn, 1)

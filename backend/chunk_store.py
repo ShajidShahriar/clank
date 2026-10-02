@@ -194,6 +194,20 @@ def forget_embeddings(conn, project_id):
                             "AND (embed_model IS NOT NULL OR embed_dim IS NOT NULL)", (project_id,)).rowcount
 
 
+def forget_embeddings_for(conn, project_id, ids):
+    """Mark these chunks as never embedded (their vectors are missing). Returns how many rows HAD a record, i.e. claimed a vector."""
+    ids = list(ids)
+    forgotten = 0
+    with conn:
+        for start in range(0, len(ids), _SQL_BATCH):
+            batch = ids[start:start + _SQL_BATCH]
+            marks = ", ".join("?" * len(batch))
+            forgotten += conn.execute(
+                f"UPDATE chunks SET embed_model = NULL, embed_dim = NULL WHERE project_id = ? AND id IN ({marks}) "
+                "AND (embed_model IS NOT NULL OR embed_dim IS NOT NULL)", (project_id, *batch)).rowcount
+    return forgotten
+
+
 def ids_for_file(conn, project_id, rel_path):
     rows = _query(conn, "SELECT id FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
     return {r["id"] for r in rows}
