@@ -20,3 +20,7 @@ class Embedder(Protocol):
     def embed_query(self, text: str) -> Vector:
         """The vector for a user's question. Models that want an instruction around the question add it here."""
         ...
+
+    def warmup(self) -> None:
+        """Get ready for the first real call (load the model). A no-op for embedders with nothing to load."""
+        ...

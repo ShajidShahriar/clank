@@ -14,6 +14,7 @@ class FakeEmbedder:
         self.embedded_texts: list[str] = []   # every document text, in the order embedded
         self.batch_count = 0                  # embed_documents calls
         self.query_count = 0                  # embed_query calls
+        self.warmup_count = 0                 # warmup calls
 
     @property
     def text_count(self) -> int:
@@ -35,6 +36,9 @@ class FakeEmbedder:
         self.batch_count += 1
         self.embedded_texts.extend(texts)
         return [self._vector(t) for t in texts]
+
+    def warmup(self) -> None:
+        self.warmup_count += 1  # nothing to load, and it must not touch the embed counters
 
     def embed_query(self, text: str) -> Vector:
         # No instruction wrapper here (the real embedder has one), so a test can find a chunk

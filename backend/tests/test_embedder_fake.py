@@ -95,3 +95,13 @@ def test_fake_with_a_limit_refuses_long_text_and_names_the_chunk():
 
 def test_fake_without_a_limit_accepts_anything():
     assert len(FakeEmbedder().embed_documents(["x" * 100_000])) == 1
+
+
+# ---- hardening from the I-3 review: warmup() is part of the interface, so an indexer can call it on any embedder ----
+
+def test_warmup_is_part_of_the_interface_and_the_fake_supports_it():
+    assert hasattr(Embedder, "warmup")
+    e = FakeEmbedder()
+    e.warmup()
+    assert e.warmup_count == 1
+    assert e.text_count == 0 and e.batch_count == 0  # warming up embeds nothing that counts

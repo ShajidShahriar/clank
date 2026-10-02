@@ -6,6 +6,7 @@ Decisions this file carries (docs/indexing-decisions.md): batches of 16-32 (#9),
 """
 import http.client
 import json
+import math
 import time
 import urllib.error
 import urllib.request
@@ -21,7 +22,7 @@ QUERY_TASK = "Given a question about a codebase, retrieve the code that answers 
 class OllamaEmbedder:
     def __init__(self, model: str = DEFAULT_MODEL, dim: int = DEFAULT_DIM, *,
                  base_url: str = "http://localhost:11434", batch_size: int = 16, keep_alive: str = "30m",
-                 num_ctx: int = 8192, timeout: float = 120.0, retries: int = 3, backoff: float = 1.0,
+                 num_ctx: int = 8192, timeout: float = 60.0, retries: int = 3, backoff: float = 1.0,
                  sleep=time.sleep):
         if batch_size < 1 or retries < 0:
             raise ValueError("batch_size must be at least 1 and retries at least 0")
@@ -86,12 +87,19 @@ class OllamaEmbedder:
             raise BadResponse(f"Ollama's answer has no 'embeddings' list: {str(reply)[:200]}")
         if len(vectors) != len(texts):  # a short or long answer would pair vectors with the wrong texts
             raise BadResponse(f"Ollama returned {len(vectors)} vectors for {len(texts)} texts")
+        checked = []
         for v in vectors:
+            if not isinstance(v, list):
+                raise BadResponse(f"Ollama returned a vector that is not a list: {str(v)[:100]}")
             if len(v) != self.dim:
                 raise BadResponse(
                     f"Ollama returned a vector with {len(v)} numbers, but this embedder expects {self.dim} "
                     f"(is '{self.model_name}' the model the dimension was set for?)")
-        return vectors
+            # bool is a number to Python (True == 1), so refuse it by name; NaN and infinity would poison the vector store
+            if not all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) for x in v):
+                raise BadResponse("Ollama returned a vector that contains something other than finite numbers")
+            checked.append([float(x) for x in v])
+        return checked
 
     def _post(self, body: dict) -> dict:
         """POST to /api/embed. Retries cold starts and dropped connections; fails at once on real errors."""
@@ -104,7 +112,11 @@ class OllamaEmbedder:
                 self._sleep(self.backoff * 2 ** (attempt - 1))
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    return json.loads(response.read())
+                    raw = response.read()
+                try:
+                    return json.loads(raw)
+                except ValueError as e:  # not JSON, empty, or not even text
+                    raise BadResponse(f"Ollama's answer is not valid JSON: {raw[:100]!r}") from e
             except urllib.error.HTTPError as e:
                 message = self._error_message(e)
                 if e.code == 404 and "model" in message:
@@ -123,9 +135,9 @@ class OllamaEmbedder:
 
     @staticmethod
     def _says_too_long(message: str) -> bool:
-        # The exact wording is unconfirmed until the live check (task 3f), so match loosely.
-        m = message.lower()
-        return "context length" in m or "too long" in m or "exceeds" in m
+        # Real wording, confirmed against Ollama 0.35 (task 3f): "the input length exceeds the context length".
+        # Kept exact on purpose: a loose match would blame the chunks for an unrelated 400.
+        return "exceeds the context length" in message.lower()
 
     @staticmethod
     def _error_message(e: urllib.error.HTTPError) -> str:
