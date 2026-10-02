@@ -22,8 +22,8 @@ def chunks(tmp_path):
     return out
 
 
-def save(conn, chunks, rel_path="big.py", project_id=1, file_hash="h1"):
-    return chunk_store.save_file_chunks(conn, project_id, rel_path, file_hash, chunks)
+def save(conn, chunks, rel_path="big.py", project_id=1, file_hash="h1", embedded=None):
+    return chunk_store.save_file_chunks(conn, project_id, rel_path, file_hash, chunks, embedded=embedded)
 
 
 def test_chunk_goes_in_and_comes_out_equal(conn, chunks):
@@ -217,3 +217,41 @@ def test_delete_file_returns_the_ids_it_removed(conn, chunks):
     save(conn, chunks)
     assert chunk_store.delete_file(conn, 1, "big.py") == {c["id"] for c in chunks}
     assert chunk_store.delete_file(conn, 1, "big.py") == set()
+
+
+# ---- read helpers for the indexer (task I-4.5c) ----
+
+def test_file_hashes_lists_every_stored_file_of_the_project(conn, chunks):
+    assert chunk_store.file_hashes(conn, 1) == {}
+    save(conn, chunks, file_hash="h1")
+    save(conn, [], rel_path="empty.py", file_hash="h2")           # a file that produced no chunks still has a row
+    assert chunk_store.file_hashes(conn, 1) == {"big.py": "h1", "empty.py": "h2"}
+    assert chunk_store.file_hashes(conn, 2) == {}
+
+
+def test_chunks_for_file_returns_its_rows_in_line_order(conn, chunks):
+    save(conn, chunks)
+    rows = chunk_store.chunks_for_file(conn, 1, "big.py")
+    assert [r["id"] for r in rows] == [c["id"] for c in sorted(chunks, key=lambda c: (c["start_line"], c["part"] or 0))]
+    assert chunk_store.chunks_for_file(conn, 1, "missing.py") == []
+    assert all("embed_model" in r for r in rows)
+
+
+def test_models_in_use_lists_the_distinct_records_and_ignores_unembedded_rows(conn, chunks):
+    assert chunk_store.models_in_use(conn, 1) == set()
+    save(conn, chunks)
+    assert chunk_store.models_in_use(conn, 1) == set()                    # saved, never embedded
+    save(conn, chunks, embedded={chunks[0]["id"]: ("m1", 8), chunks[1]["id"]: ("m2", 16)})
+    assert chunk_store.models_in_use(conn, 1) == {("m1", 8), ("m2", 16)}
+
+
+def test_forget_embeddings_clears_every_record_of_the_project_only(conn, chunks):
+    conn.execute("INSERT INTO projects (name, repo_path, created_at) VALUES ('q', '/s', 'now')")
+    conn.commit()
+    save(conn, chunks, embedded={c["id"]: ("m", 4) for c in chunks})
+    save(conn, chunks, project_id=2, embedded={c["id"]: ("m", 4) for c in chunks})
+    assert chunk_store.forget_embeddings(conn, 1) == len(chunks)
+    assert chunk_store.models_in_use(conn, 1) == set()
+    assert chunk_store.models_in_use(conn, 2) == {("m", 4)}
+    assert chunk_store.needs_embedding(conn, 1, "m", 4) == [c["id"] for c in sorted(chunks, key=lambda c: (c["start_line"], c["part"] or 0))]
+    assert chunk_store.forget_embeddings(conn, 1) == 0

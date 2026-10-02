@@ -32,7 +32,16 @@ class VectorStore(Protocol):
         ...
 
     def clear(self) -> None:
-        """Remove everything (after a schema or model change). A different vector length is allowed afterwards."""
+        """Remove everything (after a schema or model change). A different vector length is allowed afterwards.
+        The signature is forgotten too."""
+        ...
+
+    def signature(self) -> tuple[str, int] | None:
+        """(model name, vector length) this store was filled for, or None if nobody has said. The indexer compares it
+        with the embedder in use and rebuilds the store when they differ (a different model's vectors are nonsense)."""
+        ...
+
+    def set_signature(self, model: str, dim: int) -> None:
         ...
 
 
@@ -44,6 +53,13 @@ def check_vector(vector: Vector, what: str = "vector") -> None:
         raise ValueError(f"{what} contains something other than finite numbers")
     if not any(vector):
         raise ValueError(f"{what} is all zeros, so its direction (cosine) means nothing")
+
+
+def check_signature(model, dim) -> None:
+    if not isinstance(model, str) or not model:
+        raise ValueError(f"signature model must be a non-empty string, got {model!r}")
+    if not isinstance(dim, int) or isinstance(dim, bool) or dim < 1:
+        raise ValueError(f"signature dim must be a positive integer, got {dim!r}")
 
 
 def check_upsert(ids: list[str], vectors: list[Vector]) -> None:

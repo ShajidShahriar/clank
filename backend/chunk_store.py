@@ -150,6 +150,33 @@ def needs_embedding(conn, project_id, model, dim):
     return [r["id"] for r in rows]
 
 
+def file_hashes(conn, project_id):
+    """{rel_path: file hash} for every file stored for the project (a file with no chunks has a row too)."""
+    rows = _query(conn, "SELECT rel_path, hash FROM files WHERE project_id = ?", (project_id,))
+    return {r["rel_path"]: r["hash"] for r in rows}
+
+
+def chunks_for_file(conn, project_id, rel_path):
+    """The stored rows of one file, in line order."""
+    rows = _query(conn, "SELECT * FROM chunks WHERE project_id = ? AND rel_path = ? ORDER BY start_line, COALESCE(part, 0), id",
+                  (project_id, rel_path))
+    return [_from_row(r) for r in rows]
+
+
+def models_in_use(conn, project_id):
+    """The distinct (model, dim) records on the project's rows. Rows that were never embedded have none."""
+    rows = _query(conn, "SELECT DISTINCT embed_model, embed_dim FROM chunks WHERE project_id = ? "
+                        "AND embed_model IS NOT NULL AND embed_dim IS NOT NULL", (project_id,))
+    return {(r["embed_model"], r["embed_dim"]) for r in rows}
+
+
+def forget_embeddings(conn, project_id):
+    """Mark every row of the project as never embedded (the vector store is about to be rebuilt). Returns how many rows."""
+    with conn:
+        return conn.execute("UPDATE chunks SET embed_model = NULL, embed_dim = NULL WHERE project_id = ? "
+                            "AND (embed_model IS NOT NULL OR embed_dim IS NOT NULL)", (project_id,)).rowcount
+
+
 def ids_for_file(conn, project_id, rel_path):
     rows = _query(conn, "SELECT id FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
     return {r["id"] for r in rows}

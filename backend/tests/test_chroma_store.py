@@ -56,3 +56,22 @@ def test_clear_then_a_new_vector_length_works(tmp_path):
     store.clear()
     store.upsert(["a"], [[1.0, 0.0, 0.0, 0.0]])
     assert store.count() == 1 and store.query([1.0, 0.0, 0.0, 0.0], 1)[0][0] == "a"
+
+
+def test_the_signature_survives_closing_and_reopening(tmp_path):
+    first = ChromaVectorStore(tmp_path / "chroma", "project_1")
+    first.set_signature("qwen3-embedding:0.6b", 1024)
+    first.upsert(["a"], [[1.0, 0.0]])
+    del first
+    again = ChromaVectorStore(tmp_path / "chroma", "project_1")
+    assert again.signature() == ("qwen3-embedding:0.6b", 1024)
+    assert again.ids() == {"a"}
+
+
+def test_setting_the_signature_does_not_change_the_distance_or_lose_vectors(tmp_path):
+    store = ChromaVectorStore(tmp_path / "chroma", "project_1")
+    store.upsert(["unit", "huge"], [[1.0, 0.0], [1000.0, 0.0]])
+    store.set_signature("m", 2)
+    scores = dict(store.query([1.0, 0.0], 2))
+    assert scores["unit"] == pytest.approx(scores["huge"], abs=1e-4)      # still cosine
+    assert store.ids() == {"unit", "huge"}

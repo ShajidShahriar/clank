@@ -115,3 +115,29 @@ def test_ids_returns_a_copy(store):
     store.upsert(["a"], [[1.0, 0.0]])
     store.ids().add("hacked")
     assert store.ids() == {"a"}
+
+
+# ---- the signature: which model and vector size this store was built for ----
+
+def test_a_new_store_has_no_signature_and_one_can_be_set(store):
+    assert store.signature() is None
+    store.set_signature("qwen3-embedding:0.6b", 1024)
+    assert store.signature() == ("qwen3-embedding:0.6b", 1024)
+    store.set_signature("other", 8)
+    assert store.signature() == ("other", 8)
+
+
+def test_the_signature_survives_upserts_and_deletes_but_not_a_clear(store):
+    store.set_signature("m", 2)
+    store.upsert(["a"], [[1.0, 0.0]])
+    store.delete(["a"])
+    assert store.signature() == ("m", 2)
+    store.clear()
+    assert store.signature() is None        # a cleared store has no history: whoever refills it sets the signature again
+
+
+@pytest.mark.parametrize("model,dim", [("", 8), (None, 8), ("m", 0), ("m", -1), ("m", 2.5), ("m", True), ("m", "8")])
+def test_a_bad_signature_is_refused(store, model, dim):
+    with pytest.raises(ValueError):
+        store.set_signature(model, dim)
+    assert store.signature() is None
