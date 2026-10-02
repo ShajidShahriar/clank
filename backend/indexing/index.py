@@ -42,6 +42,7 @@ class IndexReport:
     deleted_chunks: int = 0
     deleted_files: int = 0
     orphans_removed: int = 0
+    vectors_lost: int = 0        # rows that claimed a vector the store no longer had (they are embedded again this run)
     store_rebuilt: bool = False  # the vector store was cleared because it was built for another model, or for none
     skipped: list = field(default_factory=list)   # [(rel_path, reason)] files the chunker could not handle
     seconds: float = 0.0
@@ -64,6 +65,9 @@ def _index_project(conn, project_id, repo_path, embedder, store, progress) -> In
     report = IndexReport()
 
     _match_store_to_model(conn, project_id, store, model, dim, report)
+    # The other direction of drift: a row that says "embedded" while its vector is gone (a damaged or half-deleted store). The end-of-run
+    # sweep only finds vectors without rows. Fixed HERE, before the file shortcut looks at the rows, so this same run repairs them.
+    report.vectors_lost = chunk_store.forget_embeddings_for(conn, project_id, chunk_store.all_ids(conn, project_id) - store.ids())
 
     files = sorted(discover_files(str(root)), key=lambda p: p.relative_to(root).as_posix())
     report.files_seen = len(files)

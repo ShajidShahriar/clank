@@ -37,3 +37,6 @@ __pycache__
 *.db
 *.db-wal
 *.db-shm
+# Vector store (Chroma) and Clank's data folder
+chroma/
+.clank/
