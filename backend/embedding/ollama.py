@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 
 from .base import Vector
-from .errors import BadResponse, EmbeddingError, ModelNotFound, OllamaUnavailable
+from .errors import BadResponse, EmbeddingError, EmbeddingTooLong, ModelNotFound, OllamaUnavailable
 
 DEFAULT_MODEL = "qwen3-embedding:0.6b"
 DEFAULT_DIM = 1024
@@ -44,8 +44,27 @@ class OllamaEmbedder:
                 raise TypeError(f"can only embed str, got {type(t).__name__}")
         vectors: list[Vector] = []
         for start in range(0, len(texts), self.batch_size):
-            vectors.extend(self._embed_batch(texts[start:start + self.batch_size]))
+            batch = texts[start:start + self.batch_size]
+            try:
+                vectors.extend(self._embed_batch(batch))
+            except EmbeddingTooLong as too_long:
+                labels = ids[start:start + self.batch_size] if ids else [f"text #{start + i}" for i in range(len(batch))]
+                raise self._name_the_offenders(batch, labels, too_long) from None
         return vectors
+
+    def _name_the_offenders(self, batch: list[str], labels: list[str], original: EmbeddingTooLong) -> EmbeddingTooLong:
+        """Ollama only says "something in this batch is too long". Ask again one text at a time to find which."""
+        bad = []
+        for text, label in zip(batch, labels):
+            try:
+                self._embed_batch([text])
+            except EmbeddingTooLong:
+                bad.append(label)
+        if not bad:  # the batch failed but every text passed alone: do not guess, report what Ollama said
+            return original
+        return EmbeddingTooLong(
+            f"{len(bad)} chunk(s) are too long for '{self.model_name}' (context {self.num_ctx} tokens): "
+            f"{', '.join(bad)}. The chunker caps chunk size, so the cap or the token estimate is wrong.", bad)
 
     def embed_query(self, text: str) -> Vector:
         return self._embed_batch([f"Instruct: {QUERY_TASK}\nQuery: {text}"])[0]
@@ -91,6 +110,8 @@ class OllamaEmbedder:
                 if e.code == 404 and "model" in message:
                     raise ModelNotFound(
                         f"Ollama does not have the model '{self.model_name}'. Run: ollama pull {self.model_name}") from e
+                if e.code == 400 and self._says_too_long(message):
+                    raise EmbeddingTooLong(f"Ollama says the input is too long for '{self.model_name}': {message}") from e
                 if e.code < 500:
                     raise EmbeddingError(f"Ollama answered {e.code}: {message}") from e
                 problem = f"HTTP {e.code}: {message}"  # 5xx: usually the model is still loading, so try again
@@ -99,6 +120,12 @@ class OllamaEmbedder:
         raise OllamaUnavailable(
             f"Ollama at {self.base_url} did not answer after {self.retries} retries (last problem: {problem}). "
             f"Is it running? Start it with: ollama serve")
+
+    @staticmethod
+    def _says_too_long(message: str) -> bool:
+        # The exact wording is unconfirmed until the live check (task 3f), so match loosely.
+        m = message.lower()
+        return "context length" in m or "too long" in m or "exceeds" in m
 
     @staticmethod
     def _error_message(e: urllib.error.HTTPError) -> str:

@@ -16,3 +16,12 @@ class ModelNotFound(EmbeddingError):
 
 class BadResponse(EmbeddingError):
     """Ollama answered, but not with one vector of the right length per text."""
+
+
+class EmbeddingTooLong(EmbeddingError):
+    """Text is over the model's input limit. `chunk_ids` names the offenders (or "text #N" when no ids were given).
+    Never retried and never cut: a cut chunk would be embedded without its ending, a silent drop."""
+
+    def __init__(self, message: str, chunk_ids: list[str] | tuple = ()):
+        super().__init__(message)
+        self.chunk_ids = list(chunk_ids)
