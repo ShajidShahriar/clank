@@ -156,3 +156,13 @@ def test_delete_file_removes_file_and_chunks(conn, chunks):
     assert chunk_store.ids_for_file(conn, 1, "big.py") == set()
     assert conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
     chunk_store.delete_file(conn, 1, "big.py")  # deleting twice is fine
+
+
+def test_two_whole_chunks_with_the_same_key_are_not_siblings(conn, chunks):
+    # Found by test_chunk_store_roundtrip on db.py: two `group` chunks in one file share kind, symbol (None),
+    # parent (None) and ordinal (0). Their ids differ, but they are not parts of one chunk.
+    small = next(c for c in chunks if c["symbol"] == "small")
+    twin = dict(small, id="twin-id", start_line=200, end_line=201)
+    save(conn, [c for c in chunks if c["symbol"] != "small"] + [small, twin])
+    assert [c["id"] for c in chunk_store.get_siblings(conn, 1, small["id"])] == [small["id"]]
+    assert [c["id"] for c in chunk_store.get_siblings(conn, 1, "twin-id")] == ["twin-id"]

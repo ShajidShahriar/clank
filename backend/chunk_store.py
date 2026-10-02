@@ -86,6 +86,10 @@ def get_siblings(conn, project_id, chunk_id):
     me = conn.execute("SELECT * FROM chunks WHERE project_id = ? AND id = ?", (project_id, chunk_id)).fetchone()
     if me is None:
         return []
+    if me["part"] is None:
+        # Only split pieces have siblings. Two whole chunks can share kind/symbol/parent/ordinal
+        # (two `group` chunks in one file do), so the key below would wrongly pair them.
+        return [_from_row(me)]
     rows = conn.execute(
         # IS, not =, so a NULL parent or symbol matches a NULL
         "SELECT * FROM chunks WHERE project_id = ? AND rel_path = ? AND kind = ? "
