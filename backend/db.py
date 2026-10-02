@@ -1,7 +1,9 @@
 import sqlite3
 from datetime import datetime
 
-DB_PATH = "app.db"
+import datadir
+
+DB_PATH = None  # None = <data folder>/app.db (see datadir.py); tests set a temp path
 SCHEMA_VERSION = 2  # bump when the files/chunks tables change: they are rebuilt, see init_db
 
 # Projects, conversations and messages are the user's data: never dropped.
@@ -90,7 +92,7 @@ BUSY_TIMEOUT_SECONDS = 5
 def get_connection():
     # The app writes chat messages while indexing writes chunks. WAL lets readers and one writer work at once,
     # and the timeout makes a second writer wait (up to 5 s) instead of failing at once with "database is locked".
-    conn = sqlite3.connect(DB_PATH, timeout=BUSY_TIMEOUT_SECONDS)
+    conn = sqlite3.connect(DB_PATH if DB_PATH is not None else str(datadir.db_path()), timeout=BUSY_TIMEOUT_SECONDS)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.row_factory = sqlite3.Row

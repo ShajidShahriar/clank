@@ -157,3 +157,33 @@ def test_the_real_fingerprint_covers_the_chunker_package_and_the_language_rules(
     from indexing.fingerprint import chunker_source_files
     names = {p.name for p in chunker_source_files()}
     assert {"code.py", "core.py", "grouping.py", "markdown.py", "splitting.py", "__init__.py", "languages.py"} <= names
+
+
+# ---- a damaged install must not stop indexing (fix #2 from the I-4 review) ----
+
+def test_broken_package_metadata_is_skipped_not_fatal(monkeypatch):
+    from indexing import fingerprint
+
+    class Good:
+        metadata = {"Name": "tree-sitter-x"}
+        version = "1.0"
+
+    class NoName:                                   # a half-uninstalled package folder
+        metadata = {"Name": None}
+        version = "9"
+
+    class BadVersion:
+        metadata = {"Name": "tree-sitter-y"}
+
+        @property
+        def version(self):
+            raise RuntimeError("corrupt METADATA")
+
+    class NoMetadata:
+        @property
+        def metadata(self):
+            raise OSError("unreadable")
+
+    monkeypatch.setattr(fingerprint.metadata, "distributions", lambda: [NoName(), Good(), BadVersion(), NoMetadata()])
+    assert fingerprint.grammar_versions() == {"tree-sitter-x": "1.0"}
+    assert len(fingerprint.chunker_fingerprint()) == 16
