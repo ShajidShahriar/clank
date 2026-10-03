@@ -111,3 +111,23 @@ def test_the_identity_carries_the_digest_that_ollama_lists(embedder):
     short = digests[DEFAULT_MODEL].removeprefix("sha256:")[:12]
     assert embedder.model_name == f"{DEFAULT_MODEL}@{short}"      # the same 12 characters `ollama list` prints as the model's ID
     assert len(short) == 12
+
+
+def test_search_with_the_real_model_finds_the_right_file_and_respects_the_digest_identity(conn, tmp_path):
+    from indexing import index_project
+    from search import IndexOutOfDate, search
+    from vectorstore import InMemoryVectorStore
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "net.py").write_text("def fetch_with_retry(url, attempts=3):\n    for i in range(attempts):\n        try:\n            return http_get(url)\n"
+                                 "        except TimeoutError:\n            time.sleep(2 ** i)\n    raise RuntimeError('gave up')\n")
+    (repo / "shop.py").write_text("def order_total(items):\n    return sum(i.price * i.quantity for i in items)\n")
+    (repo / "text.py").write_text("def slugify(title):\n    return title.lower().replace(' ', '-')\n")
+    store = InMemoryVectorStore()
+    warm = OllamaEmbedder()
+    index_project(conn, 1, repo, warm, store)                      # warmup() runs inside, so the identity includes the digest
+    assert "@" in store.signature()[0]
+    result = search(conn, 1, warm, store, "how do we retry a failed network request?", k=3)
+    assert result.hits[0].chunk["rel_path"] == "net.py" and result.hidden_files == {}
+    with pytest.raises(IndexOutOfDate, match="warmup"):
+        search(conn, 1, OllamaEmbedder(), store, "anything", k=1)    # a fresh embedder that never warmed up has only the bare tag
