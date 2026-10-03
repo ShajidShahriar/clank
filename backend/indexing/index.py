@@ -62,6 +62,9 @@ class IndexReport:
     store_rebuilt: bool = False  # the vector store was cleared because it was built for another model, or for none
     skipped: list = field(default_factory=list)   # [(rel_path, reason)] files skipped (a chunk too long, or the chunker failed); also stored on the file row
     skipped_chunk_ids: dict = field(default_factory=dict)   # {rel_path: [chunk ids]} for files skipped because a chunk was too long
+    new_skips: int = 0           # skipped files that were NOT already flagged by an earlier run: only these count toward the skip limit
+    skip_limit: float = 0.0
+    skip_limit_exceeded: bool = False   # new failures passed the limit (the run stops, unless that happened on the very last file)
     stopped: Stopped | None = None
     seconds: float = 0.0
 
@@ -69,7 +72,8 @@ class IndexReport:
         """The result in one sentence, for the UI or a log."""
         skipped = f"; {len(self.skipped)} skipped: {', '.join(rel for rel, _ in self.skipped)}" if self.skipped else ""
         if self.stopped is None:
-            return f"done: {self.files_seen} files, {self.embedded} chunks embedded{skipped}"
+            warning = f"; {self.new_skips} new failures, more than the limit of {self.skip_limit:g}: check the model's context size" if self.skip_limit_exceeded else ""
+            return f"done: {self.files_seen} files, {self.embedded} chunks embedded{skipped}{warning}"
         if self.stopped.at is None:
             return f"stopped before the first file: {self.stopped.reason}"
         return f"stopped at {self.stopped.at} after {self.stopped.files_done} of {self.files_seen} files: {self.stopped.reason}{skipped}"
@@ -110,12 +114,16 @@ def _index_project(conn, project_id, repo_path, embedder, store, progress) -> In
     unfinished = chunk_store.files_needing_embedding(conn, project_id, model, dim)
     flagged = set(chunk_store.failed_files(conn, project_id))   # a flagged file is always tried again, or its flag could never clear
     version = chunker_fingerprint()
-    skip_limit = max(3, 0.05 * len(files))
+    # A file that failed last time is a KNOWN problem: try it after everything else, so a few permanently bad files can never keep the healthy
+    # majority from being indexed. (On first contact nothing is flagged yet, so the first run can still stop early; the next one then completes.)
+    files.sort(key=lambda p: (p.relative_to(root).as_posix() in flagged, p.relative_to(root).as_posix()))
+    skip_limit = report.skip_limit = max(3, 0.05 * len(files))
     handled = 0
 
     for path in files:
         rel = path.relative_to(root).as_posix()
         file_hash = ""
+        skipped_before = len(report.skipped)
         try:
             file_hash = hashlib.sha1(path.read_bytes()).hexdigest()
             if states.get(rel) == (file_hash, version) and rel not in unfinished and rel not in flagged:
@@ -136,11 +144,17 @@ def _index_project(conn, project_id, repo_path, embedder, store, progress) -> In
                     report.stopped = Stopped(rel, _why(problem), handled, "embedder")
                     break
         handled += 1
+        if len(report.skipped) > skipped_before and rel not in flagged:
+            report.new_skips += 1      # only NEW failures say "something systematic is wrong": a known bad file is not new evidence
         if progress:
             progress(handled, len(files), rel)
-        if len(report.skipped) > skip_limit:
-            report.stopped = Stopped(rel, f"{len(report.skipped)} files skipped, more than the limit of {skip_limit:g}", handled, "too_many_skips")
-            break
+        if report.new_skips > skip_limit:
+            report.skip_limit_exceeded = True
+            if handled < len(files):   # on the very last file there is nothing left to save, so the run is complete (and does its cleanup)
+                report.stopped = Stopped(
+                    rel, f"{report.new_skips} files skipped (all new failures), more than the limit of {skip_limit:g}; run again to continue: "
+                         f"files that failed are tried last next time", handled, "too_many_skips")
+                break
 
     if report.stopped is None:   # only a COMPLETED run may delete vanished files and call a vector an orphan: after a stop, the next run decides
         on_disk = {p.relative_to(root).as_posix() for p in files}
