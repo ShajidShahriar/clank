@@ -131,3 +131,21 @@ def test_search_with_the_real_model_finds_the_right_file_and_respects_the_digest
     assert result.hits[0].chunk["rel_path"] == "net.py" and result.hidden_files == {}
     with pytest.raises(IndexOutOfDate, match="warmup"):
         search(conn, 1, OllamaEmbedder(), store, "anything", k=1)    # a fresh embedder that never warmed up has only the bare tag
+
+
+def test_a_real_context_text_leads_with_the_right_block_and_fits_its_budget(conn, tmp_path):
+    from indexing import index_project
+    from search import build_context
+    from vectorstore import InMemoryVectorStore
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "net.py").write_text("def fetch_with_retry(url, attempts=3):\n    for i in range(attempts):\n        try:\n            return http_get(url)\n"
+                                 "        except TimeoutError:\n            time.sleep(2 ** i)\n    raise RuntimeError('gave up')\n")
+    (repo / "shop.py").write_text("def order_total(items):\n    return sum(i.price * i.quantity for i in items)\n")
+    (repo / "text.py").write_text("def slugify(title):\n    return title.lower().replace(' ', '-')\n")
+    store, embedder = InMemoryVectorStore(), OllamaEmbedder()
+    index_project(conn, 1, repo, embedder, store)
+    ctx = build_context(conn, 1, repo, embedder, store, "how do we retry a failed network request?", k=3, max_tokens=120)
+    print("\n" + ctx.text)                                   # visible with -s: this is exactly what the LLM would be given
+    assert ctx.text.startswith("### net.py:1-7 · fetch_with_retry (function)\n```python\n")
+    assert ctx.tokens_used <= 120 and not ctx.over_budget and ctx.dropped
