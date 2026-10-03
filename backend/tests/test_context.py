@@ -246,3 +246,32 @@ def test_only_the_first_line_of_a_short_multi_line_reason_is_shown(conn, world):
     chunk_store.mark_file_failed(conn, 1, "gen.py", "EmbeddingTooLong: two chunks\nsecond line with detail", file_hash="h", chunker_version="v")
     note = ask(conn, world, "anything").text.split("could not be indexed", 1)[1]
     assert "gen.py" in note and "EmbeddingTooLong: two chunks" in note and "second line" not in note
+
+
+# ---- I-6 review finding #3: a grouped chunk is labelled by its members, not just "group" ----
+
+@pytest.mark.parametrize("kind,names,label", [
+    ("group", ["first", "second", "third"], "first, second, third"),
+    ("module_code", ["MAX_RETRIES", "TIMEOUT"], "MAX_RETRIES, TIMEOUT"),
+    ("group", [f"f{i}" for i in range(12)], "f0, f1, f2, f3, f4, f5, f6, f7, +4 more"),
+    ("group", [], "group"),
+    ("imports", [], "imports"),
+])
+def test_a_group_or_a_block_of_constants_is_labelled_by_the_names_it_contains(kind, names, label):
+    p = passage(symbol=None, kind=kind)
+    p.names = names
+    header, _, _ = parse_block(render_passage(p))
+    assert header == f"### shop.py:3-4 · {label} ({kind})"
+
+
+def test_a_real_group_chunk_shows_its_members_in_the_context(conn, tmp_path, monkeypatch):
+    from chunker import grouping
+    monkeypatch.setattr(grouping, "GROUP_SMALL_CHUNKS", True)
+    repo = tmp_path / "g"
+    repo.mkdir()
+    (repo / "auth.py").write_text("def login(u):\n    return 1\n\n\ndef logout(u):\n    return 2\n")
+    e, store = FakeEmbedder(), InMemoryVectorStore()
+    index_project(conn, 1, repo, e, store)
+    ctx = build_context(conn, 1, repo, e, store, "anything", k=3, max_tokens=5000)
+    header = ctx.text.split("\n")[0]
+    assert header == "### auth.py:1-6 · login, logout (group)"
