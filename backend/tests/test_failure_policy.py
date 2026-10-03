@@ -266,3 +266,73 @@ def test_failed_files_are_per_project(conn):
     conn.commit()
     chunk_store.mark_file_failed(conn, 1, "a.py", "r", file_hash="h", chunker_version="v")
     assert chunk_store.failed_files(conn, 2) == {}
+
+
+# ---- permanently bad files must not block the healthy ones forever (I-5 review, 2026-10-03) ----
+# A flagged file is tried again on every run (correct), but it used to count toward the skip limit every time, and it sorted among the
+# healthy files. A few permanently bad files early in the alphabet then stopped EVERY run before it reached the healthy majority.
+# Now: files that failed last time are tried LAST, and only NEW failures count toward the limit.
+
+def test_permanently_bad_files_stop_the_first_run_but_never_block_the_healthy_ones_again(conn, tmp_path):
+    root = make_repo(tmp_path, n=40, bad={0, 1, 2, 3})                            # four oversized files, sorted FIRST
+    first, e, store = run(conn, root)
+    # On first contact nothing is flagged yet, so these are 4 NEW failures (limit 3): the run stops, honestly, before any healthy file.
+    assert first.stopped and first.stopped.kind == "too_many_skips" and first.stopped.files_done == 4
+    assert set(chunk_store.failed_files(conn, 1)) == {f"f00{i}.py" for i in range(4)}
+    assert "run again" in first.stopped.reason
+
+    second, _, _ = run(conn, root, e, store)                                      # the four are known now: tried last, and not counted
+    assert second.stopped is None and second.new_skips == 0
+    assert len(second.skipped) == 4                                               # still reported, still flagged, still retried
+    assert len(chunk_store.file_hashes(conn, 1)) == 40 and len(chunk_store.all_ids(conn, 1)) == 36
+    assert_stores_agree(conn, store, e)
+
+    third, _, _ = run(conn, root, e, store)                                       # and it is stable: healthy files are skipped by the shortcut
+    assert third.stopped is None and third.files_unchanged == 36 and third.embedded == 0 and len(third.skipped) == 4
+
+
+def test_files_that_failed_last_time_are_tried_after_all_the_others(conn, tmp_path):
+    root = make_repo(tmp_path, n=10, bad={0, 1})
+    _, e, store = run(conn, root)
+    order = []
+    run(conn, root, e, store, progress=lambda done, total, rel: order.append(rel))
+    assert order[-2:] == ["f000.py", "f001.py"] and order[:-2] == sorted(order[:-2])
+
+
+def test_only_new_failures_count_toward_the_limit(conn, tmp_path):
+    root = make_repo(tmp_path, n=40, bad={0, 1, 2})                               # 3 failures: at the limit, not past it
+    first, e, store = run(conn, root)
+    assert first.stopped is None and first.new_skips == 3
+    for i in (10, 11, 12):
+        (root / f"f{i:03d}.py").write_text(BIG)                                   # 3 NEW failures on top of the 3 known ones
+    second, _, _ = run(conn, root, e, store)
+    assert len(second.skipped) == 6 and second.new_skips == 3 and second.stopped is None
+    for i in (20, 21, 22, 23):
+        (root / f"f{i:03d}.py").write_text(BIG)                                   # 4 new ones at once: past the limit
+    third, _, _ = run(conn, root, e, store)
+    assert third.new_skips == 4 and third.stopped and third.stopped.kind == "too_many_skips"
+
+
+def test_a_limit_tripped_on_the_very_last_file_still_finishes_the_run_and_does_the_cleanup(conn, tmp_path):
+    root = make_repo(tmp_path, n=9)
+    _, e, store = run(conn, root, FakeEmbedder(), InMemoryVectorStore())          # a clean first state
+    (root / "f000.py").unlink()                                                   # a vanished file, to be cleaned up
+    store.upsert(["stray"], [[1.0] * e.dim])                                      # an orphan vector, to be swept
+    for i in (5, 6, 7, 8):
+        (root / f"f{i:03d}.py").write_text(BIG)                                   # four new failures, the last four files
+    report, _, _ = run(conn, root, FakeEmbedder(max_chars=300), store)
+    assert report.new_skips == 4 and report.skip_limit_exceeded                   # the signal is kept ...
+    assert report.stopped is None                                                 # ... but nothing was left to skip, so the run is complete
+    assert "f000.py" not in chunk_store.file_hashes(conn, 1) and "stray" not in store.ids()
+    assert "more than the limit" in report.describe() and report.describe().startswith("done:")
+
+
+def test_a_limit_tripped_with_files_still_to_come_does_stop_and_skips_the_cleanup(conn, tmp_path):
+    root = make_repo(tmp_path, n=12)
+    _, e, store = run(conn, root, FakeEmbedder(), InMemoryVectorStore())
+    (root / "f011.py").unlink()
+    for i in (1, 2, 3, 4):
+        (root / f"f{i:03d}.py").write_text(BIG)
+    report, _, _ = run(conn, root, FakeEmbedder(max_chars=300), store)
+    assert report.stopped and report.stopped.kind == "too_many_skips" and report.stopped.files_done < report.files_seen
+    assert "f011.py" in chunk_store.file_hashes(conn, 1)                          # not cleaned up: the next complete run does that
