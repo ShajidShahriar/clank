@@ -193,6 +193,12 @@ def files_needing_embedding(conn, project_id, model, dim):
     return {r["rel_path"] for r in rows}
 
 
+def file_hash(conn, project_id, rel_path):
+    """The hash of the file as it was indexed, or None if the file is unknown."""
+    row = _query(conn, "SELECT hash FROM files WHERE project_id = ? AND rel_path = ?", (project_id, rel_path)).fetchone()
+    return row["hash"] if row else None
+
+
 def chunks_for_file(conn, project_id, rel_path):
     """The stored rows of one file, in line order."""
     rows = _query(conn, "SELECT * FROM chunks WHERE project_id = ? AND rel_path = ? ORDER BY start_line, COALESCE(part, 0), id",
