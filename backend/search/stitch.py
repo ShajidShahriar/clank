@@ -17,7 +17,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import chunk_store
-from chunker.core import decode_text
+from chunker.core import decode_text, estimate_tokens
+
+from .budget import PASSAGE_OVERHEAD_TOKENS
 
 
 @dataclass
@@ -34,19 +36,31 @@ class Passage:
     source: str               # "index": built from stored rows, "file": the lines were read from the live file by pointer
     complete: bool            # False: some of it is missing and the text says where
     missing: list = field(default_factory=list)   # part numbers (0-based) that were not stored
+    stale: bool = False       # the file changed (or could not be read) since it was indexed: its line numbers and code may be out of date
+    names: list = field(default_factory=list)     # the symbols the chunk contains (a group lists all its members)
+    narrowed: bool = False    # the chunk was too long for the ceiling: only the parts around the hits are shown (see _narrow)
+    full_range: tuple | None = None               # (first line, last line) of the whole chunk, when narrowed
+    shown_parts: list = field(default_factory=list)   # which parts (0-based) are shown, when narrowed
+    shown_ranges: list = field(default_factory=list)  # the exact (first, last) lines of each run of shown parts, when narrowed (a gap is NOT shown)
+    part_count: int | None = None                 # how many parts the whole chunk has, when narrowed
 
 
-def expand(conn, project_id, repo_path, hits) -> list[Passage]:
-    """One passage per chunk, in the rank order of its best hit. Several hits on parts of one chunk become one passage."""
+def expand(conn, project_id, repo_path, hits, ceiling_tokens=None, narrow_to_tokens=None) -> list[Passage]:
+    """One passage per chunk, in the rank order of its best hit. Several hits on parts of one chunk become one passage.
+
+    `ceiling_tokens` (None = no limit): a stitched chunk bigger than this is NARROWED to the parts that were hit plus their neighbours, aiming for
+    `narrow_to_tokens` (default: the ceiling itself). The best hit part is always kept."""
     groups: dict = {}
     for hit in hits:
         row = hit.chunk
         key = ("whole", row["id"]) if row["part"] is None else ("split", row["rel_path"], row["kind"], row["parent"], row["symbol"], row["ordinal"])
-        if key in groups:
-            groups[key][1] = max(groups[key][1], hit.score)
-        else:
-            groups[key] = [row, hit.score]
-    return [_whole(row, score) if row["part"] is None else _split(conn, project_id, repo_path, row, score) for row, score in groups.values()]
+        if key not in groups:
+            groups[key] = [row, hit.score, {}]
+        groups[key][1] = max(groups[key][1], hit.score)
+        if row["part"] is not None:
+            groups[key][2][row["part"]] = max(groups[key][2].get(row["part"], hit.score), hit.score)   # which parts were hit, and how well
+    return [_whole(row, score) if row["part"] is None else _split(conn, project_id, repo_path, row, score, hit_parts, ceiling_tokens, narrow_to_tokens)
+            for row, score, hit_parts in groups.values()]
 
 
 def read_live_lines(repo_path, rel_path, start, end):
@@ -66,10 +80,10 @@ def read_live_lines(repo_path, rel_path, start, end):
 
 def _whole(row, score) -> Passage:
     return Passage([row["id"]], row["rel_path"], row["symbol"], row["parent"], row["kind"], row["start_line"], row["end_line"],
-                   row["text"], score, "index", True, [])
+                   row["text"], score, "index", True, [], names=list(row["names"]))
 
 
-def _split(conn, project_id, repo_path, row, score) -> Passage:
+def _split(conn, project_id, repo_path, row, score, hit_parts=None, ceiling_tokens=None, narrow_to_tokens=None) -> Passage:
     present = chunk_store.get_siblings(conn, project_id, row["id"]) or [row]
     present = sorted(present, key=lambda p: p["part"])
     count = present[0]["part_count"]
@@ -78,8 +92,10 @@ def _split(conn, project_id, repo_path, row, score) -> Passage:
     first, last = present[0], present[-1]
 
     def passage(text, start, end, source, complete):
-        return Passage([p["id"] for p in present], first["rel_path"], first["symbol"], first["parent"], first["kind"],
-                       start, end, text, score, source, complete, missing)
+        built = Passage([p["id"] for p in present], first["rel_path"], first["symbol"], first["parent"], first["kind"],
+                        start, end, text, score, source, complete, missing, names=list(first["names"]))
+        too_long = ceiling_tokens is not None and estimate_tokens(text) + PASSAGE_OVERHEAD_TOKENS > ceiling_tokens
+        return _narrow(built, present, hit_parts or {}, count, narrow_to_tokens or ceiling_tokens) if too_long else built
 
     if not missing:
         text = _stitch_rows(present)
@@ -170,3 +186,57 @@ def _file_is_unchanged(conn, project_id, repo_path, rel_path) -> bool:
         return hashlib.sha1(target.read_bytes()).hexdigest() == stored
     except OSError:
         return False
+
+
+def _narrow(whole: Passage, present, hit_scores, count, ceiling) -> Passage:
+    """A chunk longer than the ceiling: show only the parts that were hit (best first, as many as fit), then their immediate neighbours while there
+    is room, with a marker for every gap. What is shown is verbatim; what is not shown is named by its line range, so it can be read from the file."""
+    by_part = {p["part"]: p for p in present}
+
+    def cost(n):
+        return estimate_tokens(by_part[n]["text"]) + 1
+
+    wanted = sorted((n for n in hit_scores if n in by_part), key=lambda n: -hit_scores[n]) or [present[len(present) // 2]["part"]]
+    chosen, used = [], PASSAGE_OVERHEAD_TOKENS
+    for n in wanted:
+        if chosen and used + cost(n) > ceiling:
+            break                                          # the best hit always comes first; later hits only if they fit
+        chosen.append(n)
+        used += cost(n)
+    for n in list(chosen):                                 # neighbours of what is shown, while there is room
+        for m in (n - 1, n + 1):
+            if m in by_part and m not in chosen and used + cost(m) <= ceiling:
+                chosen.append(m)
+                used += cost(m)
+    chosen.sort()
+
+    synthetic = any(p["synthetic"] for p in present)       # overview parts all point at the whole class: gaps are named by part, not by line
+    runs, current = [], []
+    for n in chosen:
+        if current and n == current[-1] + 1:
+            current.append(n)
+        else:
+            current = [n]
+            runs.append(current)
+    first_line, last_line = min(p["start_line"] for p in present), max(p["end_line"] for p in present)
+
+    def gap(from_part, to_part, from_line, to_line):
+        return f"[... parts {from_part + 1}-{to_part + 1} not shown ...]" if synthetic else f"[... lines {from_line}-{to_line} not shown ...]"
+
+    blocks = []
+    for index, run in enumerate(runs):
+        rows = [by_part[n] for n in run]
+        previous_end = by_part[runs[index - 1][-1]]["end_line"] if index else None
+        if index == 0 and run[0] != 0 and by_part.get(0) is not None:
+            blocks.append(gap(0, run[0] - 1, first_line, rows[0]["start_line"] - 1))
+        elif index:
+            blocks.append(gap(runs[index - 1][-1] + 1, run[0] - 1, previous_end + 1, rows[0]["start_line"] - 1))
+        blocks.append((_join_lines(rows) if not synthetic else None) or "\n".join(r["text"] for r in rows))
+    if runs[-1][-1] != count - 1 and by_part.get(count - 1) is not None:
+        blocks.append(gap(runs[-1][-1] + 1, count - 1, by_part[runs[-1][-1]]["end_line"] + 1, last_line))
+    shown_rows = [by_part[n] for n in chosen]
+    ranges = [(first_line, last_line)] if synthetic else [(by_part[run[0]]["start_line"], by_part[run[-1]]["end_line"]) for run in runs]
+    return Passage([r["id"] for r in shown_rows], whole.rel_path, whole.symbol, whole.parent, whole.kind,
+                   shown_rows[0]["start_line"] if not synthetic else first_line, shown_rows[-1]["end_line"] if not synthetic else last_line,
+                   "\n".join(blocks), whole.score, "index", False, whole.missing, names=whole.names,
+                   narrowed=True, full_range=(first_line, last_line), shown_parts=chosen, shown_ranges=ranges, part_count=count)

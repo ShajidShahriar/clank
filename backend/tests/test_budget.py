@@ -113,15 +113,27 @@ def own_text(conn, rel, part=None, symbol=None):
 
 
 def test_the_budget_counts_the_expanded_passage_not_the_hit(conn, world):
+    from search.budget import NOTES_ALLOWANCE_TOKENS
     repo, e, store = world
     middle = own_text(conn, "stmts.py", part=1)                               # a hit on ONE part (about 600 chars)
     whole = estimate_tokens(STATEMENTS.rstrip("\n")) + PASSAGE_OVERHEAD_TOKENS
     one_part = estimate_tokens(next(r["text"] for r in chunk_store.chunks_for_file(conn, 1, "stmts.py") if r["part"] == 1)) + PASSAGE_OVERHEAD_TOKENS
-    assert one_part < whole
-    result = retrieve(conn, 1, repo, e, store, middle, k=1, max_tokens=one_part + 10)   # room for the part, not for the whole function
+    # In the band where the whole function is bigger than the budget but not bigger than the ceiling (2x the budget less the notes allowance),
+    # it is returned whole, judged by its real size. Room for the part, not for the whole function:
+    budget = (whole + NOTES_ALLOWANCE_TOKENS) // 2 + 1
+    assert one_part < budget < whole
+    result = retrieve(conn, 1, repo, e, store, middle, k=1, max_tokens=budget)
     (top,) = result.passages
-    assert len(top.chunk_ids) == 3 and top.text.startswith("def big():")      # the WHOLE function was expanded, and then judged by its real size
-    assert result.over_budget and result.tokens_used == whole
+    assert len(top.chunk_ids) == 3 and top.text.startswith("def big():") and not top.narrowed   # the WHOLE function was expanded
+    assert result.over_budget and result.tokens_used == whole                                     # and then judged by its real size
+
+
+def test_a_function_bigger_than_twice_the_budget_is_narrowed_instead_of_returned_whole(conn, world):
+    repo, e, store = world
+    middle = own_text(conn, "stmts.py", part=1)
+    result = retrieve(conn, 1, repo, e, store, middle, k=1, max_tokens=150)                       # the whole function is far over the ceiling
+    (top,) = result.passages
+    assert top.narrowed and 1 in top.shown_parts and len(top.chunk_ids) < 3
 
 
 def test_two_hits_on_one_function_cost_one_passage_not_two(conn, world):
@@ -139,7 +151,7 @@ def test_lower_ranked_passages_are_dropped_first_and_reported(conn, world):
     assert everything.dropped == [] and everything.passages[0].rel_path == "small.py"
     tight = retrieve(conn, 1, repo, e, store, question, k=10, max_tokens=cost(everything.passages[0]) + 1)               # room for the best one only
     assert tight.passages == everything.passages[:len(tight.passages)]        # a prefix of the same ranking
-    assert tight.passages + tight.dropped == everything.passages and tight.dropped
+    assert [p.rel_path for p in tight.passages + tight.dropped] == [p.rel_path for p in everything.passages] and tight.dropped   # the same ranking
 
 
 def test_a_flagged_file_is_hidden_and_its_reason_reaches_the_answer_layer(conn, world):

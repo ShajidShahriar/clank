@@ -18,6 +18,22 @@ from chunker.core import estimate_tokens
 # counts the real formatted block; this is the default until then.
 PASSAGE_OVERHEAD_TOKENS = 24
 
+# "The best passage is never dropped" needs a ceiling, or one huge function could overflow the LLM's window. No passage is bigger than
+# 2x the budget, less this allowance for the notes that go with it; a bigger one is narrowed (see stitch.py). One chunk is at most 800 tokens, so
+# a single part always fits unless the budget itself is tiny (then that one part is returned, flagged over_budget).
+NOTES_ALLOWANCE_TOKENS = 250
+
+
+def ceiling_tokens(max_tokens: int) -> int:
+    """A passage bigger than this is narrowed."""
+    return max(1, 2 * max_tokens - NOTES_ALLOWANCE_TOKENS)
+
+
+def narrow_target_tokens(max_tokens: int) -> int:
+    """What a narrowed passage aims for: back inside the budget (the ceiling only decides WHEN to narrow). The best hit part is always kept, even if
+    that one part alone is bigger than this."""
+    return max(1, max_tokens - NOTES_ALLOWANCE_TOKENS)
+
 
 @dataclass
 class BudgetResult:
