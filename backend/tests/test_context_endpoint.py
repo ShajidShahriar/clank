@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from embedding.errors import OllamaUnavailable
 from hand_made import MODEL, Question2D, make_world
 from jobs import IndexJobs
-from main import create_app
+from app_for_tests import create_app
 from services import Services
 import routes_context
 

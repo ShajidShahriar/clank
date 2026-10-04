@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 import db
 from embedding import FakeEmbedder
 from embedding.errors import OllamaUnavailable
-from main import create_app
+from app_for_tests import create_app
 from services import Services, get_conn, get_ready_embedder, get_services
 from vectorstore import InMemoryVectorStore
 

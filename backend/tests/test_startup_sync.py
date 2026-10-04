@@ -19,7 +19,7 @@ from embedding import FakeEmbedder
 from embedding.errors import OllamaUnavailable
 from indexing import index_project
 from jobs import IndexJobs
-from main import create_app
+from app_for_tests import create_app
 from services import Services
 from vectorstore import InMemoryVectorStore
 

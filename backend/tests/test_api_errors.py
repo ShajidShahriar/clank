@@ -16,7 +16,7 @@ import db
 from embedding import FakeEmbedder
 from embedding.errors import BadResponse, EmbeddingTooLong, ModelNotFound, OllamaUnavailable
 from indexing import IndexAlreadyRunning
-from main import create_app
+from app_for_tests import create_app
 from search import IndexOutOfDate, NotIndexed, search
 from services import Services, get_ready_embedder
 from vectorstore import InMemoryVectorStore
