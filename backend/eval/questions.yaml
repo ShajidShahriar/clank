@@ -1,0 +1,182 @@
+# Clank eval set (DRAFT, not yet approved).
+# Pinned clones: results are only comparable at these commits.
+repos:
+  clank:   {path: ".",                rev: 89d9d357ba437744bc86464df3599b95bff69959}   # ~/Developer/clank at main
+  flask:   {path: "<clone>/flask",    rev: d73fa1cdcbd8b1465c151db8924ba58b1dd14e35}
+  express: {path: "<clone>/express",  rev: 7ef98448f8b38099ab1ded55e458538ad47a51e7}
+# `expect` is ANY-OF: a hit on any listed entry counts. `symbol: null` means the path alone must match
+# (the chunker gives no symbol there: Express test files and the Express request getters are plain module_code).
+# A symbol matches if it equals the chunk's symbol, is in a group's `names`, or the chunk is a part of that symbol.
+# Negatives have `expect: []`: nothing in the repo answers them. They are not in the hit rate; they feed the relevance floor.
+# split: every third question (q03, q06, ...) is holdout. Look at holdout once, at the very end.
+
+questions:
+  # ---- round 1: concept (no identifier words)
+  - id: q01
+    repo: clank
+    kind: concept
+    split: tune
+    question: "how do we avoid showing the model code from a file that was edited after we indexed it?"
+    expect: [{path: backend/search/fresh.py, symbol: check_freshness}]
+  - id: q02
+    repo: flask
+    kind: concept
+    split: tune
+    question: "where do we decide which function handles an exception raised while serving a request?"
+    expect:
+      - {path: src/flask/sansio/app.py, symbol: _find_error_handler}
+      - {path: src/flask/app.py, symbol: handle_user_exception}
+  - id: q03
+    repo: express
+    kind: concept
+    split: holdout
+    question: "how does the app work out the visitor's real address when it sits behind a proxy?"
+    expect:
+      - {path: lib/utils.js, symbol: exports.compileTrust}
+      - {path: lib/request.js, symbol: null}
+
+  # ---- round 2: concept
+  - id: q04
+    repo: flask
+    kind: concept
+    split: tune
+    question: "what happens if a function that runs before every request returns a value?"
+    expect: [{path: src/flask/app.py, symbol: preprocess_request}]
+  - id: q05
+    repo: express
+    kind: concept
+    split: tune
+    question: "how is the template file found on disk when a page is rendered?"
+    expect: [{path: lib/view.js, symbol: View.prototype.lookup}]
+  - id: q06
+    repo: clank
+    kind: concept
+    split: holdout
+    question: "what stops two indexing runs from working on the same project at the same time?"
+    expect: [{path: backend/indexing/lock.py, symbol: project_lock}]
+
+  # ---- round 3: exact name
+  - id: q07
+    repo: express
+    kind: name
+    split: tune
+    question: "what does res.redirect do with the url and the status code?"
+    expect: [{path: lib/response.js, symbol: res.redirect}]
+  - id: q08
+    repo: clank
+    kind: name
+    split: tune
+    question: "what does plan_sync decide?"
+    expect: [{path: backend/indexing/sync.py, symbol: plan_sync}]
+  - id: q09
+    repo: flask
+    kind: name
+    split: holdout
+    question: "how does from_prefixed_env load settings?"
+    expect: [{path: src/flask/config.py, symbol: from_prefixed_env}]
+
+  # ---- round 4: exact name
+  - id: q10
+    repo: clank
+    kind: name
+    split: tune
+    question: "where is ceiling_tokens defined and what is the formula?"
+    expect: [{path: backend/search/budget.py, symbol: ceiling_tokens}]   # lives in a group chunk: matched by names
+  - id: q11
+    repo: flask
+    kind: name
+    split: tune
+    question: "how does make_response turn a view's return value into a response?"
+    expect: [{path: src/flask/app.py, symbol: make_response}]           # 3 parts; helpers.py has a different make_response, so no entry for it
+  - id: q12
+    repo: express
+    kind: name
+    split: holdout
+    question: "how does app.param register a callback for a route parameter?"
+    expect: [{path: lib/application.js, symbol: app.param}]             # group chunk with app.engine: matched by names
+
+  # ---- round 5: behavior
+  - id: q13
+    repo: flask
+    kind: behavior
+    split: tune
+    question: "what happens when an exception has no error handler registered?"
+    expect: [{path: src/flask/app.py, symbol: handle_exception}]
+  - id: q14
+    repo: express
+    kind: behavior
+    split: tune
+    question: "how does sending a response body set the ETag and answer a conditional request?"
+    expect: [{path: lib/response.js, symbol: res.send}]
+  - id: q15
+    repo: clank
+    kind: behavior
+    split: holdout
+    question: "what happens to a file when one of its chunks is too long for the embedding model?"
+    expect: [{path: backend/indexing/index.py, symbol: _skip}]
+
+  # ---- round 6: where is X tested
+  - id: q16
+    repo: express
+    kind: tests
+    split: tune
+    question: "where is it tested that a cookie can be given an expiry date?"
+    expect: [{path: test/res.cookie.js, symbol: null}]
+  - id: q17
+    repo: clank
+    kind: tests
+    split: tune
+    question: "where is it tested that an edited file is marked as stale in the results?"
+    expect: [{path: backend/tests/test_fresh.py, symbol: test_a_file_edited_after_indexing_is_marked_stale_and_the_note_names_it}]
+  - id: q18
+    repo: flask
+    kind: tests
+    split: holdout
+    question: "where is it tested that an error handler for a parent class also catches a subclass?"
+    expect: [{path: tests/test_user_error_handler.py, symbol: test_error_handler_subclass}]
+
+  # ---- docs (Flask only: its docs are .rst, which we do not index yet. Both will probably miss; that is the 7.12 gate.)
+  - id: q19
+    repo: flask
+    kind: docs
+    split: tune
+    question: "how do I register error handlers that only apply to one blueprint?"
+    expect: [{path: docs/errorhandling.rst, symbol: null}]
+  - id: q20
+    repo: flask
+    kind: docs
+    split: tune
+    question: "what are the steps Flask goes through to handle one request, in order?"
+    expect: [{path: docs/lifecycle.rst, symbol: null}]
+
+  # ---- negatives: grep confirmed these words do not occur in the repo's code
+  - id: q21
+    repo: clank
+    kind: negative
+    split: holdout
+    question: "how do we charge users for a subscription?"
+    expect: []
+  - id: q22
+    repo: clank
+    kind: negative
+    split: tune
+    question: "where is login with a Google account handled?"
+    expect: []
+  - id: q23
+    repo: flask
+    kind: negative
+    split: tune
+    question: "where is the GraphQL schema defined?"
+    expect: []
+  - id: q24
+    repo: express
+    kind: negative
+    split: holdout
+    question: "where is the WebSocket upgrade handled?"
+    expect: []
+  - id: q25
+    repo: express
+    kind: negative
+    split: tune
+    question: "how does the app talk to a MongoDB database?"
+    expect: []
