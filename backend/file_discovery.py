@@ -22,7 +22,7 @@ import pathspec
 #           (.git, node_modules, venv, dist, build, etc.) -> skip it
 #       if the gitignore matcher says this path is ignored -> skip it
 #       if its extension is not one we care about
-#           (.py, .js, .md, .json, etc.)                   -> skip it
+#           (.py, .js, .md, .rst, .json, etc.)                   -> skip it
 #
 #       otherwise -> keep it, add to matched_files
 #
@@ -38,7 +38,7 @@ SOURCE_EXTENSIONS = {
     ".py", ".js", ".ts", ".tsx", ".jsx",
     ".java", ".c", ".cpp", ".h", ".hpp",
     ".go", ".rs", ".rb", ".php",
-    ".md", ".json", ".yaml", ".yml",
+    ".md", ".rst", ".json", ".yaml", ".yml",
 }
 
 # Hardcoded ignores — things we never want indexed regardless of .gitignore

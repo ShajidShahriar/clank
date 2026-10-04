@@ -7,6 +7,7 @@
 #   .md / .markdown   -> chunk_markdown: one "doc_section" per heading (symbol "README > Setup"),
 #                        text before the first heading is "doc_intro"; fenced code is never a heading
 #   .json/.yaml/.yml  -> chunk_plain_text: kind "config", plain line windows (discovery skips big ones)
+#   .rst              -> chunk_plain_text: kind "doc_text", plain line windows (a heading-aware chunker was built and not adopted: devlog 80, 81)
 #   .py / .js / .jsx  -> the code path below (languages.py supplies, per language: the tree-sitter
 #                        grammar, classify_node, is_import, defined_names)
 #   anything else     -> []   (no chunker yet, e.g. .ts)
@@ -64,7 +65,7 @@ from languages import LANGUAGE_CONFIGS
 from .code import chunk_code
 from .core import MAX_CHUNK_TOKENS, estimate_tokens, make_chunk
 from .grouping import MIN_MERGE_TOKENS
-from .markdown import CONFIG_EXTENSIONS, MARKDOWN_EXTENSIONS, chunk_markdown, chunk_plain_text
+from .markdown import CONFIG_EXTENSIONS, MARKDOWN_EXTENSIONS, RST_EXTENSIONS, chunk_markdown, chunk_plain_text
 
 __all__ = ["chunk_file", "make_chunk", "estimate_tokens", "MAX_CHUNK_TOKENS", "MIN_MERGE_TOKENS"]
 
@@ -72,7 +73,7 @@ __all__ = ["chunk_file", "make_chunk", "estimate_tokens", "MAX_CHUNK_TOKENS", "M
 def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
     ext = file_path[file_path.rfind("."):]
     config = LANGUAGE_CONFIGS.get(ext)
-    if not config and ext not in MARKDOWN_EXTENSIONS | CONFIG_EXTENSIONS:
+    if not config and ext not in MARKDOWN_EXTENSIONS | CONFIG_EXTENSIONS | RST_EXTENSIONS:
         return []
 
     rel_path = os.path.relpath(file_path, repo_root).replace(os.sep, "/") if repo_root else os.path.basename(file_path)
@@ -85,5 +86,7 @@ def chunk_file(file_path: str, repo_root: str | None = None) -> list[dict]:
         return chunk_markdown(file_path, rel_path, source_code)
     if ext in CONFIG_EXTENSIONS:
         return chunk_plain_text(file_path, rel_path, source_code, "config")
+    if ext in RST_EXTENSIONS:
+        return chunk_plain_text(file_path, rel_path, source_code, "doc_text")
 
     return chunk_code(file_path, rel_path, source_code, config)

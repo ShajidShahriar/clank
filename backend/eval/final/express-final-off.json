@@ -1,0 +1,1400 @@
+{
+  "meta": {
+    "repo": "express",
+    "repo_path": "/private/tmp/claude-501/-Users-shajidshahriar-Developer-clank/051bc935-1178-4d68-97d0-6ae396d57dba/scratchpad/express",
+    "rev_pinned": "7ef98448f8b38099ab1ded55e458538ad47a51e7",
+    "rev_actual": "7ef98448f8b38099ab1ded55e458538ad47a51e7",
+    "rev_matches": true,
+    "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+    "dim": 1024,
+    "chunker_fingerprint": "40b710781f70ea61",
+    "chunk_cap_tokens": 800,
+    "k": 10,
+    "max_tokens": 6000,
+    "query_variant": null,
+    "keep": null,
+    "final": true,
+    "test_policy": null,
+    "questions_sha": "75afc16662977930",
+    "created_at": "2026-10-04T22:15:47",
+    "config": {
+      "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+      "dim": 1024,
+      "chunker_fingerprint": "40b710781f70ea61",
+      "chunk_cap_tokens": 800,
+      "query_variant": "instruct",
+      "test_policy": null,
+      "lexical_search": false,
+      "docs_rst": "plain line windows (doc_text)",
+      "cutoff": null,
+      "k": 10,
+      "max_tokens": 6000
+    },
+    "code_rev": "4f2c42e5206c01b0646195eca1a34ce88ec13707",
+    "code_dirty": true
+  },
+  "questions": [
+    {
+      "id": "q03",
+      "kind": "concept",
+      "split": "holdout",
+      "question": "how does the app work out the visitor's real address when it sits behind a proxy?",
+      "expect": [
+        {
+          "path": "lib/utils.js",
+          "symbol": "exports.compileTrust"
+        },
+        {
+          "path": "lib/request.js",
+          "symbol": null
+        }
+      ],
+      "top10": [
+        {
+          "id": "9f01f76f9fff88af",
+          "score": 0.5684599280357361,
+          "path": "test/req.ip.js",
+          "symbol": "getExpectedClientAddress",
+          "parent": null,
+          "names": [
+            "getExpectedClientAddress"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "fea7bd1122ffff67",
+          "score": 0.5343759059906006,
+          "path": "test/req.ip.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "44648e75d81b8b10",
+          "score": 0.5153268575668335,
+          "path": "test/req.ip.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "4e38597bfd6e00c2",
+          "score": 0.5022852420806885,
+          "path": "test/req.ips.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e64b6fe3821d6a86",
+          "score": 0.4996185302734375,
+          "path": "test/req.ip.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "c059b8e426a58627",
+          "score": 0.48324692249298096,
+          "path": "lib/request.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "0a9788a9fe3b4397",
+          "score": 0.4786972403526306,
+          "path": "test/req.hostname.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "2a6b49a65017a9ca",
+          "score": 0.4766024351119995,
+          "path": "History.md",
+          "symbol": "4.9.3 / 2014-09-18",
+          "parent": null,
+          "names": [
+            "4.9.3 / 2014-09-18"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "fc729a797654b440",
+          "score": 0.46580296754837036,
+          "path": "History.md",
+          "symbol": "3.17.3 / 2014-09-18",
+          "parent": null,
+          "names": [
+            "3.17.3 / 2014-09-18"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "fc6232df2d479fcc",
+          "score": 0.4594290256500244,
+          "path": "examples/vhost/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 6,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 5004,
+      "over_budget": false,
+      "passages": 8,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 58.032,
+        "vector_query": 1.579,
+        "sqlite": 8.247,
+        "expand": 1.002,
+        "fresh": 0.638,
+        "build": 0.254,
+        "total": 69.751
+      }
+    },
+    {
+      "id": "q05",
+      "kind": "concept",
+      "split": "tune",
+      "question": "how is the template file found on disk when a page is rendered?",
+      "expect": [
+        {
+          "path": "lib/view.js",
+          "symbol": "View.prototype.lookup"
+        }
+      ],
+      "top10": [
+        {
+          "id": "63738ed5dd887b61",
+          "score": 0.5948479175567627,
+          "path": "test/support/tmpl.js",
+          "symbol": "module.exports",
+          "parent": null,
+          "names": [
+            "module.exports"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "6bf97ab3a03b6151",
+          "score": 0.5573052763938904,
+          "path": "test/app.engine.js",
+          "symbol": "render",
+          "parent": null,
+          "names": [
+            "render"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "40287d81aea2c33e",
+          "score": 0.5336580276489258,
+          "path": "examples/view-constructor/github-view.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "extname",
+            "module.exports",
+            "GithubView"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "f4fc9be1a755d2f5",
+          "score": 0.5213946104049683,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ab6a78f224f344dc",
+          "score": 0.516040563583374,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "1c2b325e9501e23d",
+          "score": 0.5135963559150696,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "assert",
+            "express",
+            "path",
+            "tmpl"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "633bd2c38102f2a4",
+          "score": 0.5104950666427612,
+          "path": "History.md",
+          "symbol": "2.5.5 / 2012-01-08",
+          "parent": null,
+          "names": [
+            "2.5.5 / 2012-01-08"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "b1e21f2f53784525",
+          "score": 0.5034503936767578,
+          "path": "test/res.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "path",
+            "request",
+            "tmpl"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f571545ae439145b",
+          "score": 0.4975707530975342,
+          "path": "test/res.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "3f50c2fa2eb97967",
+          "score": 0.4956645965576172,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 4319,
+      "over_budget": false,
+      "passages": 7,
+      "dropped": 1,
+      "dropped_paths": [
+        "test/res.render.js"
+      ],
+      "timings_ms": {
+        "embed_query": 33.236,
+        "vector_query": 1.602,
+        "sqlite": 0.656,
+        "expand": 0.476,
+        "fresh": 0.766,
+        "build": 0.261,
+        "total": 36.997
+      }
+    },
+    {
+      "id": "q07",
+      "kind": "name",
+      "split": "tune",
+      "question": "what does res.redirect do with the url and the status code?",
+      "expect": [
+        {
+          "path": "lib/response.js",
+          "symbol": "res.redirect"
+        }
+      ],
+      "top10": [
+        {
+          "id": "bb3737c46fc96f30",
+          "score": 0.8538728952407837,
+          "path": "lib/response.js",
+          "symbol": "res.redirect",
+          "parent": null,
+          "names": [
+            "res.redirect"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "5dd361d38d992114",
+          "score": 0.7840116024017334,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "14734caddd7145c8",
+          "score": 0.780495822429657,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "953c6144bbc93d6a",
+          "score": 0.7654205560684204,
+          "path": "lib/response.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "res.location"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "1a4e7fb2af3793fb",
+          "score": 0.7040704488754272,
+          "path": "examples/mvc/controllers/main/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "exports.index"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6611863f1feb8d64",
+          "score": 0.7005581259727478,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "2a738803234b50bb",
+          "score": 0.6979605555534363,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "da39ad86e383971c",
+          "score": 0.6817743182182312,
+          "path": "History.md",
+          "symbol": "4.9.8 / 2014-10-17",
+          "parent": null,
+          "names": [
+            "4.9.8 / 2014-10-17"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "2ae5d54dc48ec8e8",
+          "score": 0.674932599067688,
+          "path": "History.md",
+          "symbol": "3.0.0beta1 / 2012-06-01",
+          "parent": null,
+          "names": [
+            "3.0.0beta1 / 2012-06-01"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "922a5ddfb78aebe4",
+          "score": 0.6721861362457275,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "request",
+            "utils"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2992,
+      "over_budget": false,
+      "passages": 8,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 31.319,
+        "vector_query": 2.142,
+        "sqlite": 0.804,
+        "expand": 0.297,
+        "fresh": 0.655,
+        "build": 0.176,
+        "total": 35.393
+      }
+    },
+    {
+      "id": "q12",
+      "kind": "name",
+      "split": "holdout",
+      "question": "how does app.param register a callback for a route parameter?",
+      "expect": [
+        {
+          "path": "lib/application.js",
+          "symbol": "app.param"
+        }
+      ],
+      "top10": [
+        {
+          "id": "11ef1f9a7ce06c1e",
+          "score": 0.7031717300415039,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "cad94d6f801743ca",
+          "score": 0.7022976279258728,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "14aa19b9ebe59a38",
+          "score": 0.700498104095459,
+          "path": "History.md",
+          "symbol": "4.3.2 / 2014-05-28",
+          "parent": null,
+          "names": [
+            "4.3.2 / 2014-05-28"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "2f3caf5b170e4e4a",
+          "score": 0.6741990447044373,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "084428a24557128b",
+          "score": 0.664388120174408,
+          "path": "History.md",
+          "symbol": "2.3.7 / 2011-05-23",
+          "parent": null,
+          "names": [
+            "2.3.7 / 2011-05-23"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "122b2517f538915f",
+          "score": 0.6620117425918579,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 3,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "5c6063bdfd191ef6",
+          "score": 0.6369367241859436,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "c159e9529a9f9ed0",
+          "score": 0.6259015798568726,
+          "path": "test/Router.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "Router",
+            "methods",
+            "assert"
+          ],
+          "kind": "module_code",
+          "part": 6,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "da2e6436913d6f19",
+          "score": 0.615220308303833,
+          "path": "History.md",
+          "symbol": "2.4.5 / 2011-08-19",
+          "parent": null,
+          "names": [
+            "2.4.5 / 2011-08-19"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "86c933ac208e8d5e",
+          "score": 0.604632556438446,
+          "path": "lib/application.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "app.engine",
+            "app.param"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 10,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2765,
+      "over_budget": false,
+      "passages": 4,
+      "dropped": 3,
+      "dropped_paths": [
+        "test/Router.js",
+        "History.md",
+        "lib/application.js"
+      ],
+      "timings_ms": {
+        "embed_query": 28.729,
+        "vector_query": 2.17,
+        "sqlite": 0.874,
+        "expand": 0.715,
+        "fresh": 0.675,
+        "build": 0.388,
+        "total": 33.551
+      }
+    },
+    {
+      "id": "q14",
+      "kind": "behavior",
+      "split": "tune",
+      "question": "how does sending a response body set the ETag and answer a conditional request?",
+      "expect": [
+        {
+          "path": "lib/response.js",
+          "symbol": "res.send"
+        }
+      ],
+      "top10": [
+        {
+          "id": "5aced7e4568a0862",
+          "score": 0.728401780128479,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 4,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "5337ca5c1f826889",
+          "score": 0.7032516598701477,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 5,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "65c75917777127d9",
+          "score": 0.701194167137146,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 6,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "9a8bb2d0e979a199",
+          "score": 0.6715040802955627,
+          "path": "History.md",
+          "symbol": "3.9.0 / 2014-05-30",
+          "parent": null,
+          "names": [
+            "3.9.0 / 2014-05-30"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "a077b4fe1faf9fb9",
+          "score": 0.6712238192558289,
+          "path": "History.md",
+          "symbol": "4.4.0 / 2014-05-30",
+          "parent": null,
+          "names": [
+            "4.4.0 / 2014-05-30"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "4858c7ea3ec83b37",
+          "score": 0.6411187052726746,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e37d404b75d503fa",
+          "score": 0.6359546184539795,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 3,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "819b85033eff0d00",
+          "score": 0.6310775876045227,
+          "path": "test/req.fresh.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "a530e68f255644c2",
+          "score": 0.6285306215286255,
+          "path": "History.md",
+          "symbol": "4.16.2 / 2017-10-09",
+          "parent": null,
+          "names": [
+            "4.16.2 / 2017-10-09"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "fec996723ee4b3e9",
+          "score": 0.6174045205116272,
+          "path": "lib/response.js",
+          "symbol": "res.send",
+          "parent": null,
+          "names": [
+            "res.send"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 10,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 5697,
+      "over_budget": false,
+      "passages": 3,
+      "dropped": 3,
+      "dropped_paths": [
+        "test/req.fresh.js",
+        "History.md",
+        "lib/response.js"
+      ],
+      "timings_ms": {
+        "embed_query": 29.176,
+        "vector_query": 2.131,
+        "sqlite": 1.294,
+        "expand": 0.766,
+        "fresh": 0.782,
+        "build": 0.395,
+        "total": 34.545
+      }
+    },
+    {
+      "id": "q16",
+      "kind": "tests",
+      "split": "tune",
+      "question": "where is it tested that a cookie can be given an expiry date?",
+      "expect": [
+        {
+          "path": "test/res.cookie.js",
+          "symbol": null
+        }
+      ],
+      "top10": [
+        {
+          "id": "f328372525d9fe54",
+          "score": 0.6717264652252197,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "454f97f25d1323bf",
+          "score": 0.6388825178146362,
+          "path": "test/res.clearCookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e91b0f8d9b0b8fb8",
+          "score": 0.6370129585266113,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "2f1167da618e202d",
+          "score": 0.6209138035774231,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "1d89b3283dbc9022",
+          "score": 0.6004797220230103,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 3,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "505a284a1cff83bd",
+          "score": 0.5982629656791687,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ffaaaca47f4d3869",
+          "score": 0.5832770466804504,
+          "path": "test/req.signedCookies.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "770db13cb77e4134",
+          "score": 0.5709241032600403,
+          "path": "test/req.signedCookies.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ba65323248aa46a1",
+          "score": 0.5585733652114868,
+          "path": "History.md",
+          "symbol": "3.0.3 / 2012-11-13",
+          "parent": null,
+          "names": [
+            "3.0.3 / 2012-11-13"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "e09433fe22bcf1ce",
+          "score": 0.5582215189933777,
+          "path": "test/req.signedCookies.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "request",
+            "cookieParser"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 3446,
+      "over_budget": false,
+      "passages": 7,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 30.174,
+        "vector_query": 2.415,
+        "sqlite": 1.449,
+        "expand": 0.495,
+        "fresh": 0.839,
+        "build": 0.233,
+        "total": 35.604
+      }
+    },
+    {
+      "id": "q24",
+      "kind": "negative",
+      "split": "holdout",
+      "question": "where is the WebSocket upgrade handled?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "60a7d91a44ecbac9",
+          "score": 0.5016298294067383,
+          "path": "History.md",
+          "symbol": "3.3.4 / 2013-07-08",
+          "parent": null,
+          "names": [
+            "3.3.4 / 2013-07-08"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "4af1c223fc11c25f",
+          "score": 0.47006893157958984,
+          "path": "History.md",
+          "symbol": "3.4.6 / 2013-12-01",
+          "parent": null,
+          "names": [
+            "3.4.6 / 2013-12-01"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "dc574824d1cbd441",
+          "score": 0.46881985664367676,
+          "path": "History.md",
+          "symbol": "3.3.2 / 2013-07-03",
+          "parent": null,
+          "names": [
+            "3.3.2 / 2013-07-03"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "0f146901439e17df",
+          "score": 0.4688006639480591,
+          "path": "History.md",
+          "symbol": "3.0.0beta7 / 2012-07-16",
+          "parent": null,
+          "names": [
+            "3.0.0beta7 / 2012-07-16"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "cdcb906432366048",
+          "score": 0.46587109565734863,
+          "path": "History.md",
+          "symbol": "3.0.1 / 2012-11-01",
+          "parent": null,
+          "names": [
+            "3.0.1 / 2012-11-01"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "d4a68146f7e2561b",
+          "score": 0.46162378787994385,
+          "path": "History.md",
+          "symbol": "3.4.7 / 2013-12-10",
+          "parent": null,
+          "names": [
+            "3.4.7 / 2013-12-10"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "94e36dd20b4b402e",
+          "score": 0.46090102195739746,
+          "path": "History.md",
+          "symbol": "3.3.0 / 2013-06-26",
+          "parent": null,
+          "names": [
+            "3.3.0 / 2013-06-26"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "8fed7cd44e3a6ede",
+          "score": 0.4561326503753662,
+          "path": "History.md",
+          "symbol": "3.0.0rc2 / 2012-08-03",
+          "parent": null,
+          "names": [
+            "3.0.0rc2 / 2012-08-03"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "7fa5cea7c636d8b1",
+          "score": 0.4545157551765442,
+          "path": "History.md",
+          "symbol": "3.3.7 / 2013-08-28",
+          "parent": null,
+          "names": [
+            "3.3.7 / 2013-08-28"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "740f7f83bd90fe32",
+          "score": 0.45335543155670166,
+          "path": "History.md",
+          "symbol": "3.3.3 / 2013-07-04",
+          "parent": null,
+          "names": [
+            "3.3.3 / 2013-07-04"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 610,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 29.055,
+        "vector_query": 2.447,
+        "sqlite": 1.618,
+        "expand": 0.034,
+        "fresh": 0.445,
+        "build": 0.174,
+        "total": 33.772
+      }
+    },
+    {
+      "id": "q25",
+      "kind": "negative",
+      "split": "tune",
+      "question": "how does the app talk to a MongoDB database?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "a428ffc8acc70903",
+          "score": 0.59145587682724,
+          "path": "examples/mvc/controllers/user-pet/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "72859ef970077b73",
+          "score": 0.5886656045913696,
+          "path": "examples/search/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db",
+            "app"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "21e7020b3a478ccf",
+          "score": 0.5856553316116333,
+          "path": "examples/mvc/controllers/pet/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "73654a609583305e",
+          "score": 0.5734266638755798,
+          "path": "examples/mvc/controllers/user/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "77e45c2c1d2ede2a",
+          "score": 0.5498456358909607,
+          "path": "examples/mvc/db.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "pets",
+            "users"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "d2ef0dbd53145e6f",
+          "score": 0.5413718819618225,
+          "path": "examples/search/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "3851c314eb0ea8ea",
+          "score": 0.5349292159080505,
+          "path": "examples/mvc/controllers/user-pet/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "eb7a03e5c078070b",
+          "score": 0.5167611241340637,
+          "path": "examples/search/index.js",
+          "symbol": "initializeRedis",
+          "parent": null,
+          "names": [
+            "initializeRedis"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "364cb084d01fba6f",
+          "score": 0.5141706466674805,
+          "path": "examples/search/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "path",
+            "redis"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "36f83c0afca4b591",
+          "score": 0.513585090637207,
+          "path": "examples/session/redis.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 1008,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 30.011,
+        "vector_query": 2.904,
+        "sqlite": 1.589,
+        "expand": 0.036,
+        "fresh": 1.107,
+        "build": 0.208,
+        "total": 35.855
+      }
+    }
+  ]
+}

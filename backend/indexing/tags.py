@@ -26,7 +26,7 @@ LANGUAGES = {
     ".py": "python", ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
     ".ts": "typescript", ".tsx": "typescript", ".java": "java", ".c": "c", ".h": "c", ".cpp": "cpp", ".hpp": "cpp",
     ".go": "go", ".rs": "rust", ".rb": "ruby", ".php": "php",
-    ".md": "markdown", ".markdown": "markdown", ".json": "json", ".yaml": "yaml", ".yml": "yaml",
+    ".md": "markdown", ".markdown": "markdown", ".rst": "rst", ".json": "json", ".yaml": "yaml", ".yml": "yaml",
 }
 
 

@@ -18,7 +18,7 @@ import pytest
 from chunker import chunk_file
 
 HERE = Path(__file__).parent
-SUPPORTED = {".py", ".js", ".jsx", ".ts", ".tsx", ".md", ".json", ".yaml"}
+SUPPORTED = {".py", ".js", ".jsx", ".ts", ".tsx", ".md", ".rst", ".json", ".yaml"}
 
 GENERATED = {
     "empty.py": b"",
@@ -30,6 +30,9 @@ GENERATED = {
     "frontmatter.md": b"---\ntitle: x\n---\n\nbefore any heading\n\n# Real\ntext\n",
     "crlf.md": b"# A\r\n\r\ntext\r\n\r\n## B\r\nmore\r\n",
     "no_headings.md": b"just a paragraph\n\nand another\n",
+    "doc.rst": b"Title\n=====\n\nIntro.\n\nSetup\n-----\n\n.. code-block:: python\n\n    # not a heading\n    run()\n\nUsage\n~~~~~\nUse it.\n",
+    "crlf.rst": b"Title\r\n=====\r\n\r\ntext\r\n\r\nMore\r\n----\r\nmore\r\n",
+    "no_headings.rst": b"just a paragraph\n\nand another\n",
     "a.json": b'{\n  "name": "x",\n  "scripts": {"test": "pytest"}\n}\n',
     "a.yaml": b"name: x\nitems:\n  - one\n  - two\n",
     "syntax_error.js": b"function broken( {\n  return 1;\n}\n\nfunction fine() {\n  return 2;\n}\n",

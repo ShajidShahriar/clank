@@ -1,0 +1,1583 @@
+{
+  "meta": {
+    "repo": "flask",
+    "repo_path": "/private/tmp/claude-501/-Users-shajidshahriar-Developer-clank/051bc935-1178-4d68-97d0-6ae396d57dba/scratchpad/flask",
+    "rev_pinned": "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35",
+    "rev_actual": "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35",
+    "rev_matches": true,
+    "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+    "dim": 1024,
+    "chunker_fingerprint": "40b710781f70ea61",
+    "chunk_cap_tokens": 800,
+    "k": 10,
+    "max_tokens": 6000,
+    "query_variant": null,
+    "keep": null,
+    "final": true,
+    "test_policy": null,
+    "questions_sha": "75afc16662977930",
+    "created_at": "2026-10-04T22:15:26",
+    "config": {
+      "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+      "dim": 1024,
+      "chunker_fingerprint": "40b710781f70ea61",
+      "chunk_cap_tokens": 800,
+      "query_variant": "instruct",
+      "test_policy": null,
+      "lexical_search": false,
+      "docs_rst": "plain line windows (doc_text)",
+      "cutoff": null,
+      "k": 10,
+      "max_tokens": 6000
+    },
+    "code_rev": "4f2c42e5206c01b0646195eca1a34ce88ec13707",
+    "code_dirty": true
+  },
+  "questions": [
+    {
+      "id": "q02",
+      "kind": "concept",
+      "split": "tune",
+      "question": "where do we decide which function handles an exception raised while serving a request?",
+      "expect": [
+        {
+          "path": "src/flask/sansio/app.py",
+          "symbol": "_find_error_handler"
+        },
+        {
+          "path": "src/flask/app.py",
+          "symbol": "handle_user_exception"
+        }
+      ],
+      "top10": [
+        {
+          "id": "d15f2dadb68390b2",
+          "score": 0.6996803879737854,
+          "path": "src/flask/app.py",
+          "symbol": "handle_exception",
+          "parent": "Flask",
+          "names": [
+            "Flask.handle_exception"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "aabb26493a9c6848",
+          "score": 0.6931646466255188,
+          "path": "src/flask/app.py",
+          "symbol": "handle_user_exception",
+          "parent": "Flask",
+          "names": [
+            "Flask.handle_user_exception"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "643817ba7287a7f1",
+          "score": 0.6897326707839966,
+          "path": "src/flask/app.py",
+          "symbol": "handle_http_exception",
+          "parent": "Flask",
+          "names": [
+            "Flask.handle_http_exception"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "b9c6460529d3a8d4",
+          "score": 0.6734054088592529,
+          "path": "src/flask/sansio/scaffold.py",
+          "symbol": "errorhandler",
+          "parent": "Scaffold",
+          "names": [
+            "Scaffold.errorhandler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "f85498cc6fe2a439",
+          "score": 0.6733617782592773,
+          "path": "src/flask/sansio/app.py",
+          "symbol": "_find_error_handler",
+          "parent": "App",
+          "names": [
+            "App._find_error_handler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "8ac018a5cce00d3a",
+          "score": 0.6596205830574036,
+          "path": "src/flask/sansio/app.py",
+          "symbol": "trap_http_exception",
+          "parent": "App",
+          "names": [
+            "App.trap_http_exception"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "a09b1ef63c51b9c6",
+          "score": 0.6538026332855225,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 3,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "caebda63205004ef",
+          "score": 0.6524524092674255,
+          "path": "src/flask/sansio/blueprints.py",
+          "symbol": "app_errorhandler",
+          "parent": "Blueprint",
+          "names": [
+            "Blueprint.app_errorhandler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "e538b18387e7a1cb",
+          "score": 0.650343656539917,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 2,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "42518cfb3ed9985e",
+          "score": 0.64876389503479,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 4,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 2,
+      "top1": false,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 3114,
+      "over_budget": false,
+      "passages": 6,
+      "dropped": 2,
+      "dropped_paths": [
+        "docs/errorhandling.rst",
+        "src/flask/sansio/blueprints.py"
+      ],
+      "timings_ms": {
+        "embed_query": 57.69,
+        "vector_query": 1.331,
+        "sqlite": 43.722,
+        "expand": 0.724,
+        "fresh": 0.5,
+        "build": 0.303,
+        "total": 104.272
+      }
+    },
+    {
+      "id": "q04",
+      "kind": "concept",
+      "split": "tune",
+      "question": "what happens if a function that runs before every request returns a value?",
+      "expect": [
+        {
+          "path": "src/flask/app.py",
+          "symbol": "preprocess_request"
+        }
+      ],
+      "top10": [
+        {
+          "id": "6670e55bc6dc9a31",
+          "score": 0.6823009848594666,
+          "path": "tests/test_basic.py",
+          "symbol": "test_request_preprocessing_early_return",
+          "parent": null,
+          "names": [
+            "test_request_preprocessing_early_return"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "cab2b1d6e1a24d26",
+          "score": 0.675127387046814,
+          "path": "src/flask/sansio/scaffold.py",
+          "symbol": "before_request",
+          "parent": "Scaffold",
+          "names": [
+            "Scaffold.before_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "324515e15ba10b34",
+          "score": 0.6704738736152649,
+          "path": "src/flask/app.py",
+          "symbol": "preprocess_request",
+          "parent": "Flask",
+          "names": [
+            "Flask.preprocess_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "cdea88ce0e3ef826",
+          "score": 0.617876410484314,
+          "path": "src/flask/sansio/blueprints.py",
+          "symbol": "before_app_request",
+          "parent": "Blueprint",
+          "names": [
+            "Blueprint.before_app_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "0d6ef03afd61f40a",
+          "score": 0.6150237917900085,
+          "path": "docs/patterns/deferredcallbacks.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "141139930f7f3438",
+          "score": 0.6047417521476746,
+          "path": "src/flask/sansio/scaffold.py",
+          "symbol": "after_request",
+          "parent": "Scaffold",
+          "names": [
+            "Scaffold.after_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "a74e853e3bf5a5c1",
+          "score": 0.595528244972229,
+          "path": "tests/test_basic.py",
+          "symbol": "test_request_processing",
+          "parent": null,
+          "names": [
+            "test_request_processing"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "a56de811ba23ac4e",
+          "score": 0.5952944159507751,
+          "path": "src/flask/ctx.py",
+          "symbol": "after_this_request",
+          "parent": null,
+          "names": [
+            "after_this_request"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6cf9a4103d6a7586",
+          "score": 0.5840349793434143,
+          "path": "src/flask/sansio/scaffold.py",
+          "symbol": "url_value_preprocessor",
+          "parent": "Scaffold",
+          "names": [
+            "Scaffold.url_value_preprocessor"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "ec5d368fd0a0878b",
+          "score": 0.5711487531661987,
+          "path": "tests/test_basic.py",
+          "symbol": "test_before_after_request_order",
+          "parent": null,
+          "names": [
+            "test_before_after_request_order"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 3,
+      "top1": false,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 3433,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 33.046,
+        "vector_query": 1.561,
+        "sqlite": 0.537,
+        "expand": 0.019,
+        "fresh": 0.587,
+        "build": 0.137,
+        "total": 35.887
+      }
+    },
+    {
+      "id": "q09",
+      "kind": "name",
+      "split": "holdout",
+      "question": "how does from_prefixed_env load settings?",
+      "expect": [
+        {
+          "path": "src/flask/config.py",
+          "symbol": "from_prefixed_env"
+        }
+      ],
+      "top10": [
+        {
+          "id": "cc8bd89fec7ae408",
+          "score": 0.7231821417808533,
+          "path": "src/flask/config.py",
+          "symbol": "from_prefixed_env",
+          "parent": "Config",
+          "names": [
+            "Config.from_prefixed_env"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6ce4cb54c1c1baee",
+          "score": 0.6894932389259338,
+          "path": "tests/test_config.py",
+          "symbol": "test_from_prefixed_env_custom_prefix",
+          "parent": null,
+          "names": [
+            "test_from_prefixed_env_custom_prefix"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "4a9195e2c7dd5681",
+          "score": 0.6690441966056824,
+          "path": "tests/test_config.py",
+          "symbol": "test_from_prefixed_env_nested",
+          "parent": null,
+          "names": [
+            "test_from_prefixed_env_nested"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "060beb5d8393e1b2",
+          "score": 0.6651649475097656,
+          "path": "tests/test_config.py",
+          "symbol": "test_from_prefixed_env",
+          "parent": null,
+          "names": [
+            "test_from_prefixed_env"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "a8146442d235a2da",
+          "score": 0.6051909923553467,
+          "path": "docs/config.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 8,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "b055565f52c01ff7",
+          "score": 0.5785358548164368,
+          "path": "src/flask/config.py",
+          "symbol": "from_envvar",
+          "parent": "Config",
+          "names": [
+            "Config.from_envvar"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "0261d622ec8a1779",
+          "score": 0.5762413740158081,
+          "path": "tests/test_config.py",
+          "symbol": "test_config_from_envvar",
+          "parent": null,
+          "names": [
+            "test_config_from_envvar"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "d73cdd413d958fe5",
+          "score": 0.5733271241188049,
+          "path": "src/flask/cli.py",
+          "symbol": "load_dotenv",
+          "parent": null,
+          "names": [
+            "load_dotenv"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "7f97b50a00d5d27c",
+          "score": 0.5552850365638733,
+          "path": "docs/config.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 7,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "895a6ce10796fd17",
+          "score": 0.5524805188179016,
+          "path": "tests/test_cli.py",
+          "symbol": "test_load_dotenv",
+          "parent": null,
+          "names": [
+            "test_load_dotenv"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 1484,
+      "over_budget": false,
+      "passages": 4,
+      "dropped": 5,
+      "dropped_paths": [
+        "docs/config.rst",
+        "src/flask/config.py",
+        "tests/test_config.py",
+        "src/flask/cli.py",
+        "tests/test_cli.py"
+      ],
+      "timings_ms": {
+        "embed_query": 30.051,
+        "vector_query": 1.623,
+        "sqlite": 0.558,
+        "expand": 0.449,
+        "fresh": 0.52,
+        "build": 0.46,
+        "total": 33.661
+      }
+    },
+    {
+      "id": "q11",
+      "kind": "name",
+      "split": "tune",
+      "question": "how does make_response turn a view's return value into a response?",
+      "expect": [
+        {
+          "path": "src/flask/app.py",
+          "symbol": "make_response"
+        }
+      ],
+      "top10": [
+        {
+          "id": "2e18f4118f135402",
+          "score": 0.8512093424797058,
+          "path": "src/flask/helpers.py",
+          "symbol": "make_response",
+          "parent": null,
+          "names": [
+            "make_response"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "3b75c0f935d86161",
+          "score": 0.8134461045265198,
+          "path": "src/flask/app.py",
+          "symbol": "make_response",
+          "parent": "Flask",
+          "names": [
+            "Flask.make_response"
+          ],
+          "kind": "method",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "a2aa76aa261761c1",
+          "score": 0.7638778686523438,
+          "path": "src/flask/app.py",
+          "symbol": "make_response",
+          "parent": "Flask",
+          "names": [
+            "Flask.make_response"
+          ],
+          "kind": "method",
+          "part": 1,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "935ce2f43dad246a",
+          "score": 0.7575607299804688,
+          "path": "src/flask/app.py",
+          "symbol": "make_response",
+          "parent": "Flask",
+          "names": [
+            "Flask.make_response"
+          ],
+          "kind": "method",
+          "part": 2,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "db3f9984d220c512",
+          "score": 0.7232537269592285,
+          "path": "tests/test_helpers.py",
+          "symbol": "test_make_response",
+          "parent": "TestHelpers",
+          "names": [
+            "TestHelpers.test_make_response"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "bf070e86931c8286",
+          "score": 0.720797598361969,
+          "path": "tests/test_basic.py",
+          "symbol": "test_make_response",
+          "parent": null,
+          "names": [
+            "test_make_response"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "107cd6cc50b062b6",
+          "score": 0.71738600730896,
+          "path": "docs/quickstart.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 10,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "09ddd75a2eac618a",
+          "score": 0.7139396667480469,
+          "path": "tests/test_basic.py",
+          "symbol": "test_make_response_with_response_instance",
+          "parent": null,
+          "names": [
+            "test_make_response_with_response_instance"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "bbeabfc11ba21559",
+          "score": 0.6931620240211487,
+          "path": "src/flask/views.py",
+          "symbol": "dispatch_request",
+          "parent": "View",
+          "names": [
+            "View.dispatch_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "e1522b1b80e9eac6",
+          "score": 0.6854228973388672,
+          "path": "docs/quickstart.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 9,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 2,
+      "top1": false,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 3038,
+      "over_budget": false,
+      "passages": 4,
+      "dropped": 3,
+      "dropped_paths": [
+        "docs/quickstart.rst",
+        "tests/test_basic.py",
+        "src/flask/views.py"
+      ],
+      "timings_ms": {
+        "embed_query": 28.05,
+        "vector_query": 1.925,
+        "sqlite": 0.579,
+        "expand": 0.549,
+        "fresh": 0.713,
+        "build": 0.427,
+        "total": 32.244
+      }
+    },
+    {
+      "id": "q13",
+      "kind": "behavior",
+      "split": "tune",
+      "question": "what happens when an exception has no error handler registered?",
+      "expect": [
+        {
+          "path": "src/flask/app.py",
+          "symbol": "handle_exception"
+        }
+      ],
+      "top10": [
+        {
+          "id": "c127b7a385bb9b99",
+          "score": 0.6658297181129456,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_subclass",
+          "parent": null,
+          "names": [
+            "test_error_handler_subclass"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "0f31addc76b5480d",
+          "score": 0.6656322479248047,
+          "path": "src/flask/sansio/scaffold.py",
+          "symbol": "register_error_handler",
+          "parent": "Scaffold",
+          "names": [
+            "Scaffold.register_error_handler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "88d6079e3ef9c652",
+          "score": 0.6650493741035461,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_no_match",
+          "parent": null,
+          "names": [
+            "test_error_handler_no_match"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f01a739beb5f08b9",
+          "score": 0.657451331615448,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_default_error_handler",
+          "parent": null,
+          "names": [
+            "test_default_error_handler"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "42518cfb3ed9985e",
+          "score": 0.6551977396011353,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 4,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c9b3c16e6e06745d",
+          "score": 0.6490796208381653,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "Custom",
+          "parent": "TestGenericHandlers",
+          "names": [
+            "TestGenericHandlers.Custom"
+          ],
+          "kind": "class_overview",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f85498cc6fe2a439",
+          "score": 0.6473930478096008,
+          "path": "src/flask/sansio/app.py",
+          "symbol": "_find_error_handler",
+          "parent": "App",
+          "names": [
+            "App._find_error_handler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "d15f2dadb68390b2",
+          "score": 0.6452839970588684,
+          "path": "src/flask/app.py",
+          "symbol": "handle_exception",
+          "parent": "Flask",
+          "names": [
+            "Flask.handle_exception"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "e538b18387e7a1cb",
+          "score": 0.6343321800231934,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 2,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "b9c6460529d3a8d4",
+          "score": 0.6336522102355957,
+          "path": "src/flask/sansio/scaffold.py",
+          "symbol": "errorhandler",
+          "parent": "Scaffold",
+          "names": [
+            "Scaffold.errorhandler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 8,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 1638,
+      "over_budget": false,
+      "passages": 4,
+      "dropped": 5,
+      "dropped_paths": [
+        "docs/errorhandling.rst",
+        "tests/test_user_error_handler.py",
+        "src/flask/sansio/app.py",
+        "src/flask/app.py",
+        "src/flask/sansio/scaffold.py"
+      ],
+      "timings_ms": {
+        "embed_query": 29.068,
+        "vector_query": 1.952,
+        "sqlite": 0.666,
+        "expand": 0.396,
+        "fresh": 0.728,
+        "build": 0.397,
+        "total": 33.207
+      }
+    },
+    {
+      "id": "q18",
+      "kind": "tests",
+      "split": "holdout",
+      "question": "where is it tested that an error handler for a parent class also catches a subclass?",
+      "expect": [
+        {
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_subclass"
+        }
+      ],
+      "top10": [
+        {
+          "id": "c127b7a385bb9b99",
+          "score": 0.708333432674408,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_subclass",
+          "parent": null,
+          "names": [
+            "test_error_handler_subclass"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "cac6b5062893400c",
+          "score": 0.6622973084449768,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_http_subclass",
+          "parent": null,
+          "names": [
+            "test_error_handler_http_subclass"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "88d6079e3ef9c652",
+          "score": 0.6207112073898315,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_no_match",
+          "parent": null,
+          "names": [
+            "test_error_handler_no_match"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "9c03847e003f3f28",
+          "score": 0.6144893169403076,
+          "path": "tests/test_basic.py",
+          "symbol": "test_http_error_subclass_handling",
+          "parent": null,
+          "names": [
+            "test_http_error_subclass_handling"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "c9b3c16e6e06745d",
+          "score": 0.5721526145935059,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "Custom",
+          "parent": "TestGenericHandlers",
+          "names": [
+            "TestGenericHandlers.Custom"
+          ],
+          "kind": "class_overview",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "4108380d1502d45b",
+          "score": 0.5672034621238708,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "report_error",
+          "parent": "TestGenericHandlers",
+          "names": [
+            "TestGenericHandlers.report_error"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "8576908b7f706d19",
+          "score": 0.5626683235168457,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "TestGenericHandlers",
+          "parent": null,
+          "names": [
+            "TestGenericHandlers"
+          ],
+          "kind": "class_overview",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f01a739beb5f08b9",
+          "score": 0.5607631206512451,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_default_error_handler",
+          "parent": null,
+          "names": [
+            "test_default_error_handler"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "608d16ef5159dbd7",
+          "score": 0.5499655604362488,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_handle_class_or_code",
+          "parent": "TestGenericHandlers",
+          "names": [
+            "TestGenericHandlers.test_handle_class_or_code"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "377fa4c642c72c69",
+          "score": 0.5489261150360107,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_handle_generic_http",
+          "parent": "TestGenericHandlers",
+          "names": [
+            "TestGenericHandlers.test_handle_generic_http"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2912,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 29.692,
+        "vector_query": 2.38,
+        "sqlite": 0.79,
+        "expand": 0.027,
+        "fresh": 0.404,
+        "build": 0.203,
+        "total": 33.497
+      }
+    },
+    {
+      "id": "q19",
+      "kind": "docs",
+      "split": "tune",
+      "question": "how do I register error handlers that only apply to one blueprint?",
+      "expect": [
+        {
+          "path": "docs/errorhandling.rst",
+          "symbol": null
+        }
+      ],
+      "top10": [
+        {
+          "id": "6bfeb733b8bb4365",
+          "score": 0.7807797193527222,
+          "path": "docs/blueprints.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 5,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "9408558cd4a20bec",
+          "score": 0.7778435349464417,
+          "path": "tests/test_blueprints.py",
+          "symbol": "test_blueprint_specific_user_error_handling",
+          "parent": null,
+          "names": [
+            "test_blueprint_specific_user_error_handling"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "caebda63205004ef",
+          "score": 0.7756679058074951,
+          "path": "src/flask/sansio/blueprints.py",
+          "symbol": "app_errorhandler",
+          "parent": "Blueprint",
+          "names": [
+            "Blueprint.app_errorhandler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6056ab13d513e235",
+          "score": 0.762157142162323,
+          "path": "tests/test_blueprints.py",
+          "symbol": "test_blueprint_app_error_handling",
+          "parent": null,
+          "names": [
+            "test_blueprint_app_error_handling"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "24c945a72c6d6fec",
+          "score": 0.7585136294364929,
+          "path": "tests/test_blueprints.py",
+          "symbol": "test_blueprint_specific_error_handling",
+          "parent": null,
+          "names": [
+            "test_blueprint_specific_error_handling"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f85498cc6fe2a439",
+          "score": 0.7410835027694702,
+          "path": "src/flask/sansio/app.py",
+          "symbol": "_find_error_handler",
+          "parent": "App",
+          "names": [
+            "App._find_error_handler"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "52449ed454b2dca6",
+          "score": 0.7407148480415344,
+          "path": "tests/test_user_error_handler.py",
+          "symbol": "test_error_handler_blueprint",
+          "parent": null,
+          "names": [
+            "test_error_handler_blueprint"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "a09b1ef63c51b9c6",
+          "score": 0.7231906652450562,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 3,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "4d126cfdeef9ea1b",
+          "score": 0.7170277833938599,
+          "path": "docs/blueprints.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 4,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6980f81f4287ab80",
+          "score": 0.7138025760650635,
+          "path": "docs/errorhandling.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 6,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 8,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 5799,
+      "over_budget": false,
+      "passages": 6,
+      "dropped": 2,
+      "dropped_paths": [
+        "tests/test_user_error_handler.py",
+        "docs/errorhandling.rst"
+      ],
+      "timings_ms": {
+        "embed_query": 28.971,
+        "vector_query": 2.444,
+        "sqlite": 1.231,
+        "expand": 0.924,
+        "fresh": 1.125,
+        "build": 0.628,
+        "total": 35.324
+      }
+    },
+    {
+      "id": "q20",
+      "kind": "docs",
+      "split": "tune",
+      "question": "what are the steps Flask goes through to handle one request, in order?",
+      "expect": [
+        {
+          "path": "docs/lifecycle.rst",
+          "symbol": null
+        }
+      ],
+      "top10": [
+        {
+          "id": "c0fb92fe5fff704f",
+          "score": 0.7284468412399292,
+          "path": "docs/lifecycle.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 2,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "b9820decbef7732f",
+          "score": 0.7205637693405151,
+          "path": "docs/lifecycle.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "55404debd9c6c077",
+          "score": 0.6900326609611511,
+          "path": "src/flask/app.py",
+          "symbol": "Flask",
+          "parent": null,
+          "names": [
+            "Flask"
+          ],
+          "kind": "class_overview",
+          "part": 5,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c6962237c2929a23",
+          "score": 0.6807619333267212,
+          "path": "src/flask/wrappers.py",
+          "symbol": "Request",
+          "parent": null,
+          "names": [
+            "Request"
+          ],
+          "kind": "class_overview",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "71420d5ef480ca90",
+          "score": 0.6731504201889038,
+          "path": "src/flask/__main__.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "bbeabfc11ba21559",
+          "score": 0.6724404692649841,
+          "path": "src/flask/views.py",
+          "symbol": "dispatch_request",
+          "parent": "View",
+          "names": [
+            "View.dispatch_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "f2f22045ab9fe5ac",
+          "score": 0.6701923608779907,
+          "path": "docs/quickstart.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 4,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "4a06644ceea230a0",
+          "score": 0.6656646728515625,
+          "path": "docs/tutorial/views.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "4d4ae3371f43681b",
+          "score": 0.6651598215103149,
+          "path": "src/flask/app.py",
+          "symbol": "full_dispatch_request",
+          "parent": "Flask",
+          "names": [
+            "Flask.full_dispatch_request"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "48c42693677434a6",
+          "score": 0.6631140112876892,
+          "path": "docs/api.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 3038,
+      "over_budget": false,
+      "passages": 1,
+      "dropped": 8,
+      "dropped_paths": [
+        "src/flask/app.py",
+        "src/flask/wrappers.py",
+        "src/flask/__main__.py",
+        "src/flask/views.py",
+        "docs/quickstart.rst",
+        "docs/tutorial/views.rst",
+        "src/flask/app.py",
+        "docs/api.rst"
+      ],
+      "timings_ms": {
+        "embed_query": 30.226,
+        "vector_query": 3.038,
+        "sqlite": 1.44,
+        "expand": 2.031,
+        "fresh": 1.602,
+        "build": 1.377,
+        "total": 39.714
+      }
+    },
+    {
+      "id": "q23",
+      "kind": "negative",
+      "split": "tune",
+      "question": "where is the GraphQL schema defined?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "01259821e059fec7",
+          "score": 0.4627645015716553,
+          "path": "docs/patterns/sqlite3.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 2,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "86df2fec9cc14d31",
+          "score": 0.3867172598838806,
+          "path": "docs/patterns/mongoengine.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "34299aa234d6ef81",
+          "score": 0.38670599460601807,
+          "path": "docs/patterns/mongoengine.rst",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_text",
+          "part": 1,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "3bbc2013846c32a2",
+          "score": 0.37438321113586426,
+          "path": "examples/javascript/js_example/__init__.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "e55bc1518d73d4f1",
+          "score": 0.3689281940460205,
+          "path": "src/flask/templating.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "34505414cca5a941",
+          "score": 0.36756324768066406,
+          "path": "examples/tutorial/flaskr/db.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "0966e259f962f6ed",
+          "score": 0.36691558361053467,
+          "path": "README.md",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "doc_intro",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "9664225f9bf79059",
+          "score": 0.3661710023880005,
+          "path": "examples/tutorial/tests/conftest.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e3872c3df489d30c",
+          "score": 0.3654208183288574,
+          "path": "tests/static/config.json",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "config",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "9d4081631ffe0f6c",
+          "score": 0.36368823051452637,
+          "path": "src/flask/json/__init__.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 3113,
+      "over_budget": false,
+      "passages": 9,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 36.552,
+        "vector_query": 3.034,
+        "sqlite": 1.491,
+        "expand": 0.787,
+        "fresh": 1.462,
+        "build": 0.252,
+        "total": 43.578
+      }
+    }
+  ]
+}

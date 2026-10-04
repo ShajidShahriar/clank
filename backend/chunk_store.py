@@ -120,6 +120,18 @@ def get_chunks(conn, project_id, ids):
     return [found[i] for i in ids if i in found]
 
 
+def file_tags(conn, project_id, rel_paths):
+    """{rel_path: (is_test, is_changelog)} for the files asked for, in one query per 500 paths. Unknown files are left out."""
+    paths = list(dict.fromkeys(rel_paths))
+    tags = {}
+    for start in range(0, len(paths), _SQL_BATCH):
+        batch = paths[start:start + _SQL_BATCH]
+        marks = ", ".join("?" * len(batch))
+        for row in _query(conn, f"SELECT rel_path, is_test, is_changelog FROM files WHERE project_id = ? AND rel_path IN ({marks})", (project_id, *batch)):
+            tags[row["rel_path"]] = (bool(row["is_test"]), bool(row["is_changelog"]))
+    return tags
+
+
 def get_siblings(conn, project_id, chunk_id):
     """All parts of the same split chunk, in part order. A whole chunk returns just itself; unknown id returns []."""
     me = _query(conn, "SELECT * FROM chunks WHERE project_id = ? AND id = ?", (project_id, chunk_id)).fetchone()

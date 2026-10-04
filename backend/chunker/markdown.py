@@ -7,6 +7,7 @@ from .splitting import finalize_chunk
 
 MARKDOWN_EXTENSIONS = {".md", ".markdown"}
 CONFIG_EXTENSIONS = {".json", ".yaml", ".yml"}  # indexed as plain text windows (see chunk_file)
+RST_EXTENSIONS = {".rst"}                         # reStructuredText docs: plain text windows, kind "doc_text" (devlog 79 to 81)
 
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")

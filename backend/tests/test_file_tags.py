@@ -36,6 +36,7 @@ def test_these_are_not_tests(rel_path):
 @pytest.mark.parametrize("rel_path", [
     "CHANGELOG.md", "changelog.md", "History.md", "CHANGES.rst", "docs/changelog.md", "RELEASE_NOTES.txt", "release-notes.md",
     "ReleaseNotes.md", "NEWS", "docs/changes/123.feature.rst", "changelog/1.0.md", "newsfragments/42.bugfix.md",
+    "CHANGELOG.rst", "HISTORY.rst", "NEWS.rst", "changes.rst", "docs/changes.rst", "RELEASE_NOTES.rst", "docs/Changelog.rst",
 ])
 def test_these_are_changelogs(rel_path):
     assert classify_file(rel_path).is_changelog is True
@@ -44,6 +45,7 @@ def test_these_are_changelogs(rel_path):
 @pytest.mark.parametrize("rel_path", [
     "src/changes_applier.py", "docs/history_of_x.md", "lib/history.js", "src/changelog.py", "README.md", "docs/guide.md",
     "src/news_feed.ts", "docs/newspaper.md", "CHANGELOG_GENERATOR.py",
+    "docs/news_feed.rst", "docs/history_of_x.rst", "docs/changes_applier.rst", "docs/errorhandling.rst", "docs/lifecycle.rst",
 ])
 def test_these_are_not_changelogs(rel_path):
     assert classify_file(rel_path).is_changelog is False
@@ -51,7 +53,7 @@ def test_these_are_not_changelogs(rel_path):
 
 @pytest.mark.parametrize("rel_path,language", [
     ("a.py", "python"), ("a.js", "javascript"), ("a.jsx", "javascript"), ("a.ts", "typescript"), ("a.tsx", "typescript"),
-    ("a.md", "markdown"), ("a.json", "json"), ("a.yaml", "yaml"), ("a.yml", "yaml"), ("a.go", "go"), ("a.java", "java"),
+    ("a.md", "markdown"), ("a.rst", "rst"), ("A.RST", "rst"), ("a.json", "json"), ("a.yaml", "yaml"), ("a.yml", "yaml"), ("a.go", "go"), ("a.java", "java"),
     ("A.PY", "python"), ("dir.with.dots/a.py", "python"), ("Makefile", None), ("a.unknown", None), ("noext", None),
 ])
 def test_language_comes_from_the_extension(rel_path, language):

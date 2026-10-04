@@ -62,7 +62,7 @@ def run(tmp_path, tiny):
             argv += ["--path", str(path)]
         code = main(argv, embedder=shared["embedder"], store_factory=lambda project_id: store or shared["store"], out=lines.append)
         return code, "\n".join(lines)
-    call.lines, call.shared, call.out = lines, shared, tmp_path / "out.json"
+    call.lines, call.shared, call.out, call.questions, call.root = lines, shared, tmp_path / "out.json", questions, root
     return call
 
 
@@ -124,17 +124,71 @@ def test_an_unknown_repo_is_refused(run):
     assert code == 2 and "django" in text
 
 
-def test_the_holdout_numbers_stay_hidden_unless_asked_for(run):
+def test_the_holdout_numbers_stay_hidden_unless_the_run_is_final(run, tmp_path):
     code, text = run()
     assert "q01" in text and "q02" in text
     assert "q03" not in text, "holdout questions are not printed one by one"
-    assert "holdout" in text and "hidden" in text
+    assert "holdout" in text and "hidden" in text and "--final" in text
     assert [q["id"] for q in saved(run)["questions"]] == ["q01", "q02", "q03", "q04"], "but they ARE saved, so the end-of-project look needs no re-run"
+    assert saved(run)["meta"]["final"] is False
     run.lines.clear()
-    code, text = run("--include-holdout")
-    assert "q03" in text
+    final_file = tmp_path / "final.json"
+    code, text = run("--final", out=final_file)
+    assert code == 0 and "q03" in text and "holdout:" in text and "hidden" not in text
+    assert json.loads(final_file.read_text())["meta"]["final"] is True and "final run" in text
 
 
+def test_the_old_flag_for_showing_the_holdout_no_longer_exists(run):
+    with pytest.raises(SystemExit):
+        run("--include-holdout")
+
+
+def test_a_final_run_never_overwrites_an_earlier_final_file(run, tmp_path):
+    final_file = tmp_path / "final.json"
+    assert run("--final", out=final_file)[0] == 0
+    before = final_file.read_text()
+    code, text = run("--final", out=final_file)
+    assert code == 2 and "already exists" in text and final_file.read_text() == before
+
+
+def test_a_final_run_asks_every_question_so_a_subset_or_index_only_is_refused(run, tmp_path):
+    code, text = run("--final", "--only", "q01", out=tmp_path / "a.json")
+    assert code == 2 and "every question" in text and not (tmp_path / "a.json").exists()
+    code, text = run("--final", "--index-only", out=tmp_path / "b.json")
+    assert code == 2 and "every question" in text
+
+
+def test_a_final_run_may_reuse_the_index_for_the_second_finalist(run, tmp_path):
+    run("--index-only")
+    code, _ = run("--final", "--no-index", "--test-policy", "off", out=tmp_path / "off.json")
+    assert code == 0 and json.loads((tmp_path / "off.json").read_text())["meta"]["config"]["test_policy"] is None
+
+
+def test_without_an_out_a_final_run_goes_to_the_final_folder_named_after_its_policy(run, monkeypatch, tmp_path):
+    import eval.cli as cli
+    monkeypatch.setattr(cli, "FINAL_DIR", tmp_path / "final-folder")
+    run("--index-only")
+    argv_run = lambda *extra: main(["--repo", "tiny", "--questions", str(run.questions), "--path", str(run.root), "--final", "--no-index", *extra],
+                                   embedder=run.shared["embedder"], store_factory=lambda pid: run.shared["store"], out=run.lines.append)
+    assert argv_run() == 0 and (tmp_path / "final-folder" / "tiny-final-on.json").exists()
+    assert argv_run("--test-policy", "off") == 0 and (tmp_path / "final-folder" / "tiny-final-off.json").exists()
+    assert argv_run() == 2, "the first finalist file is still there: nothing is overwritten"
+
+
+def test_a_results_file_says_which_code_made_it(run):
+    import eval.cli as cli_module
+    from eval.cli import CLANK_ROOT
+    from eval.runner import git_dirty, git_head
+    run()
+    meta = saved(run)["meta"]
+    assert meta["code_rev"] == git_head(CLANK_ROOT) and meta["code_dirty"] == git_dirty(CLANK_ROOT, exclude=cli_module.RESULT_FOLDERS_NOT_CODE) and isinstance(meta["code_dirty"], bool)
+
+
+def test_a_run_records_its_frozen_configuration(run):
+    run("--index-only")
+    run("--no-index", "--k", "7", "--max-tokens", "900")
+    config = saved(run)["meta"]["config"]
+    assert (config["k"], config["max_tokens"], config["lexical_search"]) == (7, 900, False)
 def test_a_negative_is_not_part_of_the_printed_hit_rate(run):
     code, text = run()
     assert "tune: 2 questions" in text
@@ -213,3 +267,66 @@ def test_when_the_database_schema_was_reset_the_vector_store_is_wiped_too(run):
     raw.close()
     code, _ = run(store=spy)
     assert code == 0 and Spy.cleared > baseline, "init_db dropped the chunk tables, so every stored vector id points at nothing"
+
+
+def test_a_query_variant_is_applied_to_the_questions_and_recorded(run):
+    run("--index-only")
+    code, text = run("--no-index", "--query-variant", "raw")
+    assert code == 0 and saved(run)["meta"]["query_variant"] == "raw"
+    code, _ = run("--no-index")
+    assert saved(run)["meta"]["query_variant"] is None
+
+
+def test_the_variant_really_changes_the_question_that_is_embedded(run):
+    embedder = run.shared["embedder"]
+    run("--index-only")
+    before = list(embedder.embedded_texts)
+    run("--no-index", "--query-variant", "alt", "--only", "q01")
+    sent = embedder.embedded_texts[len(before):]
+    assert sent == ["Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: order total"]
+
+
+def test_an_unknown_query_variant_is_refused(run, capsys):
+    with pytest.raises(SystemExit):
+        run("--query-variant", "nope")
+
+
+def test_keep_saves_a_pool_and_is_recorded(run):
+    run("--index-only")
+    code, _ = run("--no-index", "--keep", "10")
+    assert code == 0 and saved(run)["meta"]["keep"] == 10 and all("pool" in q for q in saved(run)["questions"])
+    run("--no-index")
+    assert saved(run)["meta"]["keep"] is None and all("pool" not in q for q in saved(run)["questions"])
+
+
+def test_a_keep_below_ten_is_refused_with_a_reason(run):
+    code, text = run("--keep", "5")
+    assert code == 2 and "at least 10" in text
+
+
+def test_test_policy_defaults_to_the_product_default_and_can_be_switched_off(run):
+    run("--index-only")
+    run("--no-index")
+    assert saved(run)["meta"]["test_policy"]["margin"] == 0.15
+    run("--no-index", "--test-policy", "off")
+    assert saved(run)["meta"]["test_policy"] is None
+    run("--no-index", "--test-policy", "default")
+    assert saved(run)["meta"]["test_policy"]["calibrated_for"].startswith("qwen3-embedding")
+
+
+def test_an_unknown_test_policy_is_refused(run):
+    with pytest.raises(SystemExit):
+        run("--test-policy", "hide")
+
+
+def test_the_final_results_folder_does_not_make_the_code_look_dirty():
+    import eval.cli as cli
+    assert "backend/eval/final" in cli.RESULT_FOLDERS_NOT_CODE and "backend/eval/results" in cli.RESULT_FOLDERS_NOT_CODE
+
+
+def test_the_dirty_check_of_a_results_file_is_asked_to_leave_the_results_folders_out(run, monkeypatch):
+    import eval.cli as cli
+    seen = []
+    monkeypatch.setattr(cli, "git_dirty", lambda path, exclude=(): seen.append(tuple(exclude)) or False)
+    run()
+    assert seen == [cli.RESULT_FOLDERS_NOT_CODE] and saved(run)["meta"]["code_dirty"] is False
