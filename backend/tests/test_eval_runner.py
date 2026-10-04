@@ -326,3 +326,13 @@ def test_the_index_the_runner_builds_carries_the_real_model_identity_not_the_wra
     assert identity[0].endswith("@abc123")
     assert store.signature() == identity
     assert chunk_store.models_in_use(conn, 1) == {identity}
+
+
+def test_a_run_where_results_were_left_out_of_the_context_can_still_be_saved(conn, repo, asked, tmp_path):
+    embedder, store, _, questions = asked
+    r = run_repo(conn, 1, "tiny", repo, embedder, store, questions, k=10, max_tokens=1)     # only the best passage fits: the rest are left out
+    q1 = r["questions"][0]
+    assert isinstance(q1["dropped"], int) and q1["dropped"] > 0 and q1["dropped"] + q1["passages"] >= 2
+    assert q1["dropped_paths"] and all(isinstance(x, str) for x in q1["dropped_paths"]) and len(q1["dropped_paths"]) == q1["dropped"]
+    write_results(r, tmp_path / "out.json")                                                  # used to crash: the passages themselves were stored
+    assert json.loads((tmp_path / "out.json").read_text())["questions"][0]["dropped"] == q1["dropped"]

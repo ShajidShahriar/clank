@@ -163,7 +163,8 @@ def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore
         "id": question["id"], "kind": question["kind"], "split": question["split"], "question": question["question"], "expect": question["expect"],
         "top10": top10, "rank": score.rank, "top1": score.top1, "top3": score.top3, "top10_hit": score.top10,
         "found_in_context": in_context(question["expect"], ctx.passages) if question["expect"] else False,
-        "context_tokens": ctx.tokens_used, "over_budget": ctx.over_budget, "passages": len(ctx.passages), "dropped": ctx.dropped,
+        "context_tokens": ctx.tokens_used, "over_budget": ctx.over_budget, "passages": len(ctx.passages), "dropped": len(ctx.dropped),
+        "dropped_paths": [p.rel_path for p in ctx.dropped],
         "timings_ms": timings,
     }
 
