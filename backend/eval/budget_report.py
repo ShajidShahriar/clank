@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from .compare import TIE_MARGIN
+from .holdout import require_final
 from .replay import make_policy, replay_run
 
 DEFAULT_BUDGETS = [2000, 4000, 6000]
@@ -66,6 +67,8 @@ def main(argv=None, out=print) -> int:
         for spec in args.policies:
             make_policy(spec)
         runs = _load(args.runs)
+        if args.include_holdout:
+            require_final(runs)
         verdict_policy = args.verdict_policy if args.verdict_policy in args.policies else args.policies[0]
 
         rows, sections, recovered_for_verdict, n = [], [], {}, 0

@@ -150,7 +150,7 @@ def test_the_command_line_counts_the_holdout_only_when_asked(tmp_path):
     from eval.gate import main
     path = tmp_path / "r.json"
     questions = [question("q01", 1, True, 1), question("q03", 1, True, 1, split="holdout")]
-    path.write_text(json.dumps({"meta": {"repo": "r", "model": "m"}, "questions": questions}))
+    path.write_text(json.dumps({"meta": {"repo": "r", "model": "m", "final": True}, "questions": questions}))
     lines = []
     main(["--runs", str(path)], out=lines.append)
     assert "1 of 1 counted" in lines[0] and "holdout hidden" in lines[0]

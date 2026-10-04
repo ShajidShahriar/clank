@@ -9,9 +9,9 @@ def q(id, rank, split="tune"):
             "top10_hit": rank is not None and rank <= 10, "found_in_context": rank is not None, "expect": [{"path": "a.py", "symbol": "f"}]}
 
 
-def save(tmp_path, name, repo, *questions, model="m@1"):
+def save(tmp_path, name, repo, *questions, model="m@1", final=False):
     path = tmp_path / name
-    path.write_text(json.dumps({"meta": {"repo": repo, "model": model}, "questions": list(questions)}))
+    path.write_text(json.dumps({"meta": {"repo": repo, "model": model, "final": final}, "questions": list(questions)}))
     return str(path)
 
 
@@ -49,8 +49,8 @@ def test_a_mismatch_between_runs_is_an_error_message_not_a_crash(tmp_path):
 
 
 def test_the_holdout_only_appears_when_asked_for(tmp_path):
-    a = save(tmp_path, "a.json", "clank", q("q01", 1), q("q03", 1, split="holdout"))
-    b = save(tmp_path, "b.json", "clank", q("q01", 1), q("q03", None, split="holdout"))
+    a = save(tmp_path, "a.json", "clank", q("q01", 1), q("q03", 1, split="holdout"), final=True)
+    b = save(tmp_path, "b.json", "clank", q("q01", 1), q("q03", None, split="holdout"), final=True)
     assert "q03" not in call("--a", a, "--b", b)[1]
     assert "q03" in call("--a", a, "--b", b, "--include-holdout")[1]
 

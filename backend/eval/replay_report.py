@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from .holdout import require_final
 from .compare import TIE_MARGIN, compare_runs, render
 from .replay import POLICY_HELP, estimate_matches_real, make_policy, replay_run
 
@@ -39,6 +40,8 @@ def main(argv=None, out=print) -> int:
         for spec in args.policies + ([args.show] if args.show else []):
             make_policy(spec)
         runs = _load(args.runs)
+        if args.include_holdout:
+            require_final(runs)
         baseline = [replay_run(run, "none") for run in runs]
 
         agreement = {}

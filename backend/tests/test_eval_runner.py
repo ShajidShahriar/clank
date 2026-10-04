@@ -468,3 +468,55 @@ def test_the_policy_reaches_build_context_and_the_replay_pool_is_always_raw(conn
     run_repo(conn, 1, "tiny", repo, embedder, store, questions[:1], index=False, test_policy=given, keep=12)
     assert seen["context"] == [given], "the question is answered with the policy"
     assert seen["pool"] == [None], "the pool is saved in RAW order: a replay applies its own policy on top, never twice"
+
+
+# ---- 7.13: the frozen configuration, the cutoff and the final flag
+
+CONFIG_KEYS = {"model", "dim", "chunker_fingerprint", "query_variant", "test_policy", "cutoff", "lexical_search", "docs_rst", "chunk_cap_tokens", "k", "max_tokens"}
+
+
+def test_the_run_freezes_the_whole_configuration_in_one_block(conn, repo):
+    embedder = FakeEmbedder()
+    r = run_repo(conn, 1, "tiny", repo, embedder, InMemoryVectorStore(), [], k=7, max_tokens=2000)
+    c = r["meta"]["config"]
+    assert set(c) == CONFIG_KEYS
+    assert (c["model"], c["dim"]) == (embedder.model_name, embedder.dim) and c["chunker_fingerprint"] == chunker_fingerprint()
+    assert (c["k"], c["max_tokens"], c["chunk_cap_tokens"]) == (7, 2000, MAX_CHUNK_TOKENS)
+    assert c["query_variant"] == "instruct" and c["lexical_search"] is False and c["cutoff"] is None
+    assert c["docs_rst"] == "plain line windows (doc_text)"
+    assert c["test_policy"] == r["meta"]["test_policy"] and c["test_policy"]["margin"] == 0.15
+
+
+def test_the_frozen_block_follows_the_options_of_the_run(conn, repo):
+    from embedding.query_variants import variant_embedder
+    from search import RelevanceCutoff
+    embedder, store = FakeEmbedder(), InMemoryVectorStore()
+    run_repo(conn, 1, "tiny", repo, embedder, store, [])
+    cut = RelevanceCutoff(min_score=0.5, margin=0.1, calibrated_for=embedder.model_name)
+    r = run_repo(conn, 1, "tiny", repo, variant_embedder(embedder, "raw"), store, [], index=False, test_policy=None, cutoff=cut)
+    c = r["meta"]["config"]
+    assert c["query_variant"] == "raw" and c["test_policy"] is None
+    assert c["cutoff"] == {"min_score": 0.5, "margin": 0.1, "calibrated_for": embedder.model_name}
+
+
+def test_a_run_that_stops_at_the_index_still_records_its_configuration(conn, repo):
+    embedder = Raising(error=OllamaUnavailable("not running"), when=lambda texts: True)
+    r = go(conn, repo, [], embedder=embedder)
+    assert r["aborted"] and set(r["meta"]["config"]) == CONFIG_KEYS and r["meta"]["config"]["model"] == embedder.model_name
+
+
+def test_the_cutoff_reaches_the_context_but_never_the_replay_pool(conn, repo, asked, monkeypatch):
+    from search import RelevanceCutoff
+    embedder, store, _, questions = asked
+    seen = {"context": [], "pool": []}
+    real_context, real_search = runner.build_context, runner.run_search
+    monkeypatch.setattr(runner, "build_context", lambda *a, **kw: (seen["context"].append(kw.get("cutoff", "missing")), real_context(*a, **kw))[1])
+    monkeypatch.setattr(runner, "run_search", lambda *a, **kw: (seen["pool"].append(kw.get("cutoff", None)), real_search(*a, **kw))[1])
+    cut = RelevanceCutoff(min_score=0.1, calibrated_for=embedder.model_name)
+    run_repo(conn, 1, "tiny", repo, embedder, store, questions[:1], index=False, cutoff=cut, keep=12)
+    assert seen["context"] == [cut] and seen["pool"] == [None], "the question is answered with the cutoff; the pool is the raw nearest 30"
+
+
+def test_a_run_says_whether_it_was_the_final_run(conn, repo):
+    assert go(conn, repo, [])["meta"]["final"] is False
+    assert go(conn, repo, [], final=True)["meta"]["final"] is True

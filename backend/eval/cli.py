@@ -5,7 +5,9 @@
 Three protections, each on purpose:
 - It refuses to run without an explicit CLANK_DATA_DIR, so eval projects never land in the user's real data folder.
 - It refuses a repo that is not at the commit pinned in the question file (except Clank itself, which moves with every commit: a warning).
-- It does not print holdout questions unless asked (`--include-holdout`): the holdout is looked at once, at the very end. The file still saves them.
+- It does not print holdout questions unless the run is `--final`: the holdout is looked at once, at the very end, with the final configuration. A final
+  run asks every question, never overwrites an earlier final file, and writes `meta.final = true` (the analysis tools refuse the holdout for any other run).
+  The file of every run still saves the holdout answers.
 """
 import argparse
 import hashlib
@@ -20,13 +22,14 @@ from embedding.query_variants import QUERY_VARIANTS, variant_embedder
 from search import DEFAULT_DEMOTION
 from vectorstore import open_project_store
 
-from .runner import git_head, load_questions, run_repo, write_results
+from .runner import git_dirty, git_head, load_questions, run_repo, write_results
 from .score import score_question, summarize
 
 HERE = Path(__file__).resolve().parent
 CLANK_ROOT = HERE.parent.parent
 DEFAULT_QUESTIONS = HERE / "questions.yaml"
 RESULTS_DIR = HERE / "results"
+FINAL_DIR = HERE / "final"                  # the final runs: results that are committed, unlike eval/results
 
 
 class Refusal(Exception):
@@ -45,7 +48,7 @@ def _parser():
     p.add_argument("--no-index", action="store_true", help="ask without indexing (reuse the index that is there)")
     p.add_argument("--reindex", action="store_true", help="index a second time and time it (nothing has changed)")
     p.add_argument("--allow-rev-mismatch", action="store_true")
-    p.add_argument("--include-holdout", action="store_true")
+    p.add_argument("--final", action="store_true", help="the one run that may show the holdout (final configuration only; never overwrites; asks every question)")
     p.add_argument("--only", help="comma-separated question ids")
     p.add_argument("--test-policy", choices=["default", "off"], default="default", help="demote tests and changelogs in the ranking: `default` is the product behavior, `off` is the plain raw order")
     p.add_argument("--keep", type=int, help="also save a pool of this many hits per question (at least 10), for offline ranking experiments")
@@ -69,7 +72,8 @@ def _percent(value) -> str:
     return "-" if value is None else f"{value * 100:.0f}%"
 
 
-def _report(result, scores, include_holdout, say):
+def _report(result, scores, final, say):
+    include_holdout = final
     if "index" in result:
         i = result["index"]
         say(f"index: {i['seconds']} s, {i['files_seen']} files, {i['chunks']} chunks, {i['embedded']} embedded in {i['embed_calls']} calls ({i['describe']})")
@@ -90,7 +94,7 @@ def _report(result, scores, include_holdout, say):
         if split == "holdout" and not include_holdout:
             hidden = sum(1 for s in scores if s.split == "holdout" and s.counted)
             if hidden:
-                say(f"holdout: {hidden} questions, hidden (use --include-holdout at the very end)")
+                say(f"holdout: {hidden} questions, hidden (use --final at the very end)")
             continue
         sm = summarize(scores, split=split)
         if sm["n"]:
@@ -103,6 +107,8 @@ def _run(args, embedder, store_factory, say) -> int:
         raise Refusal("set CLANK_DATA_DIR to a folder just for the eval (for example ~/.clank-eval): it keeps eval projects out of your real data")
     if args.index_only and args.no_index:
         raise Refusal("--index-only and --no-index together would do nothing")
+    if args.final and (args.only or args.index_only):
+        raise Refusal("a final run asks every question: --only and --index-only are not allowed with --final")
     meta = load_questions(args.questions)
     if args.repo not in meta["repos"]:
         raise Refusal(f"unknown repo {args.repo!r}; the question file has {sorted(meta['repos'])}")
@@ -120,6 +126,15 @@ def _run(args, embedder, store_factory, say) -> int:
         if args.repo != "clank" and not args.allow_rev_mismatch:
             raise Refusal(message + " (results would not be comparable; --allow-rev-mismatch to run anyway)")
         say(f"warning: {message}")
+
+    if args.out:
+        out = Path(args.out)
+    elif args.final:
+        out = FINAL_DIR / f"{args.repo}-final-{'on' if args.test_policy == 'default' else 'off'}.json"
+    else:
+        out = RESULTS_DIR / f"{args.repo}-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    if args.final and out.exists():
+        raise Refusal(f"{out} already exists: the holdout is looked at once, so a final run never overwrites an earlier final file")
 
     questions = meta["questions"]
     if args.only:
@@ -142,14 +157,16 @@ def _run(args, embedder, store_factory, say) -> int:
         base = embedder if embedder is not None else OllamaEmbedder()
         result = run_repo(conn, project_id, args.repo, path, variant_embedder(base, args.query_variant) if args.query_variant else base, store, questions,
                           k=args.k, max_tokens=args.max_tokens, index=not args.no_index, reindex=args.reindex, pinned_rev=pinned, questions_sha=sha, keep=args.keep,
-                          test_policy=DEFAULT_DEMOTION if args.test_policy == "default" else None)
+                          test_policy=DEFAULT_DEMOTION if args.test_policy == "default" else None, final=args.final)
     finally:
         conn.close()
-    out = Path(args.out) if args.out else RESULTS_DIR / f"{args.repo}-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    result["meta"]["code_rev"], result["meta"]["code_dirty"] = git_head(CLANK_ROOT), git_dirty(CLANK_ROOT)      # which code made this file
     write_results(result, out)
     scores = [score_question(next(q for q in questions if q["id"] == r["id"]), [
         {"rel_path": h["path"], "symbol": h["symbol"], "parent": h["parent"], "names": h["names"]} for h in r["top10"]]) for r in result["questions"]]
-    _report(result, scores, args.include_holdout, say)
+    _report(result, scores, args.final, say)
+    if args.final:
+        say("final run: the holdout is shown above and this is recorded in the results file (meta.final)")
     say(f"saved {out}")
     if "aborted" in result:
         say(f"stopped: {result['aborted']}")

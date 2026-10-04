@@ -196,7 +196,10 @@ def test_the_command_line_prints_the_report_and_refuses_what_it_cannot_measure(t
     only_answers.write_text(json.dumps(run(q("q01", [answer(0.70)]))))
     assert main(["--runs", str(only_answers)], out=lines.append) == 2 and "negative" in lines[0]
     lines.clear()
-    holdout_flag = main(["--runs", str(good), "--include-holdout"], out=lines.append)
+    final = tmp_path / "final.json"
+    final.write_text(json.dumps({**run(q("q01", [answer(0.70)]), neg("q22", [hit(0.371)])), "meta": {"repo": "r", "model": "m@1", "final": True}}))
+    lines.clear()
+    holdout_flag = main(["--runs", str(final), "--include-holdout"], out=lines.append)
     assert holdout_flag == 0 and "including the holdout" in lines[0]
 
 

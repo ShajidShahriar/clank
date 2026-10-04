@@ -22,9 +22,9 @@ def blocked(id="q01", split="tune", big=900, answer_cost=100, answer_rank=3, kin
             "rank": answer_rank, "top1": False, "top3": True, "top10_hit": True, "found_in_context": False}
 
 
-def save(tmp_path, name, *questions, repo="r", model="m@1", keep=30):
+def save(tmp_path, name, *questions, repo="r", model="m@1", keep=30, final=False):
     path = tmp_path / name
-    path.write_text(json.dumps({"meta": {"repo": repo, "model": model, "max_tokens": 6000, "k": 10, "keep": keep}, "questions": list(questions)}))
+    path.write_text(json.dumps({"meta": {"repo": repo, "model": model, "max_tokens": 6000, "k": 10, "keep": keep, "final": final}, "questions": list(questions)}))
     return str(path)
 
 
@@ -78,7 +78,7 @@ def test_the_verdict_follows_the_rule(tmp_path):
 
 
 def test_the_holdout_is_hidden_unless_asked_for(tmp_path):
-    runs = save(tmp_path, "r.json", blocked("q01"), blocked("q03", split="holdout"))
+    runs = save(tmp_path, "r.json", blocked("q01"), blocked("q03", split="holdout"), final=True)
     assert "q03" not in call("--runs", runs, "--budgets", "1000", "--policies", "none")[1]
     assert "q03" in call("--runs", runs, "--budgets", "1000", "--policies", "none", "--include-holdout")[1]
 

@@ -13,6 +13,7 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .holdout import require_final
 from .score import matches
 
 CLEAR_GAP = 0.05
@@ -163,6 +164,8 @@ def main(argv=None, out=print) -> int:
     args = parser.parse_args(argv)
     try:
         runs = [json.loads(Path(p).read_text()) for p in args.runs]
+        if args.include_holdout:
+            require_final(runs)
         out(render(runs, args.include_holdout))
     except ValueError as problem:
         out(f"error: {problem}")

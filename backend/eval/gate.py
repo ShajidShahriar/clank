@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .holdout import require_final
 from .score import matches
 
 TARGET = 17 / 20
@@ -88,9 +89,10 @@ def main(argv=None, out=print) -> int:
         out("error: --runs and --pools need the same number of files (one per repo, same order)")
         return 2
     try:
-        questions = []
+        questions, loaded = [], []
         for index, path in enumerate(args.runs):
             run = json.loads(Path(path).read_text())
+            loaded.append(run)
             pools = {}
             if args.pools:
                 pools = {q["id"]: q["pool"] for q in json.loads(Path(args.pools[index]).read_text())["questions"]}
@@ -99,6 +101,8 @@ def main(argv=None, out=print) -> int:
                 if q["id"] in pools:
                     merged["pool"] = pools[q["id"]]
                 questions.append(merged)
+        if args.include_holdout:
+            require_final(loaded)
         gate = gate_7_11(questions, include_holdout=args.include_holdout)
     except ValueError as problem:
         out(f"error: {problem}")

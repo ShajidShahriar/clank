@@ -27,6 +27,8 @@ from search.stitch import expand
 
 from .score import QuestionScore, in_context, score_question
 
+LEXICAL_SEARCH = False                                 # 7.7 was skipped by its gate: search is dense (embedding) only
+DOCS_RST = "plain line windows (doc_text)"             # how .rst docs are chunked (7.12: the simpler of two attempts won on the rule)
 KINDS = {"concept", "name", "behavior", "docs", "tests", "negative"}
 SPLITS = {"tune", "holdout"}
 
@@ -118,6 +120,12 @@ def git_head(path) -> str | None:
     return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else None
 
 
+def git_dirty(path) -> bool | None:
+    """Does the repo at `path` have uncommitted changes (untracked files included)? None when it is not a git repo."""
+    done = subprocess.run(["git", "-C", str(path), "status", "--porcelain"], capture_output=True, text=True)
+    return bool(done.stdout.strip()) if done.returncode == 0 else None
+
+
 def _file_tags(conn, project_id, paths):
     rows = conn.execute("SELECT rel_path, is_test, is_changelog FROM files WHERE project_id = ?", (project_id,)).fetchall()
     return {r["rel_path"]: (bool(r["is_test"]), bool(r["is_changelog"])) for r in rows if r["rel_path"] in paths}
@@ -154,11 +162,11 @@ def _pool(conn, project_id, repo_path, embedder, store, question, keep, max_toke
     return entries
 
 
-def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore, question, k, max_tokens, keep=None, test_policy=DEFAULT_DEMOTION) -> dict:
+def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore, question, k, max_tokens, keep=None, test_policy=DEFAULT_DEMOTION, cutoff=None) -> dict:
     embed_before, vector_before = embedder.query_seconds, store.query_seconds
     with _timed_stages() as (spent, captured):
         start = time.perf_counter()
-        ctx = build_context(conn, project_id, repo_path, embedder, store, question["question"], k, max_tokens, test_policy=test_policy)
+        ctx = build_context(conn, project_id, repo_path, embedder, store, question["question"], k, max_tokens, test_policy=test_policy, cutoff=cutoff)
         total = time.perf_counter() - start
     found = captured["found"]
     embed, vector = embedder.query_seconds - embed_before, store.query_seconds - vector_before
@@ -194,10 +202,21 @@ def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore
     return answer
 
 
+def _frozen_config(meta: dict, cutoff) -> dict:
+    """Everything that decides what a question returns, in one block: the final configuration is written into the results file, not left to memory."""
+    return {
+        "model": meta["model"], "dim": meta["dim"], "chunker_fingerprint": meta["chunker_fingerprint"], "chunk_cap_tokens": meta["chunk_cap_tokens"],
+        "query_variant": meta["query_variant"] or "instruct", "test_policy": meta["test_policy"], "lexical_search": LEXICAL_SEARCH, "docs_rst": DOCS_RST,
+        "cutoff": None if cutoff is None else {"min_score": cutoff.min_score, "margin": cutoff.margin, "calibrated_for": cutoff.calibrated_for},
+        "k": meta["k"], "max_tokens": meta["max_tokens"],
+    }
+
+
 def run_repo(conn, project_id, repo_name, repo_path, embedder, store, questions, *, k=10, max_tokens=6000, index=True, reindex=False,
-             pinned_rev=None, questions_sha=None, keep=None, test_policy=DEFAULT_DEMOTION) -> dict:
+             pinned_rev=None, questions_sha=None, keep=None, test_policy=DEFAULT_DEMOTION, cutoff=None, final=False) -> dict:
     """Index the repo (unless `index=False`), then ask every question whose `repo` is `repo_name`. Returns the whole run as a dict.
-    `keep` (at least 10) also saves a pool of the best `keep` hits per question for offline replays of ranking policies (7.6)."""
+    `keep` (at least 10) also saves a pool of the best `keep` hits per question for offline replays of ranking policies (7.6). `cutoff` is the optional
+    relevance cutoff (default off). `final` marks the run as the one that may show the holdout (`meta.final`)."""
     if keep is not None and keep < 10:
         raise ValueError(f"keep must be at least 10 (the pool holds the top 10 and more), got {keep}")
     timed_embedder, timed_store = TimedEmbedder(embedder), TimedStore(store)
@@ -205,7 +224,7 @@ def run_repo(conn, project_id, repo_name, repo_path, embedder, store, questions,
     result = {"meta": {
         "repo": repo_name, "repo_path": str(repo_path), "rev_pinned": pinned_rev, "rev_actual": actual, "rev_matches": actual is not None and actual == pinned_rev,
         "model": None, "dim": None, "chunker_fingerprint": chunker_fingerprint(), "chunk_cap_tokens": MAX_CHUNK_TOKENS,
-        "k": k, "max_tokens": max_tokens, "query_variant": getattr(embedder, "variant", None), "keep": keep,
+        "k": k, "max_tokens": max_tokens, "query_variant": getattr(embedder, "variant", None), "keep": keep, "final": final,
         "test_policy": None if test_policy is None else {"margin": test_policy.margin, "changelog_margin": test_policy.changelog_margin, "calibrated_for": test_policy.calibrated_for}, "questions_sha": questions_sha, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }, "questions": []}
     if index:
@@ -215,13 +234,15 @@ def run_repo(conn, project_id, repo_name, repo_path, embedder, store, questions,
         if report.stopped is not None:
             result["aborted"] = report.describe()
             result["meta"].update(model=embedder.model_name, dim=embedder.dim)
+            result["meta"]["config"] = _frozen_config(result["meta"], cutoff)
             return result
     else:
         embedder.warmup()
     result["meta"].update(model=embedder.model_name, dim=embedder.dim)
+    result["meta"]["config"] = _frozen_config(result["meta"], cutoff)
     for question in questions:
         if question["repo"] == repo_name:
-            result["questions"].append(_ask(conn, project_id, repo_path, timed_embedder, timed_store, question, k, max_tokens, keep, test_policy))
+            result["questions"].append(_ask(conn, project_id, repo_path, timed_embedder, timed_store, question, k, max_tokens, keep, test_policy, cutoff))
     return result
 
 

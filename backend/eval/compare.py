@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .holdout import require_final
+
 TIE_MARGIN = 2
 METRICS = {"top1": "top-1", "top3": "top-3", "top10": "top-10", "context": "found in context"}
 _FLAG = {"top1": "top1", "top3": "top3", "top10": "top10_hit", "context": "found_in_context"}
@@ -101,6 +103,8 @@ def main(argv=None, out=print) -> int:
         return 2
     try:
         pairs = [(json.loads(Path(a).read_text()), json.loads(Path(b).read_text())) for a, b in zip(args.a, args.b)]
+        if args.include_holdout:
+            require_final([run for pair in pairs for run in pair])
         comparison = compare_runs(pairs, include_holdout=args.include_holdout)
     except ValueError as problem:
         out(f"error: {problem}")

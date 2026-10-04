@@ -16,9 +16,9 @@ def q(id, pool, expect, kind="name", split="tune", text="how does f work?", real
             "rank": 1, "top1": True, "top3": True, "top10_hit": True, "found_in_context": real_found}
 
 
-def save(tmp_path, name, *questions, repo="r", model="m@1", keep=30):
+def save(tmp_path, name, *questions, repo="r", model="m@1", keep=30, final=False):
     path = tmp_path / name
-    path.write_text(json.dumps({"meta": {"repo": repo, "model": model, "max_tokens": 6000, "k": 10, "keep": keep}, "questions": list(questions)}))
+    path.write_text(json.dumps({"meta": {"repo": repo, "model": model, "max_tokens": 6000, "k": 10, "keep": keep, "final": final}, "questions": list(questions)}))
     return str(path)
 
 
@@ -51,7 +51,7 @@ def test_a_policy_that_helps_on_three_or_more_questions_is_called_better_and_two
 
 
 def test_the_holdout_questions_are_not_in_the_numbers_unless_asked_for(tmp_path):
-    f = save(tmp_path, "r.json", crowded("q01"), crowded("q03", split="holdout"))
+    f = save(tmp_path, "r.json", crowded("q01"), crowded("q03", split="holdout"), final=True)
     assert "n=1" in call("--runs", f, "--policies", "none")[1]
     assert "q03" not in call("--runs", f, "--policies", "none", "--show", "demote:0.06")[1]
     assert "n=2" in call("--runs", f, "--policies", "none", "--include-holdout")[1]
