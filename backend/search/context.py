@@ -38,6 +38,8 @@ class Context:
     stale_files: list = field(default_factory=list)    # shown, but changed since they were indexed
     deleted_files: list = field(default_factory=list)  # no longer exist: dropped from the results
     ranking_note: str | None = None                     # why a requested demotion of tests and changelogs was not applied (for the caller, NOT in `text`)
+    below_cutoff: int = 0                               # hits the relevance cutoff removed (for the caller)
+    cutoff_note: str | None = None                      # why a requested cutoff was not applied (for the caller, NOT in `text`)
 
 
 def render_passage(passage: Passage) -> str:
@@ -122,10 +124,10 @@ def _notes(hidden_note: str, dropped: int, over_budget: bool, stale=(), deleted=
     return "[Notes]\n" + "\n".join(f"- {line}" for line in lines) if lines else ""
 
 
-def build_context(conn, project_id, repo_path, embedder, store, question, k, max_tokens, test_policy=DEFAULT_DEMOTION) -> Context:
+def build_context(conn, project_id, repo_path, embedder, store, question, k, max_tokens, test_policy=DEFAULT_DEMOTION, cutoff=None) -> Context:
     if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens < 1:
         raise ValueError(f"max_tokens must be a positive integer, got {max_tokens!r}")
-    found = search(conn, project_id, embedder, store, question, k=k, test_policy=test_policy)   # rank (refuses a stale index, hides flagged files, demotes tests)
+    found = search(conn, project_id, embedder, store, question, k=k, test_policy=test_policy, cutoff=cutoff)   # rank (refuses a stale index, hides flagged files, demotes tests, cuts by raw score)
     passages = expand(conn, project_id, repo_path, found.hits, ceiling_tokens(max_tokens), narrow_target_tokens(max_tokens))   # stitch the parts (a huge chunk: the part around the hit)
     passages, stale, deleted = check_freshness(conn, project_id, repo_path, passages)        # mark changed files, drop deleted ones, before the budget
     hidden_note = _hidden_note(found.hidden_files)
@@ -161,4 +163,4 @@ def build_context(conn, project_id, repo_path, embedder, store, question, k, max
     if text is None:
         shown, text = 0, assemble(0)
     return Context(text, passages[:shown], passages[shown:], found.hidden_files, estimate_tokens(text), over,
-                   sorted({p.rel_path for p in passages[:shown] if p.stale}), deleted, found.ranking_note)
+                   sorted({p.rel_path for p in passages[:shown] if p.stale}), deleted, found.ranking_note, found.below_cutoff, found.cutoff_note)

@@ -12,11 +12,14 @@ What it promises (each is tested):
 - Tests and changelogs are demoted in the ORDER (never in the score: every hit keeps its raw cosine) by a margin that was measured for one model
   (see `policy.py`). The policy ranks a pool of max(3k, 30) hits and then cuts to k, so an answer far down the raw list can come up; hidden files and
   orphans never use up pool slots. For any other model nothing is demoted and `ranking_note` says why. `test_policy=None` is the plain raw order.
+- An optional relevance cutoff (`cutoff=`, default off) drops hits by RAW score before the demotion orders the pool and before the cut to k (see `cutoff.py`).
 """
+import math
 from dataclasses import dataclass, field
 
 import chunk_store
 from .hit import Hit
+from .cutoff import RelevanceCutoff, passes
 from .policy import DEFAULT_DEMOTION, DemotionPolicy, apply_test_policy
 
 POOL_MINIMUM = 30      # the demotion ranks at least this many hits before cutting to k
@@ -32,17 +35,26 @@ class SearchResult:
     hidden_files: dict = field(default_factory=dict)       # {rel_path: reason} flagged files whose chunks were left out of the hits
     ranking: str = "raw"                                   # "demoted": tests and changelogs were demoted in the ORDER; "raw": the order is by score
     ranking_note: str | None = None                        # why a requested demotion was not applied (for the caller, not for the LLM)
+    below_cutoff: int = 0                                  # visible hits the relevance cutoff removed (of the ones looked at)
+    cutoff_note: str | None = None                         # why a requested cutoff was not applied
 
 
-def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEFAULT_DEMOTION) -> SearchResult:
+def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEFAULT_DEMOTION, cutoff=None) -> SearchResult:
     if not isinstance(question, str) or not question.strip():
         raise ValueError("the question must be a non-empty string")
     if not isinstance(k, int) or isinstance(k, bool) or k < 1:
         raise ValueError(f"k must be a positive integer, got {k!r}")
     if test_policy is not None and not isinstance(test_policy, DemotionPolicy):
         raise ValueError(f"test_policy must be a DemotionPolicy or None, got {test_policy!r}")
+    if cutoff is not None and not isinstance(cutoff, RelevanceCutoff):
+        raise ValueError(f"cutoff must be a RelevanceCutoff or None, got {cutoff!r}")
     _require_a_matching_index(store, embedder)
 
+    cut = cutoff is not None and embedder.model_name == cutoff.calibrated_for
+    cutoff_note = None
+    if cutoff is not None and not cut:
+        cutoff_note = (f"relevance cutoff not applied: it was measured for {cutoff.calibrated_for}, this index uses {embedder.model_name}; "
+                       f"measure a cutoff for this model first")
     note = None
     demote = test_policy is not None and embedder.model_name == test_policy.calibrated_for
     if test_policy is not None and not demote:
@@ -59,15 +71,19 @@ def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEF
         ranked = store.query(vector, min(fetch, total))
         rows = {row["id"]: row for row in chunk_store.get_chunks(conn, project_id, [i for i, _ in ranked])}   # orphans have no row
         visible = [Hit(rows[i], score) for i, score in ranked if i in rows and rows[i]["rel_path"] not in hidden]
-        if len(visible) >= wanted or len(ranked) >= total:
+        limit = cutoff.limit(visible[0].score if visible else None) if cut else -math.inf        # raw scores, best first: the best visible hit sets the margin
+        kept = [h for h in visible if passes(h.score, limit)]
+        # stop when there are enough hits, when the store is exhausted, or when the last hit fetched is already below the cutoff (nothing nearer is missing)
+        if len(kept) >= wanted or len(ranked) >= total or (cut and ranked and not passes(ranked[-1][1], limit)):
             break
         fetch *= 2        # too many hits were hidden or orphans: look further down the list
+    below = len(visible) - len(kept)
     if not demote:
-        return SearchResult(hits=visible[:k], hidden_files=dict(hidden), ranking_note=note)
-    pool = visible[:wanted]
+        return SearchResult(hits=kept[:k], hidden_files=dict(hidden), ranking_note=note, below_cutoff=below, cutoff_note=cutoff_note)
+    pool = kept[:wanted]
     tags = chunk_store.file_tags(conn, project_id, {h.chunk["rel_path"] for h in pool})      # one batched lookup, not one per hit
     ordered = apply_test_policy(pool, question, tags, margin=test_policy.margin, changelog_margin=test_policy.changelog_margin)
-    return SearchResult(hits=[a.hit for a in ordered[:k]], hidden_files=dict(hidden), ranking="demoted")
+    return SearchResult(hits=[a.hit for a in ordered[:k]], hidden_files=dict(hidden), ranking="demoted", below_cutoff=below, cutoff_note=cutoff_note)
 
 
 def _require_a_matching_index(store, embedder):
