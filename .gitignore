@@ -40,3 +40,6 @@ __pycache__
 # Vector store (Chroma) and Clank's data folder
 chroma/
 .clank/
+
+# Eval run results (machine-specific timings; the numbers that matter go in the devlog)
+backend/eval/results/
