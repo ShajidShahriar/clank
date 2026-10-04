@@ -213,3 +213,25 @@ def test_when_the_database_schema_was_reset_the_vector_store_is_wiped_too(run):
     raw.close()
     code, _ = run(store=spy)
     assert code == 0 and Spy.cleared > baseline, "init_db dropped the chunk tables, so every stored vector id points at nothing"
+
+
+def test_a_query_variant_is_applied_to_the_questions_and_recorded(run):
+    run("--index-only")
+    code, text = run("--no-index", "--query-variant", "raw")
+    assert code == 0 and saved(run)["meta"]["query_variant"] == "raw"
+    code, _ = run("--no-index")
+    assert saved(run)["meta"]["query_variant"] is None
+
+
+def test_the_variant_really_changes_the_question_that_is_embedded(run):
+    embedder = run.shared["embedder"]
+    run("--index-only")
+    before = list(embedder.embedded_texts)
+    run("--no-index", "--query-variant", "alt", "--only", "q01")
+    sent = embedder.embedded_texts[len(before):]
+    assert sent == ["Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: order total"]
+
+
+def test_an_unknown_query_variant_is_refused(run, capsys):
+    with pytest.raises(SystemExit):
+        run("--query-variant", "nope")

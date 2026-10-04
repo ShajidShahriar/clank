@@ -177,7 +177,7 @@ def run_repo(conn, project_id, repo_name, repo_path, embedder, store, questions,
     result = {"meta": {
         "repo": repo_name, "repo_path": str(repo_path), "rev_pinned": pinned_rev, "rev_actual": actual, "rev_matches": actual is not None and actual == pinned_rev,
         "model": None, "dim": None, "chunker_fingerprint": chunker_fingerprint(), "chunk_cap_tokens": MAX_CHUNK_TOKENS,
-        "k": k, "max_tokens": max_tokens, "questions_sha": questions_sha, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "k": k, "max_tokens": max_tokens, "query_variant": getattr(embedder, "variant", None), "questions_sha": questions_sha, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }, "questions": []}
     if index:
         report, result["index"] = _index(conn, project_id, repo_path, timed_embedder, timed_store)

@@ -16,6 +16,7 @@ from pathlib import Path
 import db
 import datadir
 from embedding import OllamaEmbedder
+from embedding.query_variants import QUERY_VARIANTS, variant_embedder
 from vectorstore import open_project_store
 
 from .runner import git_head, load_questions, run_repo, write_results
@@ -45,6 +46,7 @@ def _parser():
     p.add_argument("--allow-rev-mismatch", action="store_true")
     p.add_argument("--include-holdout", action="store_true")
     p.add_argument("--only", help="comma-separated question ids")
+    p.add_argument("--query-variant", choices=sorted(QUERY_VARIANTS), help="word the question differently (7.5); `instruct` is the control and must reproduce the baseline")
     return p
 
 
@@ -134,7 +136,8 @@ def _run(args, embedder, store_factory, say) -> int:
         if wiped:
             store.clear()
         sha = hashlib.sha256(Path(args.questions).read_bytes()).hexdigest()[:16]
-        result = run_repo(conn, project_id, args.repo, path, embedder if embedder is not None else OllamaEmbedder(), store, questions,
+        base = embedder if embedder is not None else OllamaEmbedder()
+        result = run_repo(conn, project_id, args.repo, path, variant_embedder(base, args.query_variant) if args.query_variant else base, store, questions,
                           k=args.k, max_tokens=args.max_tokens, index=not args.no_index, reindex=args.reindex, pinned_rev=pinned, questions_sha=sha)
     finally:
         conn.close()

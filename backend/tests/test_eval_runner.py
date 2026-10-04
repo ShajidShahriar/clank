@@ -336,3 +336,13 @@ def test_a_run_where_results_were_left_out_of_the_context_can_still_be_saved(con
     assert q1["dropped_paths"] and all(isinstance(x, str) for x in q1["dropped_paths"]) and len(q1["dropped_paths"]) == q1["dropped"]
     write_results(r, tmp_path / "out.json")                                                  # used to crash: the passages themselves were stored
     assert json.loads((tmp_path / "out.json").read_text())["questions"][0]["dropped"] == q1["dropped"]
+
+
+def test_the_results_file_says_which_query_wording_was_used(conn, repo):
+    from embedding.query_variants import variant_embedder
+    plain = go(conn, repo, [])
+    assert plain["meta"]["query_variant"] is None
+    store = InMemoryVectorStore()
+    run_repo(conn, 1, "tiny", repo, FakeEmbedder(), store, [])
+    raw = run_repo(conn, 1, "tiny", repo, variant_embedder(FakeEmbedder(), "raw"), store, [], index=False)
+    assert raw["meta"]["query_variant"] == "raw"
