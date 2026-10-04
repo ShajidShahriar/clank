@@ -86,3 +86,8 @@ def test_big_data_files_skipped_small_ones_kept(tmp_path):
     (tmp_path / "big.yaml").write_text("a: 1\n" * 6000)       # ~30 KB
     (tmp_path / "big.py").write_text("x = 1\n" * 6000)         # same size, but code: kept
     assert names(tmp_path) == ["app.py", "big.py", "small.json", "small.yaml"]
+
+
+def test_restructuredtext_docs_are_found(tmp_path):
+    make(tmp_path, "docs/errorhandling.rst", "CHANGES.rst", "a.py")
+    assert names(tmp_path) == ["CHANGES.rst", "a.py", "docs/errorhandling.rst"]
