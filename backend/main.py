@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api_errors import register_error_handlers
 from services import Services, default_services, get_services
 
 
@@ -16,6 +17,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         yield
 
     app = FastAPI(lifespan=lifespan)
+    register_error_handlers(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

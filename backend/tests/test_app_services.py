@@ -149,29 +149,27 @@ def test_a_request_retries_the_warm_up_and_recovers_when_ollama_comes_back(db_fi
     assert embedder.warmup_count == 2
 
 
-def test_a_request_while_ollama_is_still_off_raises_the_embedding_error(db_file, clock):
+def test_a_request_while_ollama_is_still_off_gets_a_503(db_file, clock):
     services = make_services(FlakyEmbedder(up=False), clock, retry_after=5.0)
-    with TestClient(needs_embedder_app(services), raise_server_exceptions=True) as client:
+    with TestClient(needs_embedder_app(services)) as client:
         services.wait_for_warmup()
         clock.now += 6
-        with pytest.raises(OllamaUnavailable, match="not running"):
-            client.get("/needs-embedder")
+        r = client.get("/needs-embedder")
+        assert r.status_code == 503 and r.json()["error"]["code"] == "ollama_unavailable"
 
 
 def test_retries_are_not_made_more_often_than_retry_after(db_file, clock):
     embedder = FlakyEmbedder(up=False)
     services = make_services(embedder, clock, retry_after=5.0)
-    with TestClient(needs_embedder_app(services), raise_server_exceptions=True) as client:
+    with TestClient(needs_embedder_app(services)) as client:
         services.wait_for_warmup()
         assert embedder.warmup_count == 1
         for _ in range(3):
             clock.now += 1
-            with pytest.raises(OllamaUnavailable):
-                client.get("/needs-embedder")
+            assert client.get("/needs-embedder").status_code == 503
         assert embedder.warmup_count == 1, "within the pause no new warm-up is tried: the stored error is raised at once"
         clock.now += 5
-        with pytest.raises(OllamaUnavailable):
-            client.get("/needs-embedder")
+        assert client.get("/needs-embedder").status_code == 503
         assert embedder.warmup_count == 2
 
 
