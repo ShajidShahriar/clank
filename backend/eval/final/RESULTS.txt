@@ -1,0 +1,52 @@
+CLANK RETRIEVAL EVAL: FINAL RESULTS (task I-7.13)
+
+frozen configuration (written into every final file):
+  model: qwen3-embedding:0.6b@ac6da0dfba84
+  dim: 1024
+  chunker_fingerprint: 40b710781f70ea61
+  chunk_cap_tokens: 800
+  query_variant: instruct
+  test_policy: {'margin': 0.15, 'changelog_margin': None, 'calibrated_for': 'qwen3-embedding:0.6b@ac6da0dfba84'}
+  lexical_search: False
+  docs_rst: plain line windows (doc_text)
+  cutoff: None
+  k: 10
+  max_tokens: 6000
+
+stages (counted questions with an answer; top-1 / top-3 / top-10 / answer in the real context):
+  baseline (no policy, no .rst)            tune 4/7/10/9 of 14   holdout 2/2/5/4 of 6   all 6/9/15/13 of 20
+  after 7.6: demotion on (before .rst)     tune 5/11/11/11 of 14   holdout 4/5/5/5 of 6   all 9/16/16/16 of 20
+  final, demotion OFF                      tune 5/8/12/9 of 14   holdout 2/2/5/4 of 6   all 7/10/17/13 of 20
+  final, demotion ON                       tune 6/11/13/11 of 14   holdout 4/5/5/5 of 6   all 10/16/18/16 of 20
+
+holdout, top-3 with the demotion on minus off: +3 (on 5 of 6, off 2 of 6)
+verdict: it does not look bad (not 3 or more top-3 hits fewer, no tests question ranked lower). Six questions cannot confirm the margin
+
+rank grid:
+id   repo     kind      split    baseline +demotion final off final on  cause (final, if the answer is not in the context)
+q01  clank    concept   tune         miss      miss      miss     miss  not retrieved
+q06  clank    concept   holdout        9*        3*        9*       3*  
+q08  clank    name      tune           9*        3*        9*       3*  
+q10  clank    name      tune           1*        1*        1*       1*  
+q15  clank    behavior  holdout      miss      miss      miss     miss  not retrieved
+q17  clank    tests     tune           1*        1*        1*       1*  
+q02  flask    concept   tune           2*        2*        2*       2*  
+q04  flask    concept   tune           3*        2*        3*       2*  
+q09  flask    name      holdout        1*        1*        1*       1*  
+q11  flask    name      tune           2*        2*        2*       2*  
+q13  flask    behavior  tune           7*        3*         8        4  ranked 4-10, not in context
+q18  flask    tests     holdout        1*        1*        1*       1*  
+q19  flask    docs      tune         miss      miss         8        4  ranked 4-10, not in context
+q20  flask    docs      tune         miss      miss        1*       1*  
+q03  express  concept   holdout        6*        1*        6*       1*  
+q05  express  concept   tune         miss        3*      miss       3*  
+q07  express  name      tune           1*        1*        1*       1*  
+q12  express  name      holdout        10        1*        10       1*  
+q14  express  behavior  tune           10        1*        10       1*  
+q16  express  tests     tune           1*        1*        1*       1*  
+(rank of the answer in the top 10; * = the answer is in the real context text; miss = not in the top 10)
+
+timings (Air, real model):
+  clank: cold index 101.474 s (957 chunks, 125 embed calls); nothing changed 0.1 s; query median 35.4 ms, slowest 72.8 ms (8 questions)
+  flask: cold index 110.42 s (898 chunks, 96 embed calls); nothing changed 0.1 s; query median 38.1 ms, slowest 63.0 ms (9 questions)
+  express: cold index 189.873 s (1027 chunks, 153 embed calls); nothing changed 0.119 s; query median 34.0 ms, slowest 55.7 ms (8 questions)

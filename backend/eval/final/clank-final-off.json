@@ -1,0 +1,1409 @@
+{
+  "meta": {
+    "repo": "clank",
+    "repo_path": "/private/tmp/claude-501/-Users-shajidshahriar-Developer-clank/4d7ac111-6e31-4d06-89da-cd2af6373a91/scratchpad/clank-pinned",
+    "rev_pinned": "89d9d357ba437744bc86464df3599b95bff69959",
+    "rev_actual": "89d9d357ba437744bc86464df3599b95bff69959",
+    "rev_matches": true,
+    "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+    "dim": 1024,
+    "chunker_fingerprint": "40b710781f70ea61",
+    "chunk_cap_tokens": 800,
+    "k": 10,
+    "max_tokens": 6000,
+    "query_variant": null,
+    "keep": null,
+    "final": true,
+    "test_policy": null,
+    "questions_sha": "75afc16662977930",
+    "created_at": "2026-10-04T22:13:56",
+    "config": {
+      "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+      "dim": 1024,
+      "chunker_fingerprint": "40b710781f70ea61",
+      "chunk_cap_tokens": 800,
+      "query_variant": "instruct",
+      "test_policy": null,
+      "lexical_search": false,
+      "docs_rst": "plain line windows (doc_text)",
+      "cutoff": null,
+      "k": 10,
+      "max_tokens": 6000
+    },
+    "code_rev": "4f2c42e5206c01b0646195eca1a34ce88ec13707",
+    "code_dirty": true
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "kind": "concept",
+      "split": "tune",
+      "question": "how do we avoid showing the model code from a file that was edited after we indexed it?",
+      "expect": [
+        {
+          "path": "backend/search/fresh.py",
+          "symbol": "check_freshness"
+        }
+      ],
+      "top10": [
+        {
+          "id": "95a04fa184f0e90a",
+          "score": 0.6785188913345337,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_a_file_edited_after_indexing_is_marked_stale_and_the_note_names_it",
+          "parent": null,
+          "names": [
+            "test_a_file_edited_after_indexing_is_marked_stale_and_the_note_names_it"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "39fd3540058451e9",
+          "score": 0.6639523506164551,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "baa15f5934f19b0e",
+          "score": 0.6251559257507324,
+          "path": "backend/tests/test_context.py",
+          "symbol": "test_files_that_could_not_be_indexed_are_named_with_their_reason_and_their_old_text_is_absent",
+          "parent": null,
+          "names": [
+            "test_files_that_could_not_be_indexed_are_named_with_their_reason_and_their_old_text_is_absent"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "0b84faa31a83d319",
+          "score": 0.6188539266586304,
+          "path": "backend/indexing/index.py",
+          "symbol": "_skip",
+          "parent": null,
+          "names": [
+            "_skip"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "16d200a62dc3846c",
+          "score": 0.6176036596298218,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_a_changed_file_that_is_also_flagged_is_hidden_not_marked",
+          "parent": null,
+          "names": [
+            "test_a_changed_file_that_is_also_flagged_is_hidden_not_marked"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "0b6a8283cea881c6",
+          "score": 0.6094614267349243,
+          "path": "backend/tests/test_stitch.py",
+          "symbol": "test_a_changed_file_is_not_trusted_for_pointers",
+          "parent": null,
+          "names": [
+            "test_a_changed_file_is_not_trusted_for_pointers"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "d07e55f2286719ed",
+          "score": 0.5995172262191772,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "FILES",
+            "world",
+            "own_text",
+            "ask",
+            "test_an_untouched_file_shows_no_mark_and_no_note"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "8ead824c13e512cf",
+          "score": 0.5924321413040161,
+          "path": "backend/search/fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "0ed76b3fbf04eefe",
+          "score": 0.5913557410240173,
+          "path": "backend/indexing/sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "ROW_FIELDS"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "334924dfe4ccc2dd",
+          "score": 0.5873987078666687,
+          "path": "backend/search/core.py",
+          "symbol": "_require_a_matching_index",
+          "parent": null,
+          "names": [
+            "_require_a_matching_index"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2659,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 59.515,
+        "vector_query": 1.182,
+        "sqlite": 73.941,
+        "expand": 0.038,
+        "fresh": 0.704,
+        "build": 0.178,
+        "total": 135.558
+      }
+    },
+    {
+      "id": "q06",
+      "kind": "concept",
+      "split": "holdout",
+      "question": "what stops two indexing runs from working on the same project at the same time?",
+      "expect": [
+        {
+          "path": "backend/indexing/lock.py",
+          "symbol": "project_lock"
+        }
+      ],
+      "top10": [
+        {
+          "id": "c57e9a0c44a1c5db",
+          "score": 0.7228491306304932,
+          "path": "backend/indexing/lock.py",
+          "symbol": "IndexAlreadyRunning",
+          "parent": null,
+          "names": [
+            "IndexAlreadyRunning"
+          ],
+          "kind": "class_overview",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "5052e9f12410d829",
+          "score": 0.7112611532211304,
+          "path": "backend/tests/test_index_lock.py",
+          "symbol": "test_two_index_runs_for_one_project_cannot_overlap",
+          "parent": null,
+          "names": [
+            "test_two_index_runs_for_one_project_cannot_overlap"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e28487bc0535f055",
+          "score": 0.7007513046264648,
+          "path": "backend/tests/test_index_lock.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "60f7ec40955a2edb",
+          "score": 0.6775778532028198,
+          "path": "backend/tests/test_index_project.py",
+          "symbol": "test_two_projects_indexing_the_same_repo_stay_apart",
+          "parent": null,
+          "names": [
+            "test_two_projects_indexing_the_same_repo_stay_apart"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "d874478a29d17e5b",
+          "score": 0.6715609431266785,
+          "path": "backend/tests/test_index_lock.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "BACKEND",
+            "repo",
+            "test_a_second_holder_is_refused_at_once_and_the_lock_is_free_afterwards",
+            "test_the_lock_is_released_when_the_work_inside_fails",
+            "test_different_projects_do_not_block_each_other"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e6a2739d26dc1528",
+          "score": 0.6633548736572266,
+          "path": "backend/tests/test_index_project.py",
+          "symbol": "test_after_the_problem_is_fixed_a_rerun_ends_in_the_same_state_as_a_clean_run",
+          "parent": null,
+          "names": [
+            "test_after_the_problem_is_fixed_a_rerun_ends_in_the_same_state_as_a_clean_run"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "4417496dcd160143",
+          "score": 0.6585381627082825,
+          "path": "backend/indexing/index.py",
+          "symbol": "index_project",
+          "parent": null,
+          "names": [
+            "index_project"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "da2ccfaf3ef5af3e",
+          "score": 0.6466029286384583,
+          "path": "backend/tests/test_index_project.py",
+          "symbol": "test_it_indexes_this_whole_repo_consistently_and_a_second_run_does_nothing",
+          "parent": null,
+          "names": [
+            "test_it_indexes_this_whole_repo_consistently_and_a_second_run_does_nothing"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "eb462b159cb8b9a7",
+          "score": 0.638748288154602,
+          "path": "backend/indexing/lock.py",
+          "symbol": "project_lock",
+          "parent": null,
+          "names": [
+            "project_lock"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6f5a6572161daa39",
+          "score": 0.6332210302352905,
+          "path": "backend/tests/test_index_lock.py",
+          "symbol": "test_without_flock_the_in_process_lock_still_refuses_a_second_holder",
+          "parent": null,
+          "names": [
+            "test_without_flock_the_in_process_lock_still_refuses_a_second_holder"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 9,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2767,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 37.588,
+        "vector_query": 1.054,
+        "sqlite": 0.495,
+        "expand": 0.015,
+        "fresh": 0.347,
+        "build": 0.104,
+        "total": 39.603
+      }
+    },
+    {
+      "id": "q08",
+      "kind": "name",
+      "split": "tune",
+      "question": "what does plan_sync decide?",
+      "expect": [
+        {
+          "path": "backend/indexing/sync.py",
+          "symbol": "plan_sync"
+        }
+      ],
+      "top10": [
+        {
+          "id": "e2fd5b11daf2eda4",
+          "score": 0.7336961627006531,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "M",
+            "D"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "173337bef927f17a",
+          "score": 0.7149800062179565,
+          "path": "backend/indexing/sync.py",
+          "symbol": "SyncPlan",
+          "parent": null,
+          "names": [
+            "SyncPlan"
+          ],
+          "kind": "class_overview",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "53d549061d0502ad",
+          "score": 0.6826276779174805,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ffc93b3cfba9bfb2",
+          "score": 0.6807300448417664,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "stored",
+            "plan",
+            "ids",
+            "test_a_first_run_everything_is_new",
+            "test_a_second_run_with_nothing_edited_embeds_nothing"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "c820dbf3d844c840",
+          "score": 0.6681511402130127,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": "test_bad_input_is_refused",
+          "parent": null,
+          "names": [
+            "test_bad_input_is_refused"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "bb8f59d18c06dfca",
+          "score": 0.6648327112197876,
+          "path": "backend/indexing/sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "39c2a5950cac2d4a",
+          "score": 0.6599053144454956,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "7280e8114af7c8b9",
+          "score": 0.6305614113807678,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": "chunk",
+          "parent": null,
+          "names": [
+            "chunk"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "d02adbe30b8ffefe",
+          "score": 0.6297737956047058,
+          "path": "backend/indexing/sync.py",
+          "symbol": "plan_sync",
+          "parent": null,
+          "names": [
+            "plan_sync"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "24fa7e160fb84b4b",
+          "score": 0.6168627738952637,
+          "path": "backend/tests/test_plan_sync.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "test_only_the_chunks_without_a_record_are_embedded_after_a_half_finished_run",
+            "test_a_changed_chunk_is_embedded_once_even_if_its_model_also_differs"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 9,
+      "top1": false,
+      "top3": false,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2169,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 31.222,
+        "vector_query": 1.134,
+        "sqlite": 0.497,
+        "expand": 0.017,
+        "fresh": 0.217,
+        "build": 0.112,
+        "total": 33.198
+      }
+    },
+    {
+      "id": "q10",
+      "kind": "name",
+      "split": "tune",
+      "question": "where is ceiling_tokens defined and what is the formula?",
+      "expect": [
+        {
+          "path": "backend/search/budget.py",
+          "symbol": "ceiling_tokens"
+        }
+      ],
+      "top10": [
+        {
+          "id": "41f407b16a790bca",
+          "score": 0.7056125998497009,
+          "path": "backend/search/budget.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "ceiling_tokens",
+            "narrow_target_tokens"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "550ba82fc1109f25",
+          "score": 0.6630321145057678,
+          "path": "backend/tests/test_ceiling.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "2b41568e27c0dcde",
+          "score": 0.6397865414619446,
+          "path": "backend/tests/test_ceiling.py",
+          "symbol": "test_no_context_is_ever_bigger_than_twice_the_budget_unless_one_chunk_already_is",
+          "parent": null,
+          "names": [
+            "test_no_context_is_ever_bigger_than_twice_the_budget_unless_one_chunk_already_is"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "b16634e1d0015dd6",
+          "score": 0.6007606983184814,
+          "path": "backend/tests/test_ceiling.py",
+          "symbol": "test_a_huge_function_is_narrowed_to_the_hit_part_and_stays_under_the_ceiling",
+          "parent": null,
+          "names": [
+            "test_a_huge_function_is_narrowed_to_the_hit_part_and_stays_under_the_ceiling"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f6a3d224d9511fb4",
+          "score": 0.5880130529403687,
+          "path": "backend/search/budget.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "PASSAGE_OVERHEAD_TOKENS",
+            "NOTES_ALLOWANCE_TOKENS"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "d087a8cb2177da9a",
+          "score": 0.5871606469154358,
+          "path": "backend/tests/test_ceiling.py",
+          "symbol": "test_the_narrowing_target_leaves_room_for_the_notes",
+          "parent": null,
+          "names": [
+            "test_the_narrowing_target_leaves_room_for_the_notes"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "b01111cf1494fe99",
+          "score": 0.5830411314964294,
+          "path": "backend/tests/test_context.py",
+          "symbol": "test_the_final_text_never_exceeds_the_budget_unless_the_best_passage_alone_is_bigger",
+          "parent": null,
+          "names": [
+            "test_the_final_text_never_exceeds_the_budget_unless_the_best_passage_alone_is_bigger"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "01b25e07f110ce03",
+          "score": 0.5811259150505066,
+          "path": "backend/search/budget.py",
+          "symbol": "default_cost",
+          "parent": null,
+          "names": [
+            "default_cost"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "da9f39870d560d42",
+          "score": 0.5791808366775513,
+          "path": "backend/search/budget.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "df7131028246a470",
+          "score": 0.5783504843711853,
+          "path": "backend/chunker/core.py",
+          "symbol": "estimate_tokens",
+          "parent": null,
+          "names": [
+            "estimate_tokens"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2385,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 29.466,
+        "vector_query": 1.268,
+        "sqlite": 0.547,
+        "expand": 0.016,
+        "fresh": 0.421,
+        "build": 0.129,
+        "total": 31.846
+      }
+    },
+    {
+      "id": "q15",
+      "kind": "behavior",
+      "split": "holdout",
+      "question": "what happens to a file when one of its chunks is too long for the embedding model?",
+      "expect": [
+        {
+          "path": "backend/indexing/index.py",
+          "symbol": "_skip"
+        }
+      ],
+      "top10": [
+        {
+          "id": "7f7ddb55e6427910",
+          "score": 0.6941604018211365,
+          "path": "backend/tests/test_embed_chunks.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "518db303f6ae160d",
+          "score": 0.6836140155792236,
+          "path": "backend/tests/test_ollama_embedder.py",
+          "symbol": "test_one_bad_chunk_in_a_later_batch_still_fails_the_whole_call",
+          "parent": null,
+          "names": [
+            "test_one_bad_chunk_in_a_later_batch_still_fails_the_whole_call"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "215ca7ca0948053d",
+          "score": 0.6798191070556641,
+          "path": "backend/embedding/ollama.py",
+          "symbol": "_name_the_offenders",
+          "parent": "OllamaEmbedder",
+          "names": [
+            "OllamaEmbedder._name_the_offenders"
+          ],
+          "kind": "method",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "cdc07e0c05c224d0",
+          "score": 0.6789708137512207,
+          "path": "backend/tests/test_embed_chunks.py",
+          "symbol": "chunks",
+          "parent": null,
+          "names": [
+            "chunks"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "3d0178691f5cdae0",
+          "score": 0.6707428097724915,
+          "path": "backend/tests/test_file_shortcut.py",
+          "symbol": "test_a_file_with_a_chunk_that_has_no_vector_record_is_not_skipped",
+          "parent": null,
+          "names": [
+            "test_a_file_with_a_chunk_that_has_no_vector_record_is_not_skipped"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f629dbde2815d573",
+          "score": 0.6700318455696106,
+          "path": "backend/tests/test_chunk_store.py",
+          "symbol": "test_changed_chunk_loses_its_embedding_record",
+          "parent": null,
+          "names": [
+            "test_changed_chunk_loses_its_embedding_record"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "a94deb4aae091fda",
+          "score": 0.6675365567207336,
+          "path": "backend/tests/test_chunk_store.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "test_saving_again_replaces_the_files_chunks",
+            "test_resaving_unchanged_chunk_keeps_its_embedding_record"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "6065cf621b78bb09",
+          "score": 0.6662033796310425,
+          "path": "backend/tests/test_embed_chunks.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "test_it_embeds_embed_text_in_order_never_text",
+            "test_it_returns_one_vector_per_chunk_id_in_chunk_order",
+            "test_the_vector_belongs_to_its_chunk_even_for_chunks_in_a_different_order",
+            "test_chunk_ids_are_passed_on_so_an_oversized_chunk_is_named",
+            "test_nothing_to_embed_does_not_call_the_embedder",
+            "test_duplicate_ids_are_refused_before_anything_is_embedded",
+            "test_a_chunk_without_embed_text_is_refused_and_named",
+            "test_a_chunk_dict_with_no_embed_text_key_is_refused_and_named",
+            "test_a_short_answer_from_the_embedder_is_an_error_not_a_misaligned_result"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "43db48cb3a607d0b",
+          "score": 0.6659903526306152,
+          "path": "backend/tests/test_ollama_live.py",
+          "symbol": "test_over_limit_text_is_an_error_naming_the_chunk",
+          "parent": null,
+          "names": [
+            "test_over_limit_text_is_an_error_naming_the_chunk"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "6281f5fad522206d",
+          "score": 0.6636646389961243,
+          "path": "backend/embedding/errors.py",
+          "symbol": "EmbeddingTooLong",
+          "parent": null,
+          "names": [
+            "EmbeddingTooLong"
+          ],
+          "kind": "class_overview",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2855,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 29.689,
+        "vector_query": 1.544,
+        "sqlite": 0.621,
+        "expand": 0.02,
+        "fresh": 0.754,
+        "build": 0.155,
+        "total": 32.782
+      }
+    },
+    {
+      "id": "q17",
+      "kind": "tests",
+      "split": "tune",
+      "question": "where is it tested that an edited file is marked as stale in the results?",
+      "expect": [
+        {
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_a_file_edited_after_indexing_is_marked_stale_and_the_note_names_it"
+        }
+      ],
+      "top10": [
+        {
+          "id": "95a04fa184f0e90a",
+          "score": 0.7650185227394104,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_a_file_edited_after_indexing_is_marked_stale_and_the_note_names_it",
+          "parent": null,
+          "names": [
+            "test_a_file_edited_after_indexing_is_marked_stale_and_the_note_names_it"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "7665a945e8d4d662",
+          "score": 0.7496641874313354,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_only_files_in_the_results_are_checked",
+          "parent": null,
+          "names": [
+            "test_only_files_in_the_results_are_checked"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "8ead824c13e512cf",
+          "score": 0.7227051258087158,
+          "path": "backend/search/fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c5261313e0287910",
+          "score": 0.7157490849494934,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_a_stale_file_whose_passage_did_not_fit_the_budget_is_not_mentioned",
+          "parent": null,
+          "names": [
+            "test_a_stale_file_whose_passage_did_not_fit_the_budget_is_not_mentioned"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "81c65a16199c0e5f",
+          "score": 0.6840164661407471,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_rewriting_the_same_bytes_is_still_fresh",
+          "parent": null,
+          "names": [
+            "test_rewriting_the_same_bytes_is_still_fresh"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "39fd3540058451e9",
+          "score": 0.6809628009796143,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "68e2b582b465a444",
+          "score": 0.6799235343933105,
+          "path": "backend/search/fresh.py",
+          "symbol": "check_freshness",
+          "parent": null,
+          "names": [
+            "check_freshness"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "30b44dd32d256eed",
+          "score": 0.6751702427864075,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_two_passages_from_one_file_are_both_marked_and_the_file_is_listed_once",
+          "parent": null,
+          "names": [
+            "test_two_passages_from_one_file_are_both_marked_and_the_file_is_listed_once"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "00a8cd77fcecb8e4",
+          "score": 0.6666211485862732,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_retrieve_reports_them_too",
+          "parent": null,
+          "names": [
+            "test_retrieve_reports_them_too"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "d07e55f2286719ed",
+          "score": 0.6563782095909119,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "FILES",
+            "world",
+            "own_text",
+            "ask",
+            "test_an_untouched_file_shows_no_mark_and_no_note"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 2545,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 33.112,
+        "vector_query": 1.826,
+        "sqlite": 0.722,
+        "expand": 0.024,
+        "fresh": 0.283,
+        "build": 0.157,
+        "total": 36.124
+      }
+    },
+    {
+      "id": "q21",
+      "kind": "negative",
+      "split": "holdout",
+      "question": "how do we charge users for a subscription?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "e570e00e083d7ed2",
+          "score": 0.4307551383972168,
+          "path": "backend/tests/test_fresh.py",
+          "symbol": "test_the_budget_still_counts_exactly_what_is_sent_with_the_new_notes",
+          "parent": null,
+          "names": [
+            "test_the_budget_still_counts_exactly_what_is_sent_with_the_new_notes"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "b40fba07095ddb06",
+          "score": 0.43064582347869873,
+          "path": "backend/tests/test_budget.py",
+          "symbol": "test_the_cost_function_is_used_by_retrieve",
+          "parent": null,
+          "names": [
+            "test_the_cost_function_is_used_by_retrieve"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "0f46c2af44945497",
+          "score": 0.4296654462814331,
+          "path": "backend/tests/test_context.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "31a8be62d164f587",
+          "score": 0.42215001583099365,
+          "path": "backend/tests/test_class_overview.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "01b25e07f110ce03",
+          "score": 0.4144078493118286,
+          "path": "backend/search/budget.py",
+          "symbol": "default_cost",
+          "parent": null,
+          "names": [
+            "default_cost"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "842ea60dbefd4f4c",
+          "score": 0.40989160537719727,
+          "path": "backend/search/budget.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c243b6f3d0c1eaa5",
+          "score": 0.4009895324707031,
+          "path": "backend/search/stitch.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c6bd50a300cc57e6",
+          "score": 0.3932124376296997,
+          "path": "backend/tests/test_context.py",
+          "symbol": "test_one_token_less_drops_something_and_the_notes_still_fit_inside_the_budget",
+          "parent": null,
+          "names": [
+            "test_one_token_less_drops_something_and_the_notes_still_fit_inside_the_budget"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f06f7ea094cdcb3f",
+          "score": 0.3911623954772949,
+          "path": "backend/chunker/grouping.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "5623dd27330bbf63",
+          "score": 0.3907572031021118,
+          "path": "backend/tests/test_splitting.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 1025,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 28.081,
+        "vector_query": 2.428,
+        "sqlite": 0.792,
+        "expand": 0.027,
+        "fresh": 1.202,
+        "build": 0.149,
+        "total": 32.678
+      }
+    },
+    {
+      "id": "q22",
+      "kind": "negative",
+      "split": "tune",
+      "question": "where is login with a Google account handled?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "5f92ca0db736fca3",
+          "score": 0.3395687937736511,
+          "path": "backend/search/fresh.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "9e07e43947d96e36",
+          "score": 0.3388769030570984,
+          "path": "backend/search/core.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "ae0b70025057eb36",
+          "score": 0.33856844902038574,
+          "path": "backend/chunk_store.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "571d41280ba88ab7",
+          "score": 0.338176965713501,
+          "path": "backend/tests/crash_hooks.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "3dcc3d7f4d8f8b8a",
+          "score": 0.3270179033279419,
+          "path": "backend/chunker/core.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "4bdef3d8c7a19691",
+          "score": 0.32529616355895996,
+          "path": "src/components/Sidebar.tsx",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "e1378da2f9f88408",
+          "score": 0.32362377643585205,
+          "path": "src/data/mockConversations.ts",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "initialConversations",
+            "initialMessages",
+            "assistantReplyPool"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c243b6f3d0c1eaa5",
+          "score": 0.3213019371032715,
+          "path": "backend/search/stitch.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "78869d6573516e38",
+          "score": 0.3212699890136719,
+          "path": "backend/tests/test_real_kill.py",
+          "symbol": "run_here",
+          "parent": null,
+          "names": [
+            "run_here"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "17fa9c635eddce82",
+          "score": 0.3178252577781677,
+          "path": "backend/search/__init__.py",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "raw",
+      "ranking_note": null,
+      "context_tokens": 1198,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 28.85,
+        "vector_query": 2.205,
+        "sqlite": 1.297,
+        "expand": 0.03,
+        "fresh": 1.813,
+        "build": 0.202,
+        "total": 34.399
+      }
+    }
+  ]
+}

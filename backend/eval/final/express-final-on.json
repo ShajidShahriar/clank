@@ -1,0 +1,1415 @@
+{
+  "meta": {
+    "repo": "express",
+    "repo_path": "/private/tmp/claude-501/-Users-shajidshahriar-Developer-clank/051bc935-1178-4d68-97d0-6ae396d57dba/scratchpad/express",
+    "rev_pinned": "7ef98448f8b38099ab1ded55e458538ad47a51e7",
+    "rev_actual": "7ef98448f8b38099ab1ded55e458538ad47a51e7",
+    "rev_matches": true,
+    "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+    "dim": 1024,
+    "chunker_fingerprint": "40b710781f70ea61",
+    "chunk_cap_tokens": 800,
+    "k": 10,
+    "max_tokens": 6000,
+    "query_variant": null,
+    "keep": null,
+    "final": true,
+    "test_policy": {
+      "margin": 0.15,
+      "changelog_margin": null,
+      "calibrated_for": "qwen3-embedding:0.6b@ac6da0dfba84"
+    },
+    "questions_sha": "75afc16662977930",
+    "created_at": "2026-10-04T22:15:46",
+    "config": {
+      "model": "qwen3-embedding:0.6b@ac6da0dfba84",
+      "dim": 1024,
+      "chunker_fingerprint": "40b710781f70ea61",
+      "chunk_cap_tokens": 800,
+      "query_variant": "instruct",
+      "test_policy": {
+        "margin": 0.15,
+        "changelog_margin": null,
+        "calibrated_for": "qwen3-embedding:0.6b@ac6da0dfba84"
+      },
+      "lexical_search": false,
+      "docs_rst": "plain line windows (doc_text)",
+      "cutoff": null,
+      "k": 10,
+      "max_tokens": 6000
+    },
+    "code_rev": "4f2c42e5206c01b0646195eca1a34ce88ec13707",
+    "code_dirty": true
+  },
+  "questions": [
+    {
+      "id": "q03",
+      "kind": "concept",
+      "split": "holdout",
+      "question": "how does the app work out the visitor's real address when it sits behind a proxy?",
+      "expect": [
+        {
+          "path": "lib/utils.js",
+          "symbol": "exports.compileTrust"
+        },
+        {
+          "path": "lib/request.js",
+          "symbol": null
+        }
+      ],
+      "top10": [
+        {
+          "id": "c059b8e426a58627",
+          "score": 0.48324692249298096,
+          "path": "lib/request.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "fc6232df2d479fcc",
+          "score": 0.4594290256500244,
+          "path": "examples/vhost/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "46e8263da9abfe97",
+          "score": 0.42185622453689575,
+          "path": "lib/request.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "typeis",
+            "http",
+            "fresh",
+            "parseRange",
+            "parse",
+            "proxyaddr"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "9f01f76f9fff88af",
+          "score": 0.5684599280357361,
+          "path": "test/req.ip.js",
+          "symbol": "getExpectedClientAddress",
+          "parent": null,
+          "names": [
+            "getExpectedClientAddress"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "52457b35f60bb5bf",
+          "score": 0.404535174369812,
+          "path": "examples/vhost/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "logger",
+            "vhost"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "fea7bd1122ffff67",
+          "score": 0.5343759059906006,
+          "path": "test/req.ip.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "44648e75d81b8b10",
+          "score": 0.5153268575668335,
+          "path": "test/req.ip.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "4e38597bfd6e00c2",
+          "score": 0.5022852420806885,
+          "path": "test/req.ips.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e64b6fe3821d6a86",
+          "score": 0.4996185302734375,
+          "path": "test/req.ip.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "0a9788a9fe3b4397",
+          "score": 0.4786972403526306,
+          "path": "test/req.hostname.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 5007,
+      "over_budget": false,
+      "passages": 8,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 51.316,
+        "vector_query": 2.157,
+        "sqlite": 1.149,
+        "expand": 0.483,
+        "fresh": 0.456,
+        "build": 0.184,
+        "total": 55.745
+      }
+    },
+    {
+      "id": "q05",
+      "kind": "concept",
+      "split": "tune",
+      "question": "how is the template file found on disk when a page is rendered?",
+      "expect": [
+        {
+          "path": "lib/view.js",
+          "symbol": "View.prototype.lookup"
+        }
+      ],
+      "top10": [
+        {
+          "id": "40287d81aea2c33e",
+          "score": 0.5336580276489258,
+          "path": "examples/view-constructor/github-view.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "extname",
+            "module.exports",
+            "GithubView"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "f12588f7d483d774",
+          "score": 0.478756308555603,
+          "path": "lib/application.js",
+          "symbol": "app.render",
+          "parent": null,
+          "names": [
+            "app.render"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "fbd3aa672dd85b77",
+          "score": 0.4498134255409241,
+          "path": "lib/view.js",
+          "symbol": "View.prototype.lookup",
+          "parent": null,
+          "names": [
+            "View.prototype.lookup"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "63738ed5dd887b61",
+          "score": 0.5948479175567627,
+          "path": "test/support/tmpl.js",
+          "symbol": "module.exports",
+          "parent": null,
+          "names": [
+            "module.exports"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "758a6f2f7c3b0b0d",
+          "score": 0.44465482234954834,
+          "path": "examples/ejs/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "app",
+            "users"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6bf97ab3a03b6151",
+          "score": 0.5573052763938904,
+          "path": "test/app.engine.js",
+          "symbol": "render",
+          "parent": null,
+          "names": [
+            "render"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f4fc9be1a755d2f5",
+          "score": 0.5213946104049683,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ab6a78f224f344dc",
+          "score": 0.516040563583374,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "1c2b325e9501e23d",
+          "score": 0.5135963559150696,
+          "path": "test/app.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "assert",
+            "express",
+            "path",
+            "tmpl"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "b1e21f2f53784525",
+          "score": 0.5034503936767578,
+          "path": "test/res.render.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "path",
+            "request",
+            "tmpl"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 3,
+      "top1": false,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 5299,
+      "over_budget": false,
+      "passages": 9,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 27.795,
+        "vector_query": 1.415,
+        "sqlite": 0.88,
+        "expand": 0.219,
+        "fresh": 0.682,
+        "build": 0.17,
+        "total": 31.16
+      }
+    },
+    {
+      "id": "q07",
+      "kind": "name",
+      "split": "tune",
+      "question": "what does res.redirect do with the url and the status code?",
+      "expect": [
+        {
+          "path": "lib/response.js",
+          "symbol": "res.redirect"
+        }
+      ],
+      "top10": [
+        {
+          "id": "bb3737c46fc96f30",
+          "score": 0.8538728952407837,
+          "path": "lib/response.js",
+          "symbol": "res.redirect",
+          "parent": null,
+          "names": [
+            "res.redirect"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "953c6144bbc93d6a",
+          "score": 0.7654205560684204,
+          "path": "lib/response.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "res.location"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "1a4e7fb2af3793fb",
+          "score": 0.7040704488754272,
+          "path": "examples/mvc/controllers/main/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "exports.index"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "5dd361d38d992114",
+          "score": 0.7840116024017334,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "14734caddd7145c8",
+          "score": 0.780495822429657,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "662fc57e4a36bb26",
+          "score": 0.6055382490158081,
+          "path": "lib/response.js",
+          "symbol": "res.status",
+          "parent": null,
+          "names": [
+            "res.status"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "736340e137ed0477",
+          "score": 0.5823259353637695,
+          "path": "lib/response.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "res.sendStatus"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "6611863f1feb8d64",
+          "score": 0.7005581259727478,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "2a738803234b50bb",
+          "score": 0.6979605555534363,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "922a5ddfb78aebe4",
+          "score": 0.6721861362457275,
+          "path": "test/res.redirect.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "request",
+            "utils"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 3203,
+      "over_budget": false,
+      "passages": 8,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 27.744,
+        "vector_query": 1.592,
+        "sqlite": 0.926,
+        "expand": 0.197,
+        "fresh": 0.324,
+        "build": 0.136,
+        "total": 30.919
+      }
+    },
+    {
+      "id": "q12",
+      "kind": "name",
+      "split": "holdout",
+      "question": "how does app.param register a callback for a route parameter?",
+      "expect": [
+        {
+          "path": "lib/application.js",
+          "symbol": "app.param"
+        }
+      ],
+      "top10": [
+        {
+          "id": "86c933ac208e8d5e",
+          "score": 0.604632556438446,
+          "path": "lib/application.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "app.engine",
+            "app.param"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "11ef1f9a7ce06c1e",
+          "score": 0.7031717300415039,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "36ad796b849f72d3",
+          "score": 0.5527452230453491,
+          "path": "examples/params/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "app",
+            "users"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "cad94d6f801743ca",
+          "score": 0.7022976279258728,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "822a7e1cabcbdc9c",
+          "score": 0.5505555272102356,
+          "path": "examples/route-map/index.js",
+          "symbol": "app.map",
+          "parent": null,
+          "names": [
+            "app.map"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "34750857d746e33b",
+          "score": 0.5266592502593994,
+          "path": "lib/application.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "app.route"
+          ],
+          "kind": "group",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "2f3caf5b170e4e4a",
+          "score": 0.6741990447044373,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ca2a776869dca6c6",
+          "score": 0.5125858187675476,
+          "path": "lib/application.js",
+          "symbol": "app.use",
+          "parent": null,
+          "names": [
+            "app.use"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "122b2517f538915f",
+          "score": 0.6620117425918579,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 3,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "5c6063bdfd191ef6",
+          "score": 0.6369367241859436,
+          "path": "test/app.param.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 4059,
+      "over_budget": false,
+      "passages": 7,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 28.986,
+        "vector_query": 1.84,
+        "sqlite": 1.173,
+        "expand": 0.246,
+        "fresh": 0.477,
+        "build": 0.173,
+        "total": 32.894
+      }
+    },
+    {
+      "id": "q14",
+      "kind": "behavior",
+      "split": "tune",
+      "question": "how does sending a response body set the ETag and answer a conditional request?",
+      "expect": [
+        {
+          "path": "lib/response.js",
+          "symbol": "res.send"
+        }
+      ],
+      "top10": [
+        {
+          "id": "fec996723ee4b3e9",
+          "score": 0.6174045205116272,
+          "path": "lib/response.js",
+          "symbol": "res.send",
+          "parent": null,
+          "names": [
+            "res.send"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "5aced7e4568a0862",
+          "score": 0.728401780128479,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 4,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "5337ca5c1f826889",
+          "score": 0.7032516598701477,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 5,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "65c75917777127d9",
+          "score": 0.701194167137146,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 6,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "39493359ba0d5b64",
+          "score": 0.5405399203300476,
+          "path": "lib/request.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "4858c7ea3ec83b37",
+          "score": 0.6411187052726746,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e37d404b75d503fa",
+          "score": 0.6359546184539795,
+          "path": "test/res.send.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 3,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "819b85033eff0d00",
+          "score": 0.6310775876045227,
+          "path": "test/req.fresh.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "f883d9fd0c2ed431",
+          "score": 0.6068630218505859,
+          "path": "test/req.stale.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "b04f8f1fef53a645",
+          "score": 0.6029818654060364,
+          "path": "test/req.fresh.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "shouldSkipQuery"
+          ],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 5973,
+      "over_budget": false,
+      "passages": 2,
+      "dropped": 3,
+      "dropped_paths": [
+        "lib/request.js",
+        "test/req.fresh.js",
+        "test/req.stale.js"
+      ],
+      "timings_ms": {
+        "embed_query": 28.454,
+        "vector_query": 2.071,
+        "sqlite": 1.357,
+        "expand": 0.773,
+        "fresh": 0.566,
+        "build": 0.315,
+        "total": 33.536
+      }
+    },
+    {
+      "id": "q16",
+      "kind": "tests",
+      "split": "tune",
+      "question": "where is it tested that a cookie can be given an expiry date?",
+      "expect": [
+        {
+          "path": "test/res.cookie.js",
+          "symbol": null
+        }
+      ],
+      "top10": [
+        {
+          "id": "f328372525d9fe54",
+          "score": 0.6717264652252197,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 1,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "454f97f25d1323bf",
+          "score": 0.6388825178146362,
+          "path": "test/res.clearCookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e91b0f8d9b0b8fb8",
+          "score": 0.6370129585266113,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "2f1167da618e202d",
+          "score": 0.6209138035774231,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 2,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "1d89b3283dbc9022",
+          "score": 0.6004797220230103,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 3,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "505a284a1cff83bd",
+          "score": 0.5982629656791687,
+          "path": "test/res.cookie.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "ffaaaca47f4d3869",
+          "score": 0.5832770466804504,
+          "path": "test/req.signedCookies.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "770db13cb77e4134",
+          "score": 0.5709241032600403,
+          "path": "test/req.signedCookies.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "e09433fe22bcf1ce",
+          "score": 0.5582215189933777,
+          "path": "test/req.signedCookies.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "request",
+            "cookieParser"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "7d276673a697d904",
+          "score": 0.550571858882904,
+          "path": "examples/cookie-sessions/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": 1,
+      "top1": true,
+      "top3": true,
+      "top10_hit": true,
+      "found_in_context": true,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 3419,
+      "over_budget": false,
+      "passages": 7,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 29.472,
+        "vector_query": 2.649,
+        "sqlite": 1.414,
+        "expand": 0.304,
+        "fresh": 0.545,
+        "build": 0.183,
+        "total": 34.567
+      }
+    },
+    {
+      "id": "q24",
+      "kind": "negative",
+      "split": "holdout",
+      "question": "where is the WebSocket upgrade handled?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "67aa6ce1dfed1915",
+          "score": 0.44804805517196655,
+          "path": "lib/response.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "cookie",
+            "send"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "0b101ea20f75af41",
+          "score": 0.4436910152435303,
+          "path": "examples/web-service/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c059b8e426a58627",
+          "score": 0.4329497814178467,
+          "path": "lib/request.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": 0,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "c61ec3d4951dedab",
+          "score": 0.4295957088470459,
+          "path": "examples/web-service/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "14d71818a03bd7de",
+          "score": 0.4385569095611572,
+          "path": "test/res.sendStatus.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "c41b95e929d95814",
+          "score": 0.4300955533981323,
+          "path": "test/acceptance/web-service.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "request",
+            "app"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": true,
+          "is_changelog": false
+        },
+        {
+          "id": "60a7d91a44ecbac9",
+          "score": 0.5016298294067383,
+          "path": "History.md",
+          "symbol": "3.3.4 / 2013-07-08",
+          "parent": null,
+          "names": [
+            "3.3.4 / 2013-07-08"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "4af1c223fc11c25f",
+          "score": 0.47006893157958984,
+          "path": "History.md",
+          "symbol": "3.4.6 / 2013-12-01",
+          "parent": null,
+          "names": [
+            "3.4.6 / 2013-12-01"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "dc574824d1cbd441",
+          "score": 0.46881985664367676,
+          "path": "History.md",
+          "symbol": "3.3.2 / 2013-07-03",
+          "parent": null,
+          "names": [
+            "3.3.2 / 2013-07-03"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        },
+        {
+          "id": "0f146901439e17df",
+          "score": 0.4688006639480591,
+          "path": "History.md",
+          "symbol": "3.0.0beta7 / 2012-07-16",
+          "parent": null,
+          "names": [
+            "3.0.0beta7 / 2012-07-16"
+          ],
+          "kind": "doc_section",
+          "part": null,
+          "is_test": false,
+          "is_changelog": true
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 2174,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 28.005,
+        "vector_query": 2.777,
+        "sqlite": 2.132,
+        "expand": 0.335,
+        "fresh": 1.073,
+        "build": 0.211,
+        "total": 34.533
+      }
+    },
+    {
+      "id": "q25",
+      "kind": "negative",
+      "split": "tune",
+      "question": "how does the app talk to a MongoDB database?",
+      "expect": [],
+      "top10": [
+        {
+          "id": "a428ffc8acc70903",
+          "score": 0.59145587682724,
+          "path": "examples/mvc/controllers/user-pet/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "72859ef970077b73",
+          "score": 0.5886656045913696,
+          "path": "examples/search/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db",
+            "app"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "21e7020b3a478ccf",
+          "score": 0.5856553316116333,
+          "path": "examples/mvc/controllers/pet/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "73654a609583305e",
+          "score": 0.5734266638755798,
+          "path": "examples/mvc/controllers/user/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "db"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "77e45c2c1d2ede2a",
+          "score": 0.5498456358909607,
+          "path": "examples/mvc/db.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "pets",
+            "users"
+          ],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "d2ef0dbd53145e6f",
+          "score": 0.5413718819618225,
+          "path": "examples/search/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "3851c314eb0ea8ea",
+          "score": 0.5349292159080505,
+          "path": "examples/mvc/controllers/user-pet/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "eb7a03e5c078070b",
+          "score": 0.5167611241340637,
+          "path": "examples/search/index.js",
+          "symbol": "initializeRedis",
+          "parent": null,
+          "names": [
+            "initializeRedis"
+          ],
+          "kind": "function",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "364cb084d01fba6f",
+          "score": 0.5141706466674805,
+          "path": "examples/search/index.js",
+          "symbol": null,
+          "parent": null,
+          "names": [
+            "express",
+            "path",
+            "redis"
+          ],
+          "kind": "imports",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        },
+        {
+          "id": "36f83c0afca4b591",
+          "score": 0.513585090637207,
+          "path": "examples/session/redis.js",
+          "symbol": null,
+          "parent": null,
+          "names": [],
+          "kind": "module_code",
+          "part": null,
+          "is_test": false,
+          "is_changelog": false
+        }
+      ],
+      "rank": null,
+      "top1": false,
+      "top3": false,
+      "top10_hit": false,
+      "found_in_context": false,
+      "ranking": "demoted",
+      "ranking_note": null,
+      "context_tokens": 1008,
+      "over_budget": false,
+      "passages": 10,
+      "dropped": 0,
+      "dropped_paths": [],
+      "timings_ms": {
+        "embed_query": 29.558,
+        "vector_query": 2.564,
+        "sqlite": 2.38,
+        "expand": 0.031,
+        "fresh": 1.086,
+        "build": 0.187,
+        "total": 35.807
+      }
+    }
+  ],
+  "index": {
+    "seconds": 0.22,
+    "describe": "done: 153 files, 0 chunks embedded",
+    "stopped": false,
+    "files_seen": 153,
+    "files_written": 153,
+    "files_unchanged": 0,
+    "chunks": 1027,
+    "embedded": 0,
+    "skipped": [],
+    "embed_calls": 0,
+    "embed_texts": 0
+  }
+}
