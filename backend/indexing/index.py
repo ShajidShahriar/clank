@@ -41,7 +41,7 @@ class Stopped:
     at: str | None     # the file being worked on (it was NOT completed), or None if the run never started
     reason: str
     files_done: int    # files handled before this point: indexed, skipped by the shortcut, or skipped with a recorded reason
-    kind: str          # "embedder" (Ollama problem) or "too_many_skips"
+    kind: str          # "embedder" (Ollama problem), "too_many_skips" or "cancelled" (the caller asked to stop)
 
 
 @dataclass
@@ -79,17 +79,18 @@ class IndexReport:
         return f"stopped at {self.stopped.at} after {self.stopped.files_done} of {self.files_seen} files: {self.stopped.reason}{skipped}"
 
 
-def index_project(conn, project_id, repo_path, embedder, store, *, progress=None, lock_dir=None) -> IndexReport:
+def index_project(conn, project_id, repo_path, embedder, store, *, progress=None, lock_dir=None, cancel=None, on_start=None) -> IndexReport:
     """Bring SQLite and the vector store in line with the repo on disk. Safe to run again after any interruption.
 
-    `progress(done, total, rel_path)` is called after each file. Only one run per project at a time: a second call raises
-    `IndexAlreadyRunning` at once, before doing any work.
+    `on_start(total)` is called once, after the files are found and before the first one is handled. `progress(done, total, rel_path)` is called after each file. `cancel()` is asked BEFORE each file: when it says yes the run stops cleanly
+    (`report.stopped.kind == "cancelled"`; like any stopped run it deletes and sweeps nothing). Only one run per project at a time: a second call
+    raises `IndexAlreadyRunning` at once, before doing any work.
     """
     with project_lock(lock_dir if lock_dir is not None else datadir.lock_dir(), project_id):
-        return _index_project(conn, project_id, repo_path, embedder, store, progress)
+        return _index_project(conn, project_id, repo_path, embedder, store, progress, cancel, on_start)
 
 
-def _index_project(conn, project_id, repo_path, embedder, store, progress) -> IndexReport:
+def _index_project(conn, project_id, repo_path, embedder, store, progress, cancel=None, on_start=None) -> IndexReport:
     started = time.monotonic()
     root = Path(repo_path).resolve()
     report = IndexReport()
@@ -109,6 +110,8 @@ def _index_project(conn, project_id, repo_path, embedder, store, progress) -> In
 
     files = sorted(discover_files(str(root)), key=lambda p: p.relative_to(root).as_posix())
     report.files_seen = len(files)
+    if on_start:
+        on_start(len(files))
     stored_files = chunk_store.file_hashes(conn, project_id)
     states = chunk_store.file_states(conn, project_id)
     unfinished = chunk_store.files_needing_embedding(conn, project_id, model, dim)
@@ -122,6 +125,9 @@ def _index_project(conn, project_id, repo_path, embedder, store, progress) -> In
 
     for path in files:
         rel = path.relative_to(root).as_posix()
+        if cancel is not None and cancel():
+            report.stopped = Stopped(rel, "cancelled by the user", handled, "cancelled")
+            break
         file_hash = ""
         skipped_before = len(report.skipped)
         try:

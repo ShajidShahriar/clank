@@ -1,4 +1,5 @@
 import { ipcRenderer, contextBridge } from 'electron'
+import { CHANNELS } from './backend/channels.ts'
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -21,4 +22,17 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
   // You can expose other APTs you need here.
   // ...
+})
+
+// The ONLY way the window talks to the Python backend (task 8.7). The token and the port stay in the main process; the window names a method, a path
+// and a JSON body, and the main process checks them (backend/ipc.ts, backend/request.ts).
+contextBridge.exposeInMainWorld('clankBackend', {
+  request: (method: string, path: string, body?: object) => ipcRenderer.invoke(CHANNELS.request, { method, path, body }),
+  status: () => ipcRenderer.invoke(CHANNELS.status),
+  restart: () => ipcRenderer.invoke(CHANNELS.restart),
+  onStatus(listener: (status: unknown) => void) {
+    const handler = (_event: unknown, status: unknown) => listener(status)
+    ipcRenderer.on(CHANNELS.statusChanged, handler)
+    return () => { ipcRenderer.off(CHANNELS.statusChanged, handler) }
+  },
 })

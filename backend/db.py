@@ -90,10 +90,13 @@ CHUNK_TABLES_SQL = """
 BUSY_TIMEOUT_SECONDS = 5
 
 
-def get_connection():
+def get_connection(shared_across_threads=False):
     # The app writes chat messages while indexing writes chunks. WAL lets readers and one writer work at once,
     # and the timeout makes a second writer wait (up to 5 s) instead of failing at once with "database is locked".
-    conn = sqlite3.connect(DB_PATH if DB_PATH is not None else str(datadir.db_path()), timeout=BUSY_TIMEOUT_SECONDS)
+    # shared_across_threads: the web app may open a request's connection on one worker thread and use it on another. That is safe because one request
+    # uses its own connection one step at a time; the connection must never be used by two threads at once.
+    conn = sqlite3.connect(DB_PATH if DB_PATH is not None else str(datadir.db_path()), timeout=BUSY_TIMEOUT_SECONDS,
+                           check_same_thread=not shared_across_threads)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.row_factory = sqlite3.Row
@@ -132,6 +135,11 @@ def create_project(name: str, repo_path: str) -> int:
     project_id = cursor.lastrowid
     conn.close()
     return project_id
+
+def get_project(conn, project_id: int):
+    """The project row (id, name, repo_path, created_at) or None."""
+    return conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+
 
 def create_conversation(project_id: int, title: str = "New conversation") -> int:
     conn = get_connection()

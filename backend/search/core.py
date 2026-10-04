@@ -30,6 +30,10 @@ class IndexOutOfDate(RuntimeError):
     """The index cannot be searched with this embedder (or does not exist yet). The message says what to do."""
 
 
+class NotIndexed(IndexOutOfDate):
+    """The project has never been indexed. A subclass, so old code catching IndexOutOfDate still works, and the API can tell the two apart by class."""
+
+
 @dataclass
 class SearchResult:
     hits: list[Hit]                                        # best first, at most k. Every score is the raw cosine, even when the order is not by raw score
@@ -93,7 +97,7 @@ def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEF
 def _require_a_matching_index(store, embedder):
     built_for = store.signature()
     if built_for is None:
-        raise IndexOutOfDate("this project has not been indexed yet: run indexing first")
+        raise NotIndexed("this project has not been indexed yet: run indexing first")
     current = (embedder.model_name, embedder.dim)
     if built_for == current:
         return
