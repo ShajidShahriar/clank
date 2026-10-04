@@ -136,6 +136,11 @@ def create_project(name: str, repo_path: str) -> int:
     conn.close()
     return project_id
 
+def get_project(conn, project_id: int):
+    """The project row (id, name, repo_path, created_at) or None."""
+    return conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+
+
 def create_conversation(project_id: int, title: str = "New conversation") -> int:
     conn = get_connection()
     now = datetime.utcnow().isoformat()

@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from embedding.errors import EmbeddingError, ModelNotFound, OllamaUnavailable
 from embedding.ollama import DEFAULT_MODEL
 from indexing import IndexAlreadyRunning
+from jobs import NoIndexRunning, ProjectNotFound, RepoNotFound
 from search import IndexOutOfDate, NotIndexed
 
 log = logging.getLogger("clank.api")
@@ -57,6 +58,9 @@ async def _unexpected(request: Request, exc: Exception):
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(NotIndexed, _fixed(409, "not_indexed", "This project has not been indexed yet. Index it first."))
     app.add_exception_handler(IndexOutOfDate, _index_out_of_date)
+    app.add_exception_handler(ProjectNotFound, _fixed(404, "project_not_found", "There is no project with this id."))
+    app.add_exception_handler(RepoNotFound, _fixed(409, "repo_not_found", "The project's folder no longer exists. Check that it was not moved or deleted."))
+    app.add_exception_handler(NoIndexRunning, _fixed(409, "no_index_running", "No indexing is running for this project."))
     app.add_exception_handler(IndexAlreadyRunning, _fixed(409, "index_already_running", "This project is already being indexed."))
     app.add_exception_handler(OllamaUnavailable, _fixed(503, "ollama_unavailable", "Ollama is not reachable. Start Ollama and try again."))
     app.add_exception_handler(ModelNotFound, _fixed(503, "model_not_found", f"Ollama does not have the embedding model. Run: ollama pull {DEFAULT_MODEL}"))
