@@ -176,11 +176,12 @@ def test_without_an_out_a_final_run_goes_to_the_final_folder_named_after_its_pol
 
 
 def test_a_results_file_says_which_code_made_it(run):
+    import eval.cli as cli_module
     from eval.cli import CLANK_ROOT
     from eval.runner import git_dirty, git_head
     run()
     meta = saved(run)["meta"]
-    assert meta["code_rev"] == git_head(CLANK_ROOT) and meta["code_dirty"] == git_dirty(CLANK_ROOT) and isinstance(meta["code_dirty"], bool)
+    assert meta["code_rev"] == git_head(CLANK_ROOT) and meta["code_dirty"] == git_dirty(CLANK_ROOT, exclude=cli_module.RESULT_FOLDERS_NOT_CODE) and isinstance(meta["code_dirty"], bool)
 
 
 def test_a_run_records_its_frozen_configuration(run):
@@ -316,3 +317,16 @@ def test_test_policy_defaults_to_the_product_default_and_can_be_switched_off(run
 def test_an_unknown_test_policy_is_refused(run):
     with pytest.raises(SystemExit):
         run("--test-policy", "hide")
+
+
+def test_the_final_results_folder_does_not_make_the_code_look_dirty():
+    import eval.cli as cli
+    assert "backend/eval/final" in cli.RESULT_FOLDERS_NOT_CODE and "backend/eval/results" in cli.RESULT_FOLDERS_NOT_CODE
+
+
+def test_the_dirty_check_of_a_results_file_is_asked_to_leave_the_results_folders_out(run, monkeypatch):
+    import eval.cli as cli
+    seen = []
+    monkeypatch.setattr(cli, "git_dirty", lambda path, exclude=(): seen.append(tuple(exclude)) or False)
+    run()
+    assert seen == [cli.RESULT_FOLDERS_NOT_CODE] and saved(run)["meta"]["code_dirty"] is False

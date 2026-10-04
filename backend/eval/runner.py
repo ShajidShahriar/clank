@@ -120,9 +120,10 @@ def git_head(path) -> str | None:
     return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else None
 
 
-def git_dirty(path) -> bool | None:
-    """Does the repo at `path` have uncommitted changes (untracked files included)? None when it is not a git repo."""
-    done = subprocess.run(["git", "-C", str(path), "status", "--porcelain"], capture_output=True, text=True)
+def git_dirty(path, exclude=()) -> bool | None:
+    """Does the repo at `path` have uncommitted changes (untracked files included)? None when it is not a git repo.
+    `exclude` names folders (relative to the repo root) that are results, not code: they never make the code dirty."""
+    done = subprocess.run(["git", "-C", str(path), "status", "--porcelain", "--", ".", *[f":(exclude){folder}" for folder in exclude]], capture_output=True, text=True)
     return bool(done.stdout.strip()) if done.returncode == 0 else None
 
 

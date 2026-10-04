@@ -30,6 +30,7 @@ CLANK_ROOT = HERE.parent.parent
 DEFAULT_QUESTIONS = HERE / "questions.yaml"
 RESULTS_DIR = HERE / "results"
 FINAL_DIR = HERE / "final"                  # the final runs: results that are committed, unlike eval/results
+RESULT_FOLDERS_NOT_CODE = ("backend/eval/final", "backend/eval/results")     # files written by the runs themselves never make the code "dirty"
 
 
 class Refusal(Exception):
@@ -160,7 +161,7 @@ def _run(args, embedder, store_factory, say) -> int:
                           test_policy=DEFAULT_DEMOTION if args.test_policy == "default" else None, final=args.final)
     finally:
         conn.close()
-    result["meta"]["code_rev"], result["meta"]["code_dirty"] = git_head(CLANK_ROOT), git_dirty(CLANK_ROOT)      # which code made this file
+    result["meta"]["code_rev"], result["meta"]["code_dirty"] = git_head(CLANK_ROOT), git_dirty(CLANK_ROOT, exclude=RESULT_FOLDERS_NOT_CODE)      # which code made this file
     write_results(result, out)
     scores = [score_question(next(q for q in questions if q["id"] == r["id"]), [
         {"rel_path": h["path"], "symbol": h["symbol"], "parent": h["parent"], "names": h["names"]} for h in r["top10"]]) for r in result["questions"]]
