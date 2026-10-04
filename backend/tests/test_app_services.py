@@ -205,7 +205,7 @@ def spying_services(spied):
 
 def test_every_request_gets_its_own_connection_and_it_is_closed_afterwards(db_file):
     spied, seen = [], []
-    app = create_app(spying_services(spied))
+    app = create_app(spying_services(spied), auto_sync=False)           # the sweep at startup opens connections of its own; these tests count a request's
 
     @app.get("/db")
     def use(conn=Depends(get_conn)):
@@ -221,7 +221,7 @@ def test_every_request_gets_its_own_connection_and_it_is_closed_afterwards(db_fi
 
 def test_the_connection_is_closed_even_when_the_request_fails(db_file):
     spied = []
-    app = create_app(spying_services(spied))
+    app = create_app(spying_services(spied), auto_sync=False)           # the sweep at startup opens connections of its own; these tests count a request's
 
     @app.get("/boom")
     def boom(conn=Depends(get_conn)):

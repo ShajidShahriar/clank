@@ -23,3 +23,9 @@ def index_status(project_id: int, jobs: IndexJobs = Depends(get_jobs)):
 @router.post("/projects/{project_id}/index/cancel", status_code=202)
 def cancel_index(project_id: int, jobs: IndexJobs = Depends(get_jobs)):
     return jobs.cancel(project_id)
+
+
+@router.get("/startup-sync")
+def startup_sync_status(request: Request):
+    """What the sweep at app start is doing: off, running, done, skipped (no model), stopped, or failed."""
+    return request.app.state.startup_sync.status()

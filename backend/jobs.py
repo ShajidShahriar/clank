@@ -45,6 +45,7 @@ class _Job:
         self.message: str | None = None
         self.skipped: list = []
         self.error: dict | None = None
+        self.stopped_kind: str | None = None                       # why a "stopped" job stopped: "embedder" or "too_many_skips"
 
 
 class IndexJobs:
@@ -115,7 +116,8 @@ class IndexJobs:
 
     def _describe(self, job: _Job) -> dict:
         return {"state": job.state, "project_id": job.project_id, "files_done": job.files_done, "files_total": job.files_total,
-                "current_file": job.current_file, "message": job.message, "skipped": list(job.skipped), "error": job.error}
+                "current_file": job.current_file, "message": job.message, "skipped": list(job.skipped), "error": job.error,
+                "stopped_kind": job.stopped_kind}
 
     def _progress(self, job: _Job, done: int, total: int, rel: str | None) -> None:
         with self._guard:
@@ -140,6 +142,7 @@ class IndexJobs:
             else:
                 log.info("indexing project %s stopped (%s): %s", job.project_id, report.stopped.kind, report.stopped.reason)
                 message = STOPPED_MESSAGES.get(report.stopped.kind) or report.describe()
+                job.stopped_kind = report.stopped.kind
                 self._finish(job, "stopped", message, skipped=skipped)
         except IndexAlreadyRunning:
             self._finish(job, "failed", "This project is already being indexed.", {"code": "index_already_running", "message": "This project is already being indexed."})

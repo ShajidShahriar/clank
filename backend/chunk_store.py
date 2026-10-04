@@ -267,3 +267,9 @@ def delete_file(conn, project_id, rel_path):
         conn.execute("DELETE FROM chunks WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
         conn.execute("DELETE FROM files WHERE project_id = ? AND rel_path = ?", (project_id, rel_path))
     return removed
+
+
+def indexed_project_ids(conn) -> list[int]:
+    """Ids of the projects that already have an index: at least one row in `files` (a cancelled first run counts). In id order; deleted projects are not listed."""
+    rows = conn.execute("SELECT DISTINCT f.project_id FROM files f JOIN projects p ON p.id = f.project_id ORDER BY f.project_id").fetchall()
+    return [row[0] for row in rows]
