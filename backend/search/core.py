@@ -11,13 +11,14 @@ What it promises (each is tested):
   to hidden files or be orphans.
 - Tests and changelogs are demoted in the ORDER (never in the score: every hit keeps its raw cosine) by a margin that was measured for one model
   (see `policy.py`). The policy ranks a pool of max(3k, 30) hits and then cuts to k, so an answer far down the raw list can come up; hidden files and
-  orphans never use up pool slots. For any other model nothing is demoted and `ranking_note` says why. `test_policy=None` is the plain raw order.
+  orphans never use up pool slots. For another model TAG nothing is demoted and `ranking_note` says why; for the same tag with other weights it is applied and `calibration_note` says so (7.14). `test_policy=None` is the plain raw order.
 - An optional relevance cutoff (`cutoff=`, default off) drops hits by RAW score before the demotion orders the pool and before the cut to k (see `cutoff.py`).
 """
 import math
 from dataclasses import dataclass, field
 
 import chunk_store
+from .calibration import calibration_match
 from .hit import Hit
 from .cutoff import RelevanceCutoff, passes
 from .policy import DEFAULT_DEMOTION, DemotionPolicy, apply_test_policy
@@ -37,6 +38,7 @@ class SearchResult:
     ranking_note: str | None = None                        # why a requested demotion was not applied (for the caller, not for the LLM)
     below_cutoff: int = 0                                  # visible hits the relevance cutoff removed (of the ones looked at)
     cutoff_note: str | None = None                         # why a requested cutoff was not applied
+    calibration_note: str | None = None                    # a margin or cutoff WAS applied, but measured on other weights of the same model tag (for the caller, not for the LLM)
 
 
 def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEFAULT_DEMOTION, cutoff=None) -> SearchResult:
@@ -50,16 +52,18 @@ def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEF
         raise ValueError(f"cutoff must be a RelevanceCutoff or None, got {cutoff!r}")
     _require_a_matching_index(store, embedder)
 
-    cut = cutoff is not None and embedder.model_name == cutoff.calibrated_for
+    cut, cut_note = (False, None) if cutoff is None else calibration_match(cutoff.calibrated_for, embedder.model_name)
     cutoff_note = None
     if cutoff is not None and not cut:
         cutoff_note = (f"relevance cutoff not applied: it was measured for {cutoff.calibrated_for}, this index uses {embedder.model_name}; "
                        f"measure a cutoff for this model first")
     note = None
-    demote = test_policy is not None and embedder.model_name == test_policy.calibrated_for
+    demote, demote_note = (False, None) if test_policy is None else calibration_match(test_policy.calibrated_for, embedder.model_name)
     if test_policy is not None and not demote:
         note = (f"tests and changelogs were not demoted: the margin was calibrated for {test_policy.calibrated_for}, "
                 f"this index uses {embedder.model_name}; measure a margin for this model first")
+    notes = list(dict.fromkeys(n for n in (demote_note, cut_note) if n))
+    calibration_note = " ".join(notes) or None
     wanted = max(3 * k, POOL_MINIMUM) if demote else k       # the policy ranks a wider pool than k, then cuts to k
 
     hidden = chunk_store.failed_files(conn, project_id)
@@ -79,11 +83,11 @@ def search(conn, project_id, embedder, store, question, k=10, *, test_policy=DEF
         fetch *= 2        # too many hits were hidden or orphans: look further down the list
     below = len(visible) - len(kept)
     if not demote:
-        return SearchResult(hits=kept[:k], hidden_files=dict(hidden), ranking_note=note, below_cutoff=below, cutoff_note=cutoff_note)
+        return SearchResult(hits=kept[:k], hidden_files=dict(hidden), ranking_note=note, below_cutoff=below, cutoff_note=cutoff_note, calibration_note=calibration_note)
     pool = kept[:wanted]
     tags = chunk_store.file_tags(conn, project_id, {h.chunk["rel_path"] for h in pool})      # one batched lookup, not one per hit
     ordered = apply_test_policy(pool, question, tags, margin=test_policy.margin, changelog_margin=test_policy.changelog_margin)
-    return SearchResult(hits=[a.hit for a in ordered[:k]], hidden_files=dict(hidden), ranking="demoted", below_cutoff=below, cutoff_note=cutoff_note)
+    return SearchResult(hits=[a.hit for a in ordered[:k]], hidden_files=dict(hidden), ranking="demoted", below_cutoff=below, cutoff_note=cutoff_note, calibration_note=calibration_note)
 
 
 def _require_a_matching_index(store, embedder):

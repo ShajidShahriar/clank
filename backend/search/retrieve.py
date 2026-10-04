@@ -20,6 +20,7 @@ class Retrieval:
     ranking_note: str | None = None                     # why a requested demotion of tests and changelogs was not applied (for the caller, not the LLM)
     below_cutoff: int = 0                               # hits the relevance cutoff removed
     cutoff_note: str | None = None                      # why a requested cutoff was not applied
+    calibration_note: str | None = None                 # a margin or cutoff was applied but measured on other weights of the same model (for the caller, not the LLM)
 
 
 def retrieve(conn, project_id, repo_path, embedder, store, question, k, max_tokens, cost=default_cost, test_policy=DEFAULT_DEMOTION, cutoff=None) -> Retrieval:
@@ -27,4 +28,4 @@ def retrieve(conn, project_id, repo_path, embedder, store, question, k, max_toke
     passages = expand(conn, project_id, repo_path, found.hits, ceiling_tokens(max_tokens), narrow_target_tokens(max_tokens))   # a hit on one part becomes the whole chunk (or the part
     passages, stale, deleted = check_freshness(conn, project_id, repo_path, passages)        # around the hit if the chunk is huge); is it still true?
     fitted = fit_to_budget(passages, max_tokens, cost)                        # counted AFTER expansion, and after deleted files are dropped
-    return Retrieval(fitted.passages, fitted.dropped, fitted.tokens_used, fitted.over_budget, found.hidden_files, stale, deleted, found.ranking_note, found.below_cutoff, found.cutoff_note)
+    return Retrieval(fitted.passages, fitted.dropped, fitted.tokens_used, fitted.over_budget, found.hidden_files, stale, deleted, found.ranking_note, found.below_cutoff, found.cutoff_note, found.calibration_note)

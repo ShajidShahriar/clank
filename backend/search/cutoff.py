@@ -2,7 +2,7 @@
 use one later (decisions about `/context` defaults), so the mechanism exists and is tested.
 
 `min_score` drops hits whose RAW cosine is below it; `margin` drops hits more than `margin` below the best raw score of the question; both may be given.
-Like the demotion margin, a cutoff is only meaningful for the model it was measured on (`calibrated_for`): another model's scores have another scale
+Like the demotion margin, a cutoff is only meaningful for the model TAG it was measured on (`calibrated_for`; other weights of the same tag still apply, with a note: `calibration.py`): another model's scores have another scale
 (and the eval showed a repo's content moves the scale too), so for any other embedder search cuts nothing and says so.
 """
 import math
