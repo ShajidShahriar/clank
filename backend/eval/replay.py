@@ -62,9 +62,15 @@ def _as_row(entry: dict) -> dict:
     return {"rel_path": entry["path"], "symbol": entry["symbol"], "parent": entry["parent"], "names": entry["names"]}
 
 
-def simulate_context(entries: list[dict], expect: list[dict], max_tokens: int, k: int = 10) -> bool:
+BUDGET_RULES = ("prefix", "squeeze")
+
+
+def simulate_context(entries: list[dict], expect: list[dict], max_tokens: int, k: int = 10, rule: str = "prefix") -> bool:
     """Would the expected answer be in the context text? Passages are the distinct `passage_key`s of the first k entries in order; the first one is
-    always kept, each next one only while the total fits, and the first one that does not fit ends the list (the real prefix rule)."""
+    always kept, each next one only while the total fits. `prefix` (the real rule): the first one that does not fit ends the list. `squeeze` (an
+    alternative, only for comparison): a passage that does not fit is skipped and the next ones are tried."""
+    if rule not in BUDGET_RULES:
+        raise ValueError(f"unknown budget rule {rule!r}; choose from {', '.join(BUDGET_RULES)}")
     groups: dict[str, list[dict]] = {}
     for entry in entries[:k]:
         groups.setdefault(entry["passage_key"], []).append(entry)
@@ -72,18 +78,23 @@ def simulate_context(entries: list[dict], expect: list[dict], max_tokens: int, k
     for position, members in enumerate(groups.values()):
         cost = members[0]["cost"]
         if position > 0 and used + cost > max_tokens:
-            break
+            if rule == "prefix":
+                break
+            continue
         used += cost
         if any(matches(want, _as_row(m)) for want in expect for m in members):
             return True
     return False
 
 
-def replay_run(run: dict, spec: str, k: int = 10) -> dict:
-    """The run as it would have come out under policy `spec`: new ranks, flags and found-in-context. The input is not changed."""
+def replay_run(run: dict, spec: str, k: int = 10, max_tokens: int | None = None, rule: str = "prefix") -> dict:
+    """The run as it would have come out under policy `spec` (and optionally another token budget and budget rule): new ranks, flags and
+    found-in-context. The input is not changed."""
+    if rule not in BUDGET_RULES:
+        raise ValueError(f"unknown budget rule {rule!r}; choose from {', '.join(BUDGET_RULES)}")
     policy = make_policy(spec)
-    max_tokens = run["meta"]["max_tokens"]
-    out = {"meta": {**run["meta"], "policy": spec}, "questions": []}
+    max_tokens = run["meta"]["max_tokens"] if max_tokens is None else max_tokens
+    out = {"meta": {**run["meta"], "policy": spec, "max_tokens": max_tokens, "rule": rule}, "questions": []}
     for q in run["questions"]:
         ordered = policy(q["pool"], q["question"])
         rank = rank_of(q["expect"], [_as_row(x) for x in ordered[:k]]) if q["expect"] else None
@@ -91,7 +102,7 @@ def replay_run(run: dict, spec: str, k: int = 10) -> dict:
             **{key: q[key] for key in ("id", "kind", "split", "question", "expect")},
             "pool": ordered, "rank": rank, "top1": rank is not None and rank <= 1, "top3": rank is not None and rank <= 3,
             "top10_hit": rank is not None and rank <= 10,
-            "found_in_context": simulate_context(ordered, q["expect"], max_tokens, k) if q["expect"] else False,
+            "found_in_context": simulate_context(ordered, q["expect"], max_tokens, k, rule) if q["expect"] else False,
         })
     return out
 

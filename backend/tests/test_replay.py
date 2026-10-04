@@ -158,3 +158,57 @@ def test_with_no_policy_the_estimate_reproduces_the_real_found_in_context_flags(
     q_bad["found_in_context"] = False              # the real run says "not found" but the estimate says found: they disagree
     agreement = estimate_matches_real(run(q_ok, q_bad))
     assert agreement == {"q01": True, "q02": False}
+
+
+# ---- 7.9: the budget rule and the budget can be varied in a replay
+
+def test_squeeze_skips_a_passage_that_does_not_fit_and_keeps_trying_the_next_ones():
+    hits = [e("a", 0.9, "x.py", "x", cost=300), e("b", 0.8, "y.py", "y", cost=300), e("c", 0.7, "a.py", "f", cost=10)]
+    expect = [{"path": "a.py", "symbol": "f"}]
+    assert not simulate_context(hits, expect, max_tokens=500, rule="prefix")
+    assert simulate_context(hits, expect, max_tokens=500, rule="squeeze"), "b (300) does not fit after a (300), but c (10) does"
+
+
+def test_squeeze_never_loses_an_answer_the_prefix_rule_keeps():
+    import itertools
+    expect = [{"path": "a.py", "symbol": "f"}]
+    for costs in itertools.product([10, 150, 400, 900], repeat=3):
+        for budget in (100, 500, 1000, 2000):
+            for answer_at in range(3):
+                hits = [e(f"h{i}", 0.9 - i * 0.1, "a.py" if i == answer_at else "x.py", "f" if i == answer_at else f"s{i}", cost=c) for i, c in enumerate(costs)]
+                if simulate_context(hits, expect, budget, rule="prefix"):
+                    assert simulate_context(hits, expect, budget, rule="squeeze"), (costs, budget, answer_at)
+
+
+def test_squeeze_also_always_keeps_the_best_passage():
+    assert simulate_context([e("a", 0.9, "a.py", "f", cost=5000)], [{"path": "a.py", "symbol": "f"}], max_tokens=100, rule="squeeze")
+
+
+def test_an_unknown_budget_rule_is_refused():
+    with pytest.raises(ValueError, match="rule"):
+        simulate_context([e("a", 0.9, "a.py", "f")], [{"path": "a.py", "symbol": "f"}], max_tokens=100, rule="greedy")
+    with pytest.raises(ValueError, match="rule"):
+        replay_run(run(question([e("a", 0.9, "a.py", "f")])), "none", rule="greedy")
+
+
+def test_a_replay_can_use_another_budget_and_another_rule_than_the_run_was_made_with():
+    pool = [e("a", 0.9, "x.py", "x", cost=300), e("b", 0.8, "y.py", "y", cost=300), e("c", 0.7, "a.py", "f", cost=10)]
+    r = run(question(pool))                                     # the run's own budget is 6000: everything fits
+    assert replay_run(r, "none")["questions"][0]["found_in_context"] is True
+    assert replay_run(r, "none", max_tokens=500)["questions"][0]["found_in_context"] is False
+    squeezed = replay_run(r, "none", max_tokens=500, rule="squeeze")
+    assert squeezed["questions"][0]["found_in_context"] is True and squeezed["meta"]["rule"] == "squeeze" and squeezed["meta"]["max_tokens"] == 500
+    assert r["meta"]["max_tokens"] == 6000, "the input run is not changed"
+    assert replay_run(r, "none")["meta"]["rule"] == "prefix"
+
+
+def test_squeeze_does_not_include_the_passage_that_does_not_fit():
+    hits = [e("a", 0.9, "x.py", "x", cost=300), e("b", 0.8, "a.py", "f", cost=300)]
+    assert not simulate_context(hits, [{"path": "a.py", "symbol": "f"}], max_tokens=500, rule="squeeze"), "the answer sits in a passage that does not fit: skipped, so not found"
+    assert simulate_context(hits, [{"path": "a.py", "symbol": "f"}], max_tokens=600, rule="squeeze")
+
+
+def test_an_unknown_rule_is_refused_even_when_no_question_has_an_answer_to_look_for():
+    only_a_negative = run(question([e("a", 0.9, "a.py", "f")], expect=()))
+    with pytest.raises(ValueError, match="rule"):
+        replay_run(only_a_negative, "none", rule="greedy")
