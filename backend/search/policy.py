@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from .core import Hit
+from .hit import Hit
 
 _TEST_INTENT = re.compile(r"\b(?:tests?|tested|testing|specs?|fixtures?|pytest)\b", re.IGNORECASE)
 _CHANGELOG_INTENT = re.compile(r"\b(?:changelog|change log|release notes|what changed|what['’]?s new|release history)\b", re.IGNORECASE)
@@ -57,3 +57,27 @@ def apply_test_policy(hits: list[Hit], question: str, tags: dict, *, margin: flo
         loss = max(margin if is_test and not intent.test else 0.0, changelog_margin if is_changelog and not intent.changelog else 0.0)
         adjusted.append(Adjusted(hit, hit.score - loss))
     return sorted(adjusted, key=lambda a: -round(a.adjusted, 9))
+
+
+@dataclass(frozen=True)
+class DemotionPolicy:
+    """How much tests and changelogs lose when hits are ordered, and the model the numbers are valid for.
+
+    Scores from one embedding model do not mean the same thing for another (the best hits sit around 0.7 for one model and 0.4 for the next), so a
+    margin is only applied when the embedder's identity is `calibrated_for`; for any other model search demotes nothing and says so.
+    """
+    margin: float
+    changelog_margin: float | None = None       # None: twice the margin
+    calibrated_for: str = ""                    # the embedder identity (`tag@digest`) the margin was measured on
+
+    def __post_init__(self):
+        _check_margin("margin", self.margin)
+        if self.changelog_margin is not None:
+            _check_margin("changelog_margin", self.changelog_margin)
+        if not isinstance(self.calibrated_for, str) or not self.calibrated_for:
+            raise ValueError("calibrated_for must name the embedder identity the margin was measured on, for example 'qwen3-embedding:0.6b@ac6da0dfba84'")
+
+
+# Measured in the eval (devlog 72): on 14 tune questions over Clank, Flask and Express this margin moved 5 questions up and none down, and the gain stops
+# growing there (the result is identical from 0.15 to 0.50). Valid only for this exact model and weights.
+DEFAULT_DEMOTION = DemotionPolicy(margin=0.15, changelog_margin=None, calibrated_for="qwen3-embedding:0.6b@ac6da0dfba84")

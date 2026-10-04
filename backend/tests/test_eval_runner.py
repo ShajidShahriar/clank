@@ -432,3 +432,39 @@ def test_two_different_functions_of_one_file_have_different_passage_keys(conn, t
     q = pool_run(conn, root, 14, question_text_of=("two.py", "fn_a"))
     keys = {h["symbol"]: h["passage_key"] for h in q["pool"] if h["path"] == "two.py"}
     assert {"fn_a", "fn_b"} <= set(keys) and keys["fn_a"] != keys["fn_b"]
+
+
+# ---- the demotion policy (7.6): passed through, recorded, and never applied to the replay pool
+
+def test_the_run_records_the_policy_and_whether_each_question_was_really_demoted(conn, repo):
+    from search import DemotionPolicy
+    embedder, store = FakeEmbedder(), InMemoryVectorStore()
+    run_repo(conn, 1, "tiny", repo, embedder, store, [])
+    question = make_question("q01", embed_text_of(conn, "net.py", "retry_request"), [{"path": "net.py", "symbol": "retry_request"}])
+    applied = DemotionPolicy(0.06, calibrated_for=embedder.model_name)
+    r = run_repo(conn, 1, "tiny", repo, embedder, store, [question], index=False, test_policy=applied)
+    assert r["meta"]["test_policy"] == {"margin": 0.06, "changelog_margin": None, "calibrated_for": embedder.model_name}
+    assert r["questions"][0]["ranking"] == "demoted" and r["questions"][0]["ranking_note"] is None
+    off = run_repo(conn, 1, "tiny", repo, embedder, store, [question], index=False, test_policy=None)
+    assert off["meta"]["test_policy"] is None and off["questions"][0]["ranking"] == "raw" and off["questions"][0]["ranking_note"] is None
+
+
+def test_the_default_policy_with_a_model_it_was_not_measured_on_is_recorded_as_not_applied(conn, repo, asked):
+    embedder, store, _, questions = asked
+    r = run_repo(conn, 1, "tiny", repo, embedder, store, questions[:1], index=False)
+    q = r["questions"][0]
+    assert r["meta"]["test_policy"]["calibrated_for"].startswith("qwen3-embedding")
+    assert q["ranking"] == "raw" and "not demoted" in q["ranking_note"], "a run must show when the policy did NOT apply, or its numbers would be misread"
+
+
+def test_the_policy_reaches_build_context_and_the_replay_pool_is_always_raw(conn, repo, asked, monkeypatch):
+    from search import DemotionPolicy
+    embedder, store, _, questions = asked
+    seen = {"context": [], "pool": []}
+    real_context, real_search = runner.build_context, runner.run_search
+    monkeypatch.setattr(runner, "build_context", lambda *a, **kw: (seen["context"].append(kw.get("test_policy", "missing")), real_context(*a, **kw))[1])
+    monkeypatch.setattr(runner, "run_search", lambda *a, **kw: (seen["pool"].append(kw.get("test_policy", "missing")), real_search(*a, **kw))[1])
+    given = DemotionPolicy(0.06, calibrated_for=embedder.model_name)
+    run_repo(conn, 1, "tiny", repo, embedder, store, questions[:1], index=False, test_policy=given, keep=12)
+    assert seen["context"] == [given], "the question is answered with the policy"
+    assert seen["pool"] == [None], "the pool is saved in RAW order: a replay applies its own policy on top, never twice"

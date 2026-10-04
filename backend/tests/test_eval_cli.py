@@ -248,3 +248,18 @@ def test_keep_saves_a_pool_and_is_recorded(run):
 def test_a_keep_below_ten_is_refused_with_a_reason(run):
     code, text = run("--keep", "5")
     assert code == 2 and "at least 10" in text
+
+
+def test_test_policy_defaults_to_the_product_default_and_can_be_switched_off(run):
+    run("--index-only")
+    run("--no-index")
+    assert saved(run)["meta"]["test_policy"]["margin"] == 0.15
+    run("--no-index", "--test-policy", "off")
+    assert saved(run)["meta"]["test_policy"] is None
+    run("--no-index", "--test-policy", "default")
+    assert saved(run)["meta"]["test_policy"]["calibrated_for"].startswith("qwen3-embedding")
+
+
+def test_an_unknown_test_policy_is_refused(run):
+    with pytest.raises(SystemExit):
+        run("--test-policy", "hide")
