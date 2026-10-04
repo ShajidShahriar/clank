@@ -346,3 +346,89 @@ def test_the_results_file_says_which_query_wording_was_used(conn, repo):
     run_repo(conn, 1, "tiny", repo, FakeEmbedder(), store, [])
     raw = run_repo(conn, 1, "tiny", repo, variant_embedder(FakeEmbedder(), "raw"), store, [], index=False)
     assert raw["meta"]["query_variant"] == "raw"
+
+
+# ---- the pool (7.6): more than ten hits saved, with what an offline replay needs
+
+def many_functions(tmp_path, n=15, big=False):
+    root = tmp_path / "pool"
+    root.mkdir()
+    for i in range(n):
+        (root / f"m{i:02d}.py").write_text(f"def fn_{i}(x):\n    return x + {i}\n")
+    (root / "tests").mkdir()
+    (root / "tests" / "test_m.py").write_text("def test_fn_3():\n    assert fn_3(1) == 4\n")
+    if big:
+        (root / "big.py").write_text("def huge():\n" + "".join(f"    value_{i} = {i}\n" for i in range(240)) + "    return value_0\n")
+    return root
+
+
+def pool_run(conn, root, keep, question_text_of=("m03.py", "fn_3"), **kw):
+    embedder, store = FakeEmbedder(), InMemoryVectorStore()
+    run_repo(conn, 1, "tiny", root, embedder, store, [])
+    question = make_question("q01", embed_text_of(conn, *question_text_of), [{"path": question_text_of[0], "symbol": question_text_of[1]}])
+    return run_repo(conn, 1, "tiny", root, embedder, store, [question], index=False, keep=keep, **kw)["questions"][0]
+
+
+def test_without_keep_there_is_no_pool_and_with_keep_the_pool_has_that_many_hits(conn, tmp_path):
+    root = many_functions(tmp_path)
+    assert "pool" not in pool_run(conn, root, None)
+    q = pool_run(conn, root, 14)
+    assert len(q["pool"]) == 14
+
+
+def test_the_first_ten_of_the_pool_are_the_top_ten_in_the_same_order_with_the_same_scores(conn, tmp_path):
+    q = pool_run(conn, many_functions(tmp_path), 16)
+    assert [(h["id"], h["score"]) for h in q["pool"][:10]] == [(h["id"], h["score"]) for h in q["top10"]]
+    assert [h["score"] for h in q["pool"]] == sorted((h["score"] for h in q["pool"]), reverse=True)
+
+
+def test_a_keep_below_ten_is_refused(conn, tmp_path):
+    with pytest.raises(ValueError, match="at least"):
+        pool_run(conn, many_functions(tmp_path), 9)
+
+
+def test_every_pool_hit_carries_its_tags_and_the_cost_of_the_passage_it_would_make(conn, tmp_path):
+    from search.context import render_passage
+    from chunker.core import estimate_tokens
+    from search.stitch import expand
+    root = many_functions(tmp_path)
+    q = pool_run(conn, root, 14)
+    by_path = {h["path"]: h for h in q["pool"]}
+    assert by_path["tests/test_m.py"]["is_test"] is True and by_path["m03.py"]["is_test"] is False
+    assert all(isinstance(h["cost"], int) and h["cost"] > 0 and h["passage_key"] for h in q["pool"])
+    first = chunk_store.chunks_for_file(conn, 1, "m03.py")[0]
+    from search.core import Hit
+    passage = expand(conn, 1, root, [Hit(first, 1.0)])[0]
+    assert by_path["m03.py"]["cost"] == estimate_tokens(render_passage(passage))
+
+
+def test_two_hits_on_parts_of_one_split_chunk_share_a_passage_key_and_a_cost(conn, tmp_path):
+    root = many_functions(tmp_path, n=3, big=True)
+    q = pool_run(conn, root, 14, question_text_of=("big.py", "huge"))
+    parts = [h for h in q["pool"] if h["path"] == "big.py"]
+    assert len(parts) >= 2 and all(h["part"] is not None for h in parts)
+    assert len({h["passage_key"] for h in parts}) == 1 and len({h["cost"] for h in parts}) == 1
+
+
+def test_the_pool_is_saved_in_the_results_file_and_meta_records_keep(conn, tmp_path):
+    root = many_functions(tmp_path)
+    embedder, store = FakeEmbedder(), InMemoryVectorStore()
+    r = run_repo(conn, 1, "tiny", root, embedder, store, [make_question("q01", "anything", [{"path": "m03.py", "symbol": "fn_3"}])], keep=12)
+    assert r["meta"]["keep"] == 12 and run_repo(conn, 1, "tiny", root, embedder, store, [], index=False)["meta"]["keep"] is None
+    write_results(r, tmp_path / "o.json")
+    assert len(json.loads((tmp_path / "o.json").read_text())["questions"][0]["pool"]) == 12
+
+
+def test_the_pool_does_not_change_the_timings_or_the_context_of_the_normal_run(conn, tmp_path):
+    root = many_functions(tmp_path)
+    plain, pooled = pool_run(conn, root, None), pool_run(conn, root, 14)
+    assert (plain["rank"], plain["found_in_context"], plain["context_tokens"], plain["passages"]) == (pooled["rank"], pooled["found_in_context"], pooled["context_tokens"], pooled["passages"])
+    assert set(pooled["timings_ms"]) == set(plain["timings_ms"])
+
+
+def test_two_different_functions_of_one_file_have_different_passage_keys(conn, tmp_path):
+    root = many_functions(tmp_path, n=2)
+    (root / "two.py").write_text("def fn_a(x):\n    return x\n\n\ndef fn_b(x):\n    return x * 2\n")
+    q = pool_run(conn, root, 14, question_text_of=("two.py", "fn_a"))
+    keys = {h["symbol"]: h["passage_key"] for h in q["pool"] if h["path"] == "two.py"}
+    assert {"fn_a", "fn_b"} <= set(keys) and keys["fn_a"] != keys["fn_b"]

@@ -16,11 +16,14 @@ import yaml
 
 import chunk_store
 import search.context as context_module
-from chunker.core import MAX_CHUNK_TOKENS
+from chunker.core import MAX_CHUNK_TOKENS, estimate_tokens
 from embedding.timed import TimedEmbedder
 from indexing import index_project
 from indexing.fingerprint import chunker_fingerprint
-from search import build_context
+from search import build_context, search as run_search
+from search.budget import ceiling_tokens, narrow_target_tokens
+from search.context import render_passage
+from search.stitch import expand
 
 from .score import QuestionScore, in_context, score_question
 
@@ -134,7 +137,24 @@ def _index(conn, project_id, repo_path, embedder: TimedEmbedder, store):
     return report, record
 
 
-def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore, question, k, max_tokens) -> dict:
+def _pool(conn, project_id, repo_path, embedder, store, question, keep, max_tokens) -> list[dict]:
+    """The best `keep` hits, each with what an offline replay of a ranking policy needs: the tags, a key naming the passage the hit would belong to
+    (hits on parts of one split chunk share it) and the tokens that passage costs in the context text (counted like the real context counts them)."""
+    hits = run_search(conn, project_id, embedder, store, question, k=keep).hits
+    tags = _file_tags(conn, project_id, {h.chunk["rel_path"] for h in hits})
+    entries = []
+    for h in hits:
+        passage = expand(conn, project_id, repo_path, [h], ceiling_tokens(max_tokens), narrow_target_tokens(max_tokens))[0]
+        is_test, is_changelog = tags.get(h.chunk["rel_path"], (False, False))
+        entries.append({
+            "id": h.chunk["id"], "score": h.score, "path": h.chunk["rel_path"], "symbol": h.chunk["symbol"], "parent": h.chunk["parent"],
+            "names": h.chunk["names"], "kind": h.chunk["kind"], "part": h.chunk["part"], "is_test": is_test, "is_changelog": is_changelog,
+            "passage_key": passage.rel_path + "|" + ",".join(passage.chunk_ids), "cost": estimate_tokens(render_passage(passage)),
+        })
+    return entries
+
+
+def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore, question, k, max_tokens, keep=None) -> dict:
     embed_before, vector_before = embedder.query_seconds, store.query_seconds
     with _timed_stages() as (spent, captured):
         start = time.perf_counter()
@@ -159,7 +179,8 @@ def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore
         for h in found.hits[:10]
     ]
     score = score_question(question, hits)
-    return {
+    pool = _pool(conn, project_id, repo_path, embedder, store, question["question"], keep, max_tokens) if keep is not None else None
+    answer = {
         "id": question["id"], "kind": question["kind"], "split": question["split"], "question": question["question"], "expect": question["expect"],
         "top10": top10, "rank": score.rank, "top1": score.top1, "top3": score.top3, "top10_hit": score.top10,
         "found_in_context": in_context(question["expect"], ctx.passages) if question["expect"] else False,
@@ -167,17 +188,23 @@ def _ask(conn, project_id, repo_path, embedder: TimedEmbedder, store: TimedStore
         "dropped_paths": [p.rel_path for p in ctx.dropped],
         "timings_ms": timings,
     }
+    if pool is not None:
+        answer["pool"] = pool
+    return answer
 
 
 def run_repo(conn, project_id, repo_name, repo_path, embedder, store, questions, *, k=10, max_tokens=6000, index=True, reindex=False,
-             pinned_rev=None, questions_sha=None) -> dict:
-    """Index the repo (unless `index=False`), then ask every question whose `repo` is `repo_name`. Returns the whole run as a dict."""
+             pinned_rev=None, questions_sha=None, keep=None) -> dict:
+    """Index the repo (unless `index=False`), then ask every question whose `repo` is `repo_name`. Returns the whole run as a dict.
+    `keep` (at least 10) also saves a pool of the best `keep` hits per question for offline replays of ranking policies (7.6)."""
+    if keep is not None and keep < 10:
+        raise ValueError(f"keep must be at least 10 (the pool holds the top 10 and more), got {keep}")
     timed_embedder, timed_store = TimedEmbedder(embedder), TimedStore(store)
     actual = git_head(repo_path)
     result = {"meta": {
         "repo": repo_name, "repo_path": str(repo_path), "rev_pinned": pinned_rev, "rev_actual": actual, "rev_matches": actual is not None and actual == pinned_rev,
         "model": None, "dim": None, "chunker_fingerprint": chunker_fingerprint(), "chunk_cap_tokens": MAX_CHUNK_TOKENS,
-        "k": k, "max_tokens": max_tokens, "query_variant": getattr(embedder, "variant", None), "questions_sha": questions_sha, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "k": k, "max_tokens": max_tokens, "query_variant": getattr(embedder, "variant", None), "keep": keep, "questions_sha": questions_sha, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }, "questions": []}
     if index:
         report, result["index"] = _index(conn, project_id, repo_path, timed_embedder, timed_store)
@@ -192,7 +219,7 @@ def run_repo(conn, project_id, repo_name, repo_path, embedder, store, questions,
     result["meta"].update(model=embedder.model_name, dim=embedder.dim)
     for question in questions:
         if question["repo"] == repo_name:
-            result["questions"].append(_ask(conn, project_id, repo_path, timed_embedder, timed_store, question, k, max_tokens))
+            result["questions"].append(_ask(conn, project_id, repo_path, timed_embedder, timed_store, question, k, max_tokens, keep))
     return result
 
 

@@ -235,3 +235,16 @@ def test_the_variant_really_changes_the_question_that_is_embedded(run):
 def test_an_unknown_query_variant_is_refused(run, capsys):
     with pytest.raises(SystemExit):
         run("--query-variant", "nope")
+
+
+def test_keep_saves_a_pool_and_is_recorded(run):
+    run("--index-only")
+    code, _ = run("--no-index", "--keep", "10")
+    assert code == 0 and saved(run)["meta"]["keep"] == 10 and all("pool" in q for q in saved(run)["questions"])
+    run("--no-index")
+    assert saved(run)["meta"]["keep"] is None and all("pool" not in q for q in saved(run)["questions"])
+
+
+def test_a_keep_below_ten_is_refused_with_a_reason(run):
+    code, text = run("--keep", "5")
+    assert code == 2 and "at least 10" in text
