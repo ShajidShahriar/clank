@@ -40,6 +40,7 @@ class Context:
     ranking_note: str | None = None                     # why a requested demotion of tests and changelogs was not applied (for the caller, NOT in `text`)
     below_cutoff: int = 0                               # hits the relevance cutoff removed (for the caller)
     cutoff_note: str | None = None                      # why a requested cutoff was not applied (for the caller, NOT in `text`)
+    calibration_note: str | None = None                 # a margin or cutoff was applied but measured on other weights of the same model (for the caller, NOT in `text`)
 
 
 def render_passage(passage: Passage) -> str:
@@ -163,4 +164,4 @@ def build_context(conn, project_id, repo_path, embedder, store, question, k, max
     if text is None:
         shown, text = 0, assemble(0)
     return Context(text, passages[:shown], passages[shown:], found.hidden_files, estimate_tokens(text), over,
-                   sorted({p.rel_path for p in passages[:shown] if p.stale}), deleted, found.ranking_note, found.below_cutoff, found.cutoff_note)
+                   sorted({p.rel_path for p in passages[:shown] if p.stale}), deleted, found.ranking_note, found.below_cutoff, found.cutoff_note, found.calibration_note)

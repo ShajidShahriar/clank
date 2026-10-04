@@ -64,7 +64,7 @@ class DemotionPolicy:
     """How much tests and changelogs lose when hits are ordered, and the model the numbers are valid for.
 
     Scores from one embedding model do not mean the same thing for another (the best hits sit around 0.7 for one model and 0.4 for the next), so a
-    margin is only applied when the embedder's identity is `calibrated_for`; for any other model search demotes nothing and says so.
+    margin is only applied when the embedder's model TAG is the one in `calibrated_for` (the digest after the "@" is provenance: other weights of the same tag still apply, with a note, see `calibration.py`); for another model search demotes nothing and says so.
     """
     margin: float
     changelog_margin: float | None = None       # None: twice the margin
@@ -79,5 +79,5 @@ class DemotionPolicy:
 
 
 # Measured in the eval (devlog 72): on 14 tune questions over Clank, Flask and Express this margin moved 5 questions up and none down, and the gain stops
-# growing there (the result is identical from 0.15 to 0.50). Valid only for this exact model and weights.
+# growing there (the result is identical from 0.15 to 0.50). Valid for this model tag; the digest is where it was measured.
 DEFAULT_DEMOTION = DemotionPolicy(margin=0.15, changelog_margin=None, calibrated_for="qwen3-embedding:0.6b@ac6da0dfba84")
