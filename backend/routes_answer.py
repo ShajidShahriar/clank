@@ -63,7 +63,7 @@ def answer_question(project_id: int, body: AnswerRequest, conn=Depends(get_conn)
         "context_tokens_used": ctx.tokens_used,
         "context_budget": profile.context_tokens,
         "over_budget": ctx.over_budget,
-        "best_score": round(ctx.passages[0].score, 4) if ctx.passages else None,
+        "best_score": round(max(p.score for p in ctx.passages), 4) if ctx.passages else None,       # the highest score returned (the first passage can score less: tests are moved down)
         "k": body.k,
         "ranking_note": ctx.ranking_note,
         "calibration_note": ctx.calibration_note,

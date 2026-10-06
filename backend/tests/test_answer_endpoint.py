@@ -31,6 +31,17 @@ REMOTE = Profile(name="remote", base_url="https://api.example.com/v1", model="bi
 SECRET_URL = "api.example.com"
 
 
+CALIBRATED = "qwen3-embedding:0.6b@ac6da0dfba84"
+
+
+class Named(Question2D):
+    """The 2-d question embedder under the calibrated model's name, so the demotion of tests really applies."""
+
+    @property
+    def model_name(self):
+        return CALIBRATED
+
+
 @pytest.fixture
 def world(conn, tmp_path):
     build = make_world(conn, tmp_path)
@@ -360,3 +371,24 @@ def test_consent_is_asked_before_ollama_is_looked_at(world, clients):
     client = make_client(world, clients, embedder=Down())
     r = client.post("/projects/1/answer", json={"question": "q"})
     assert r.status_code == 403 and code(r) == "consent_required", "no consent: nothing else is tried, not even the model check"
+
+
+def test_best_score_is_the_highest_score_returned_even_when_a_test_file_was_moved_down(world, clients):
+    world({"tests/t.py": dict(scores=[0.70], test=True), "src/a.py": dict(scores=[0.66])})
+    world.store.set_signature(CALIBRATED, 2)
+    body = ask(make_client(world, clients, embedder=Named())).json()
+    assert [s["path"] for s in body["sources"]] == ["src/a.py", "tests/t.py"]
+    assert body["sources"][0]["score"] == 0.66 and body["best_score"] == 0.7
+
+
+def test_the_instructions_ask_for_plain_line_ranges():
+    """A model once wrote `security.py:116-130` with a non-breaking hyphen, which no interface can match as path:start-end."""
+    from answer import SYSTEM_PROMPT
+    assert "plain hyphen" in SYSTEM_PROMPT and "path/to/file.py:10-20" in SYSTEM_PROMPT
+    assert SYSTEM_PROMPT.isascii(), "the instructions themselves use plain characters only"
+
+
+def test_scores_are_rounded_to_four_places(world, clients):
+    world({"a.py": dict(scores=[0.7234567891]), "b.py": dict(scores=[0.5123456789])})
+    body = ask(make_client(world, clients)).json()
+    assert [s["score"] for s in body["sources"]] == [0.7235, 0.5123] and body["best_score"] == 0.7235
