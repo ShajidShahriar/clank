@@ -4,7 +4,7 @@ Local code search for software repositories.
 
 Clank indexes a codebase and answers natural-language questions by retrieving the most relevant code. Embedding, storage and search all run on the local machine through Ollama.
 
-**Status:** in development. The retrieval engine, local API, answer endpoint and desktop integration are complete and tested. The user interface is a prototype and does not show answers yet.
+**Status:** in development. The retrieval engine, local API, answer endpoint and desktop integration are complete and tested. The desktop interface is an early version: it can add a project folder, index it with live progress, and show answers with their sources. Conversations are not saved yet.
 
 ## Overview
 
@@ -19,6 +19,7 @@ Clank splits Python, JavaScript and TypeScript files along their syntax, so each
 - A local HTTP API for adding, listing and removing projects, with background indexing, progress reporting, cancellation and a single JSON error format.
 - Answer generation through any OpenAI-compatible chat service, hosted or local. Groq's `openai/gpt-oss-120b` is the first supported profile.
 - An Electron shell that starts, monitors and stops the backend.
+- A desktop interface to add and index projects, ask questions and read answers with the code they were based on, including a switch that controls whether code may be sent to a remote model.
 
 ## Security
 
@@ -62,16 +63,22 @@ uv sync
 npm run dev
 ```
 
+To use the answer step, create a Groq API key and export it in the same terminal before `npm run dev`:
+
+```bash
+export GROQ_API_KEY=your_key_here
+```
+
 ## Testing
 
 ```bash
 uv run pytest -q          # backend
-npm run test:electron     # Electron integration
+npm run test:js           # Electron integration and interface logic
 npx tsc -b                # type check
 ```
 
 ## Roadmap
 
-- Show answers and their sources in the interface.
+- Save conversations between sessions.
 - Add profiles for local models (Ollama, LM Studio) and a settings screen for the API key.
 - Bundle the Python backend into the installer.

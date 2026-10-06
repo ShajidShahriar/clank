@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('clankBackend', {
   request: (method: string, path: string, body?: object) => ipcRenderer.invoke(CHANNELS.request, { method, path, body }),
   status: () => ipcRenderer.invoke(CHANNELS.status),
   restart: () => ipcRenderer.invoke(CHANNELS.restart),
+  pickFolder: () => ipcRenderer.invoke(CHANNELS.pickFolder),
   onStatus(listener: (status: unknown) => void) {
     const handler = (_event: unknown, status: unknown) => listener(status)
     ipcRenderer.on(CHANNELS.statusChanged, handler)

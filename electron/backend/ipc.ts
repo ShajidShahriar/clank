@@ -41,7 +41,12 @@ type ServiceLike = {
 const FORBIDDEN = { ok: false, status: 0, body: { error: { code: 'forbidden', message: 'This page may not use the Clank backend.' } } }
 const BAD_REQUEST = { ok: false, status: 0, body: { error: { code: 'bad_request', message: 'The request was not allowed.' } } }
 
-export function registerBackendIpc({ ipcMain, service, isTrusted }: { ipcMain: IpcMainLike, service: ServiceLike, isTrusted: (url: string | undefined) => boolean }): void {
+export function registerBackendIpc({ ipcMain, service, isTrusted, pickFolder }: {
+  ipcMain: IpcMainLike
+  service: ServiceLike
+  isTrusted: (url: string | undefined) => boolean
+  pickFolder: () => Promise<string | null>          // opens the system's folder dialog; null when it was cancelled
+}): void {
   const trusted = (event: unknown) => isTrusted((event as { senderFrame?: { url?: string } | null })?.senderFrame?.url)
 
   ipcMain.handle(CHANNELS.request, (async (event: unknown, payload: unknown) => {
@@ -57,5 +62,16 @@ export function registerBackendIpc({ ipcMain, service, isTrusted }: { ipcMain: I
     if (!trusted(event)) return FORBIDDEN
     await service.restart()
     return service.status()
+  }) as never)
+
+  // The window adds a project by choosing its folder. Only the app's own page may open the dialog, and only a real path (or null) goes back.
+  ipcMain.handle(CHANNELS.pickFolder, (async (event: unknown) => {
+    if (!trusted(event)) return FORBIDDEN
+    try {
+      const chosen = await pickFolder()
+      return { ok: true, status: 200, body: { path: typeof chosen === 'string' && chosen !== '' ? chosen : null } }
+    } catch {
+      return { ok: false, status: 0, body: { error: { code: 'dialog_failed', message: 'The folder dialog could not be opened.' } } }
+    }
   }) as never)
 }

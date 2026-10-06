@@ -1,18 +1,34 @@
-import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import { FolderPlus, Trash2, X } from 'lucide-react'
 import logoDark from '../assets/logo_dark.png'
 import logoLight from '../assets/logo_light.png'
-import type { Conversation } from '../types'
+import type { IndexStatus, Project } from '../api/types'
+import { projectStatus, type Tone } from '../lib/present'
 
 interface SidebarProps {
-  conversations: Conversation[]
-  activeId: string
-  onSelect: (id: string) => void
-  onNew: () => void
+  projects: Project[]
+  live: Record<number, IndexStatus>
+  selectedId: number | null
+  canAdd: boolean
+  notice: string | null
+  onSelect: (id: number) => void
+  onAdd: () => void
+  onDelete: (id: number) => void
+  onDismissNotice: () => void
 }
 
-function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarProps) {
+const TONE: Record<Tone, string> = {
+  neutral: 'text-gray-500 dark:text-gray-500',
+  busy: 'text-blue-600 dark:text-blue-400',
+  ok: 'text-gray-500 dark:text-gray-500',
+  warn: 'text-amber-600 dark:text-amber-400',
+}
+
+function Sidebar({ projects, live, selectedId, canAdd, notice, onSelect, onAdd, onDelete, onDismissNotice }: SidebarProps) {
+  const [confirming, setConfirming] = useState<number | null>(null)
+
   return (
-    <aside className="flex w-[220px] shrink-0 flex-col border-r border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-[#0a0a0a]">
+    <aside className="flex w-[240px] shrink-0 flex-col border-r border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-[#0a0a0a]">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-white/10">
         <img src={logoLight} alt="Clank" className="h-5 w-5 shrink-0 dark:hidden" />
         <img src={logoDark} alt="Clank" className="hidden h-5 w-5 shrink-0 dark:block" />
@@ -21,44 +37,66 @@ function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarProps) {
 
       <div className="p-2">
         <button
-          onClick={onNew}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-white/10 dark:text-gray-300 dark:hover:bg-gray-800"
+          onClick={onAdd}
+          disabled={!canAdd}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-gray-800"
         >
-          <Plus className="h-3.5 w-3.5 shrink-0" />
-          New conversation
+          <FolderPlus className="h-3.5 w-3.5 shrink-0" />
+          Add project
         </button>
       </div>
 
+      {notice && (
+        <div className="mx-2 mb-2 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+          <span className="flex-1">{notice}</span>
+          <button onClick={onDismissNotice} aria-label="Dismiss" className="shrink-0 opacity-70 hover:opacity-100">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-2 pb-2">
-        <p className="px-1.5 py-1 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-500">
-          Conversations
-        </p>
+        <p className="px-1.5 py-1 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-500">Projects</p>
+        {projects.length === 0 && (
+          <p className="px-1.5 py-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">No projects yet. Add a folder to start asking questions about its code.</p>
+        )}
         <div className="mt-1 flex flex-col gap-0.5">
-          {conversations.map((conversation) => {
-            const isActive = conversation.id === activeId
+          {projects.map((project) => {
+            const isActive = project.id === selectedId
+            const status = projectStatus(project, live[project.id])
+            const asking = confirming === project.id
             return (
-              <button
-                key={conversation.id}
-                onClick={() => onSelect(conversation.id)}
-                className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-1.5 text-left transition-all duration-150 ${
-                  isActive
-                    ? 'bg-gray-100 dark:bg-gray-900'
-                    : 'hover:bg-gray-100/60 dark:hover:bg-gray-900/60'
+              <div
+                key={project.id}
+                className={`group relative flex items-center rounded-md transition-all duration-150 ${
+                  isActive ? 'bg-gray-100 dark:bg-gray-900' : 'hover:bg-gray-100/60 dark:hover:bg-gray-900/60'
                 }`}
               >
-                <span
-                  className={`w-full truncate text-sm ${
-                    isActive
-                      ? 'font-medium text-gray-900 dark:text-white'
-                      : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  {conversation.title}
-                </span>
-                <span className="w-full truncate text-xs text-gray-500 dark:text-gray-500">
-                  {conversation.projectName}
-                </span>
-              </button>
+                <button onClick={() => onSelect(project.id)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-2.5 py-1.5 text-left">
+                  <span className={`w-full truncate text-sm ${isActive ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {project.name}
+                  </span>
+                  <span className={`w-full truncate text-xs ${TONE[status.tone]}`}>{status.label}</span>
+                </button>
+                {asking ? (
+                  <div className="flex shrink-0 items-center gap-1 pr-1.5 text-xs">
+                    <button onClick={() => { setConfirming(null); onDelete(project.id) }} className="rounded px-1.5 py-0.5 font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
+                      Delete
+                    </button>
+                    <button onClick={() => setConfirming(null)} className="rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800">
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirming(project.id)}
+                    aria-label={`Delete ${project.name}`}
+                    className="mr-1.5 shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-600 focus:opacity-100 group-hover:opacity-100 dark:hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>

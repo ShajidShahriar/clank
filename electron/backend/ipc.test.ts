@@ -28,7 +28,7 @@ test('packaged, only the app\'s own index.html is trusted', () => {
   }
 })
 
-function setup(trusted = true) {
+function setup(trusted = true, pick: () => Promise<unknown> = async () => '/Users/x/project') {
   const handlers = new Map<string, (event: unknown, payload?: unknown) => unknown>()
   const ipcMain = { handle: (channel: string, fn: (event: unknown, payload?: unknown) => unknown) => { handlers.set(channel, fn) } }
   const calls: unknown[][] = []
@@ -38,14 +38,15 @@ function setup(trusted = true) {
     status: () => ({ state: 'ready', message: 'ok', detail: [] }),
     restart: async () => { restarts++ },
   }
-  registerBackendIpc({ ipcMain: ipcMain as never, service: service as never, isTrusted: () => trusted })
+  let picks = 0
+  registerBackendIpc({ ipcMain: ipcMain as never, service: service as never, isTrusted: () => trusted, pickFolder: (async () => { picks++; return pick() }) as never })
   const event = { senderFrame: { url: 'whatever' } }
-  return { handlers, calls, event, restarts: () => restarts }
+  return { handlers, calls, event, restarts: () => restarts, picks: () => picks }
 }
 
-test('it registers exactly the three channels', () => {
+test('it registers exactly the four channels', () => {
   const { handlers } = setup()
-  assert.deepEqual([...handlers.keys()].sort(), [CHANNELS.request, CHANNELS.restart, CHANNELS.status].sort())
+  assert.deepEqual([...handlers.keys()].sort(), [CHANNELS.pickFolder, CHANNELS.request, CHANNELS.restart, CHANNELS.status].sort())
 })
 
 test('a trusted request is forwarded with its method, path and body', async () => {
@@ -94,7 +95,39 @@ test('a handler that gets no sender frame (a destroyed frame) is refused, not a 
     ipcMain: { handle: (c: string, fn: (e: unknown, p?: unknown) => unknown) => { handlers.set(c, fn) } } as never,
     service: { request: async () => ({ ok: true }) } as never,
     isTrusted: (url: string | undefined) => url === 'ok',
+    pickFolder: async () => null,
   })
   const r = await handlers.get(CHANNELS.request)!({ senderFrame: null }, { method: 'GET', path: '/health' }) as { body: { error: { code: string } } }
   assert.equal(r.body.error.code, 'forbidden')
+})
+
+// ---- the folder picker (the window adds a project by choosing its folder)
+
+test('a trusted page gets the folder the person chose', async () => {
+  const { handlers, event, picks } = setup()
+  assert.deepEqual(await handlers.get(CHANNELS.pickFolder)!(event), { ok: true, status: 200, body: { path: '/Users/x/project' } })
+  assert.equal(picks(), 1)
+})
+
+test('a cancelled dialog is a null path, and so is anything that is not a path', async () => {
+  for (const answer of [null, undefined, '', 5, {}, ['/x']]) {
+    const { handlers, event } = setup(true, async () => answer)
+    assert.deepEqual(await handlers.get(CHANNELS.pickFolder)!(event), { ok: true, status: 200, body: { path: null } }, JSON.stringify(answer))
+  }
+})
+
+test('a dialog that fails is a fixed error, not an exception and not its message', async () => {
+  const { handlers, event } = setup(true, async () => { throw new Error('secret detail from the system') })
+  const r = await handlers.get(CHANNELS.pickFolder)!(event) as { ok: boolean, status: number, body: { error: { code: string } } }
+  assert.equal(r.ok, false)
+  assert.equal(r.body.error.code, 'dialog_failed')
+  assert.equal(JSON.stringify(r).includes('secret detail'), false)
+})
+
+test('a page that is not ours cannot open a dialog', async () => {
+  const { handlers, event, picks } = setup(false)
+  const r = await handlers.get(CHANNELS.pickFolder)!(event) as { ok: boolean, body: { error: { code: string } } }
+  assert.equal(r.ok, false)
+  assert.equal(r.body.error.code, 'forbidden')
+  assert.equal(picks(), 0)
 })

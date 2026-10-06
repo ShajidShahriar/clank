@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -94,7 +94,14 @@ function startBackend() {
     baseEnv: process.env,
     spawn: spawn as never,
   })
-  registerBackendIpc({ ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()) })
+  registerBackendIpc({
+    ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()),
+    pickFolder: async () => {
+      const options = { title: 'Choose the project folder', properties: ['openDirectory' as const] }
+      const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      return result.canceled ? null : (result.filePaths[0] ?? null)
+    },
+  })
   backend.onStatus((status) => {
     for (const w of BrowserWindow.getAllWindows()) w.webContents.send(CHANNELS.statusChanged, status)
   })

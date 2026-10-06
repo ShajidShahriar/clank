@@ -3,5 +3,6 @@ export const CHANNELS = {
   request: 'clank:backend-request',
   status: 'clank:backend-status',
   restart: 'clank:backend-restart',
+  pickFolder: 'clank:pick-folder',
   statusChanged: 'clank:backend-status-changed',      // pushed by the main process, not handled
 } as const
