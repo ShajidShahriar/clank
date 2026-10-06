@@ -1,11 +1,11 @@
 import { Bot, Cloud } from 'lucide-react'
 import type { Answer } from '../api/types'
-import { answerWarnings, splitAnswer, tokenSummary } from '../lib/present'
+import { answerWarnings, tokenSummary } from '../lib/present'
+import Markdown from './Markdown'
 import SourcesList from './SourcesList'
 
 /** The model's answer (prose and code blocks), the warnings that matter, its sources, and a small line of facts about how it was made. */
 function AnswerCard({ answer }: { answer: Answer }) {
-  const parts = splitAnswer(answer.answer)
   const warnings = answerWarnings(answer)
   const facts = [answer.model, tokenSummary(answer.usage)].filter(Boolean).join(' · ')
 
@@ -15,16 +15,7 @@ function AnswerCard({ answer }: { answer: Answer }) {
         <Bot className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
       </div>
       <div className="min-w-0 max-w-[85%] rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm leading-relaxed text-gray-900 dark:border-white/10 dark:bg-[#0a0a0a] dark:text-gray-100">
-        {parts.length === 0 && <p className="text-gray-500">The model sent an empty answer.</p>}
-        {parts.map((part, i) =>
-          part.kind === 'code' ? (
-            <pre key={i} className="my-2 overflow-x-auto rounded-md border border-gray-200 bg-gray-50 p-2.5 font-mono text-xs leading-relaxed dark:border-white/10 dark:bg-black">
-              <code>{part.text}</code>
-            </pre>
-          ) : (
-            <p key={i} className="whitespace-pre-wrap break-words [&:not(:first-child)]:mt-2">{part.text}</p>
-          ),
-        )}
+        <Markdown text={answer.answer} />
 
         {warnings.length > 0 && (
           <ul className="mt-2 flex flex-col gap-0.5 text-xs text-amber-700 dark:text-amber-300">
