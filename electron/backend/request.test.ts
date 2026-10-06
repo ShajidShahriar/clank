@@ -39,10 +39,25 @@ for (const path of ['', '/', 'health', '//evil.com/x', '/a/../b', '/..', '/a/./b
   })
 }
 
-test('only GET and POST, in capitals', () => {
-  for (const method of ['DELETE', 'PUT', 'PATCH', 'get', 'post', 'OPTIONS', 'HEAD', '', 'GET ']) {
-    assert.throws(() => buildBackendRequest({ ...base, method, path: '/health' }), /method/)
+test('only GET, POST and DELETE, in capitals', () => {
+  for (const method of ['PUT', 'PATCH', 'get', 'post', 'delete', 'OPTIONS', 'HEAD', 'TRACE', 'CONNECT', '', 'GET ', 'DELETE ']) {
+    assert.throws(() => buildBackendRequest({ ...base, method, path: '/health' }), /method/, JSON.stringify(method))
   }
+  for (const method of ['GET', 'POST', 'DELETE']) {
+    assert.doesNotThrow(() => buildBackendRequest({ ...base, method, path: '/projects/1' }))
+  }
+})
+
+test('a DELETE becomes a DELETE request to the backend, with the token and no body', () => {
+  const r = buildBackendRequest({ ...base, method: 'DELETE', path: '/projects/7' })
+  assert.equal(r.url, 'http://127.0.0.1:8123/projects/7')
+  assert.equal(r.init.method, 'DELETE')
+  assert.equal(r.init.headers['x-clank-token'], TOKEN)
+  assert.equal(r.init.body, undefined)
+})
+
+test('a DELETE cannot carry a body either', () => {
+  assert.throws(() => buildBackendRequest({ ...base, method: 'DELETE', path: '/projects/7', body: { a: 1 } }), /body/)
 })
 
 test('a GET cannot carry a body', () => {

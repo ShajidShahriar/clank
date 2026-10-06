@@ -16,7 +16,7 @@ Clank splits Python, JavaScript and TypeScript files along their syntax, so each
 - Crash-safe indexing. A run interrupted at any point resumes from where it stopped.
 - Staleness detection. Passages from files edited after indexing are marked as stale.
 - Ranking that demotes test files and changelogs unless the question asks for them.
-- A local HTTP API with background indexing, progress reporting, cancellation and a single JSON error format.
+- A local HTTP API for adding, listing and removing projects, with background indexing, progress reporting, cancellation and a single JSON error format.
 - An Electron shell that starts, monitors and stops the backend.
 
 ## Security
@@ -66,5 +66,4 @@ npx tsc -b                # type check
 ## Roadmap
 
 - Send the retrieved code to an LLM and show the answer in the interface.
-- Add API endpoints to create, list and delete projects.
 - Bundle the Python backend into the installer.

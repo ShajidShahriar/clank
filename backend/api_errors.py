@@ -15,6 +15,7 @@ from embedding.errors import EmbeddingError, ModelNotFound, OllamaUnavailable
 from embedding.ollama import DEFAULT_MODEL
 from indexing import IndexAlreadyRunning
 from jobs import NoIndexRunning, ProjectNotFound, RepoNotFound
+from projects import InvalidProjectPath, ProjectBusy, ProjectExists
 from search import IndexOutOfDate, NotIndexed
 
 log = logging.getLogger("clank.api")
@@ -32,6 +33,10 @@ def _fixed(status: int, code: str, message: str):
 
 async def _index_out_of_date(request: Request, exc: IndexOutOfDate):
     return error_response(409, "index_out_of_date", str(exc))      # written for people (it names the models and says "re-index this project")
+
+
+async def _invalid_path(request: Request, exc: InvalidProjectPath):
+    return error_response(422, "invalid_path", str(exc))               # written for people, and never contains the path
 
 
 async def _validation(request: Request, exc: RequestValidationError):
@@ -60,6 +65,9 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(IndexOutOfDate, _index_out_of_date)
     app.add_exception_handler(ProjectNotFound, _fixed(404, "project_not_found", "There is no project with this id."))
     app.add_exception_handler(RepoNotFound, _fixed(409, "repo_not_found", "The project's folder no longer exists. Check that it was not moved or deleted."))
+    app.add_exception_handler(InvalidProjectPath, _invalid_path)
+    app.add_exception_handler(ProjectExists, _fixed(409, "project_exists", "This folder is already a project."))
+    app.add_exception_handler(ProjectBusy, _fixed(409, "project_busy", "Indexing is running for this project. Wait for it to finish or cancel it, then try again."))
     app.add_exception_handler(NoIndexRunning, _fixed(409, "no_index_running", "No indexing is running for this project."))
     app.add_exception_handler(IndexAlreadyRunning, _fixed(409, "index_already_running", "This project is already being indexed."))
     app.add_exception_handler(OllamaUnavailable, _fixed(503, "ollama_unavailable", "Ollama is not reachable. Start Ollama and try again."))

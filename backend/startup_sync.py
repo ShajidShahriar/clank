@@ -10,7 +10,7 @@ import threading
 
 import chunk_store
 from indexing import IndexAlreadyRunning
-from jobs import RepoNotFound
+from jobs import ProjectNotFound, RepoNotFound
 
 log = logging.getLogger("clank.sync")
 
@@ -75,6 +75,9 @@ class StartupSync:
                 self._jobs.start(project_id)
             except IndexAlreadyRunning:
                 pass                                               # the user started it first: wait for that job, then go on
+            except ProjectNotFound:
+                log.info("project %s was deleted while the sweep ran; skipped", project_id)
+                continue
             except RepoNotFound:
                 log.warning("project %s: its folder is gone; not updated", project_id)
                 continue
