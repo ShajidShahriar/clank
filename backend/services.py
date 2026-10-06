@@ -15,20 +15,23 @@ import datadir
 import db
 from embedding import OllamaEmbedder
 from embedding.errors import EmbeddingError
-from llm.profiles import llm_from_env
+from llm.profiles import make_llm
+from llm.settings import clean_key, load_selection, save_selection, selection_to_profile
 from fastapi import Depends, Request
 from vectorstore import open_project_store
 
 
 class Services:
-    def __init__(self, embedder, *, connect=None, store_factory=None, clock=time.monotonic, retry_after: float = 5.0, llm_factory=None):
+    def __init__(self, embedder, *, connect=None, store_factory=None, clock=time.monotonic, retry_after: float = 5.0, llm_factory=None, environ=None):
         self.embedder = embedder
         self._connect = connect                                    # None: db.get_connection (opened for use across threads), looked up at call time so a test can redirect the database
         self._store_factory = store_factory or (lambda project_id: open_project_store(datadir.data_dir(), project_id))
         self._clock = clock
         self._retry_after = retry_after
-        self._llm_factory = llm_factory or (lambda: llm_from_env(os.environ))      # (profile, client); reads the environment when first needed
+        self._llm_factory = llm_factory                                # tests: (profile, client) made by hand; None: from the settings and the key held here
+        self._environ = os.environ if environ is None else environ
         self._llm = None
+        self._llm_key = None                                           # in memory only: never written to disk, never logged
         self._llm_lock = threading.Lock()
         self._stores = {}
         self._stores_lock = threading.Lock()
@@ -51,11 +54,47 @@ class Services:
             return self._stores[project_id]
 
     def llm_setup(self):
-        """The answer model: (profile, client). Raises LLMNotConfigured (and tries again next time) while it is not set up; a success is kept."""
+        """The answer model: (profile, client), from the saved choice and the key held here (else the environment). Raises LLMNotConfigured (and tries again next
+        time) while it is not set up; a success is kept until the choice or the key changes."""
         with self._llm_lock:
             if self._llm is None:
-                self._llm = self._llm_factory()
+                if self._llm_factory is not None:
+                    self._llm = self._llm_factory()
+                else:
+                    profile = selection_to_profile(self.llm_selection())
+                    self._llm = (profile, make_llm(profile, self._environ, key=self._llm_key))
             return self._llm
+
+    def llm_selection(self):
+        conn = self.connect()
+        try:
+            return load_selection(conn)
+        finally:
+            conn.close()
+
+    def set_llm_selection(self, selection) -> None:
+        conn = self.connect()
+        try:
+            save_selection(conn, selection)
+        finally:
+            conn.close()
+        with self._llm_lock:
+            self._llm = None                                           # the next answer is made with the new choice
+
+    def set_llm_key(self, key) -> None:
+        """Hold a key in memory (None clears it). Raises InvalidKey for a malformed one, leaving the old key in place."""
+        cleaned = None if key is None else clean_key(key)
+        with self._llm_lock:
+            self._llm_key = cleaned
+            self._llm = None
+
+    def llm_key_state(self, profile) -> tuple[bool, str | None]:
+        """(is a key available, where from: "memory" or "env") for a profile. A profile that takes no key has none."""
+        if not profile.api_key_env:
+            return False, None
+        if self._llm_key:
+            return True, "memory"
+        return (True, "env") if (self._environ.get(profile.api_key_env) or "").strip() else (False, None)
 
     def forget_store(self, project_id: int) -> None:
         """Empty a project's vector store and drop it from the cache (the project is being deleted)."""

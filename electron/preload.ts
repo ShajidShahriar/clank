@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('clankBackend', {
   request: (method: string, path: string, body?: object) => ipcRenderer.invoke(CHANNELS.request, { method, path, body }),
   status: () => ipcRenderer.invoke(CHANNELS.status),
   restart: () => ipcRenderer.invoke(CHANNELS.restart),
+  pickFolder: () => ipcRenderer.invoke(CHANNELS.pickFolder),
+  // The only door for an API key: the main process encrypts it, stores it and pushes it to the backend. There is no way to read a key back.
+  saveLlmSettings: (config: object, apiKey?: string | null) => ipcRenderer.invoke(CHANNELS.llmSave, apiKey === undefined ? { config } : { config, apiKey }),
   onStatus(listener: (status: unknown) => void) {
     const handler = (_event: unknown, status: unknown) => listener(status)
     ipcRenderer.on(CHANNELS.statusChanged, handler)

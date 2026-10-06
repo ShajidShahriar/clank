@@ -35,6 +35,7 @@ class Profile:
     output_limit_param: str = "max_tokens"
     extra_body: dict = field(default_factory=dict)
     timeout: float = 60.0
+    key_optional: bool = False                 # a custom service may need no key: a missing key then means "send none", not "not configured"
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name.strip():
@@ -80,18 +81,30 @@ def profile_from_env(environ) -> Profile:
     return PROFILES[name]
 
 
-def make_llm(profile: Profile, environ) -> OpenAICompatibleClient:
-    """The client for a profile, with its key taken from the environment now. A missing or malformed key is "not configured"; the message names the variable only."""
-    key = None
+def check_key(raw) -> str:
+    """A key as it may be held: trimmed, visible ASCII only, no spaces, at most 512 characters. Raises ValueError (never repeating the key) otherwise."""
+    text = raw.strip() if isinstance(raw, str) else ""
+    if not _KEY_CHARS.match(text):
+        raise ValueError("A key has only visible ASCII characters, no spaces or line breaks, and at most 512 of them.")
+    return text
+
+
+def make_llm(profile: Profile, environ, key: str | None = None) -> OpenAICompatibleClient:
+    """The client for a profile. A profile that takes a key uses `key` if one is given (held in memory), else the environment variable it names. A missing key is
+    "not configured" (the message names the variable only), unless the profile says the key is optional: then none is sent. A malformed key is always refused.
+    A profile that takes no key (a local model) never gets one."""
+    chosen = None
     if profile.api_key_env:
-        raw = (environ.get(profile.api_key_env) or "").strip()
-        if not raw:
-            raise LLMNotConfigured(f"The answer model needs a key: set the environment variable {profile.api_key_env}.", env_var=profile.api_key_env)
-        if not _KEY_CHARS.match(raw):
-            raise LLMNotConfigured(f"The key in {profile.api_key_env} has characters a key cannot have (spaces, line breaks or non-ASCII letters).",
-                                   env_var=profile.api_key_env)
-        key = raw
-    return OpenAICompatibleClient(profile.base_url, profile.model, key, timeout=profile.timeout, output_limit_param=profile.output_limit_param,
+        raw = (key if key else (environ.get(profile.api_key_env) or "")).strip()
+        if raw:
+            try:
+                chosen = check_key(raw)
+            except ValueError:
+                raise LLMNotConfigured(f"The key for the answer model (from the settings or {profile.api_key_env}) has characters a key cannot have (spaces, line breaks or non-ASCII letters).",
+                                       env_var=profile.api_key_env) from None
+        elif not profile.key_optional:
+            raise LLMNotConfigured(f"The answer model needs a key: add it in the settings, or set the environment variable {profile.api_key_env}.", env_var=profile.api_key_env)
+    return OpenAICompatibleClient(profile.base_url, profile.model, chosen, timeout=profile.timeout, output_limit_param=profile.output_limit_param,
                                   extra_body=profile.extra_body)
 
 

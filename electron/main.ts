@@ -1,10 +1,12 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { CHANNELS, isTrustedSender, registerBackendIpc } from './backend/ipc.ts'
 import { preloadFile } from './backend/preload-path.ts'
+import { createKeyStore } from './backend/secrets.ts'
+import { createSettingsFlow } from './backend/settings-flow.ts'
 import { BackendService } from './backend/service.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -94,9 +96,21 @@ function startBackend() {
     baseEnv: process.env,
     spawn: spawn as never,
   })
-  registerBackendIpc({ ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()) })
+  // The answer-model key: encrypted with the system keychain, kept in the user-data folder, pushed to the backend's memory after every start. Never written in plain text.
+  const keys = createKeyStore({ dir: path.join(app.getPath('userData'), 'secrets'), safeStorage })
+  const settings = createSettingsFlow({ service: backend, keys })
+  registerBackendIpc({
+    ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()),
+    saveLlm: (payload) => settings.save(payload as never),
+    pickFolder: async () => {
+      const options = { title: 'Choose the project folder', properties: ['openDirectory' as const] }
+      const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      return result.canceled ? null : (result.filePaths[0] ?? null)
+    },
+  })
   backend.onStatus((status) => {
     for (const w of BrowserWindow.getAllWindows()) w.webContents.send(CHANNELS.statusChanged, status)
+    if (status.state === 'ready') void settings.onBackendReady()        // the backend's memory is empty after a start: push the key of the active provider
   })
   void backend.start()          // not awaited: the window opens at once and shows "starting" until the backend is ready
 }

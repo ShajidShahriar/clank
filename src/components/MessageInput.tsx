@@ -1,13 +1,19 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowUp } from 'lucide-react'
 
-function MessageInput({ onSend, disabled }: { onSend: (text: string) => void; disabled?: boolean }) {
+interface MessageInputProps {
+  onSend: (text: string) => void
+  disabled?: boolean
+  placeholder: string
+}
+
+function MessageInput({ onSend, disabled, placeholder }: MessageInputProps) {
   const [value, setValue] = useState('')
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!value.trim() || disabled) return
-    onSend(value)
+    onSend(value.trim())
     setValue('')
   }
 
@@ -18,13 +24,15 @@ function MessageInput({ onSend, disabled }: { onSend: (text: string) => void; di
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={disabled ? 'Clank is responding…' : 'Message Clank…'}
+          placeholder={placeholder}
           disabled={disabled}
+          maxLength={2000}
           className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-[#0a0a0a] dark:text-white dark:placeholder-gray-500 dark:focus:ring-gray-700"
         />
         <button
           type="submit"
           disabled={disabled || !value.trim()}
+          aria-label="Ask"
           className="shrink-0 rounded-lg bg-gray-900 p-2 text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-gray-100"
         >
           <ArrowUp className="h-4 w-4" />

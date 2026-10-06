@@ -24,6 +24,13 @@ USER_TABLES_SQL = """
             FOREIGN KEY (project_id) REFERENCES projects(id)
         );
 
+        -- The user's settings (which answer model, with its non-secret options). Never a key: keys are held in memory only.
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             conversation_id INTEGER NOT NULL,

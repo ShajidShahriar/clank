@@ -39,13 +39,20 @@ for (const path of ['', '/', 'health', '//evil.com/x', '/a/../b', '/..', '/a/./b
   })
 }
 
-test('only GET, POST and DELETE, in capitals', () => {
-  for (const method of ['PUT', 'PATCH', 'get', 'post', 'delete', 'OPTIONS', 'HEAD', 'TRACE', 'CONNECT', '', 'GET ', 'DELETE ']) {
+test('only GET, POST, PUT and DELETE, in capitals', () => {
+  for (const method of ['PATCH', 'get', 'post', 'put', 'delete', 'OPTIONS', 'HEAD', 'TRACE', 'CONNECT', '', 'GET ', 'PUT ']) {
     assert.throws(() => buildBackendRequest({ ...base, method, path: '/health' }), /method/, JSON.stringify(method))
   }
-  for (const method of ['GET', 'POST', 'DELETE']) {
+  for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
     assert.doesNotThrow(() => buildBackendRequest({ ...base, method, path: '/projects/1' }))
   }
+})
+
+test('a PUT carries its object as JSON, like a POST', () => {
+  const r = buildBackendRequest({ ...base, method: 'PUT', path: '/settings/llm', body: { preset: 'groq' } })
+  assert.equal(r.init.method, 'PUT')
+  assert.equal(r.init.body, '{"preset":"groq"}')
+  assert.equal(r.init.headers['content-type'], 'application/json')
 })
 
 test('a DELETE becomes a DELETE request to the backend, with the token and no body', () => {
