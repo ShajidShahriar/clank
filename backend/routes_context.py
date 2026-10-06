@@ -55,7 +55,7 @@ def project_context(project_id: int, body: ContextRequest, conn=Depends(get_conn
         "deleted_files": ctx.deleted_files,
         "tokens_used": ctx.tokens_used,
         "over_budget": ctx.over_budget,
-        "best_score": round(ctx.passages[0].score, 4) if ctx.passages else None,
+        "best_score": round(max(p.score for p in ctx.passages), 4) if ctx.passages else None,       # the highest score returned (the first passage can score less: tests are moved down)
         "k": body.k,
         "max_tokens": body.max_tokens,
         "ranking_note": ctx.ranking_note,

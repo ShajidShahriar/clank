@@ -148,6 +148,7 @@ def test_the_calibrated_model_demotes_tests_with_no_note(world, clients):
     body = ask(client).json()
     assert [p["path"] for p in body["passages"]] == ["src/a.py", "tests/t.py"]
     assert body["ranking_note"] is None and body["calibration_note"] is None
+    assert body["passages"][0]["score"] == 0.66 and body["best_score"] == 0.7, "best_score is the HIGHEST score returned, not the first passage's: the test file scored more and was only moved down"
 
 
 def test_the_same_model_with_new_weights_still_demotes_and_returns_the_calibration_note(world, clients):

@@ -4,7 +4,7 @@ Local code search for software repositories.
 
 Clank indexes a codebase and answers natural-language questions by retrieving the most relevant code. Embedding, storage and search all run on the local machine through Ollama.
 
-**Status:** in development. The retrieval engine, local API and desktop integration are complete and tested. The user interface is a prototype, and generating written answers from the retrieved code with an LLM is planned.
+**Status:** in development. The retrieval engine, local API, answer endpoint and desktop integration are complete and tested. The user interface is a prototype and does not show answers yet.
 
 ## Overview
 
@@ -17,11 +17,18 @@ Clank splits Python, JavaScript and TypeScript files along their syntax, so each
 - Staleness detection. Passages from files edited after indexing are marked as stale.
 - Ranking that demotes test files and changelogs unless the question asks for them.
 - A local HTTP API for adding, listing and removing projects, with background indexing, progress reporting, cancellation and a single JSON error format.
+- Answer generation through any OpenAI-compatible chat service, hosted or local. Groq's `openai/gpt-oss-120b` is the first supported profile.
 - An Electron shell that starts, monitors and stops the backend.
 
 ## Security
 
 The backend listens on 127.0.0.1 only. Every request must carry a token that is generated for each launch, and requests with an unexpected Host or Origin header are rejected. The desktop window never sees the token. It reaches the backend through the Electron main process.
+
+## Answer models
+
+The answer endpoint sends the retrieved code excerpts and the question to a chat model and returns the answer together with its sources. The model is chosen by a profile, so adding another provider does not change the rest of the pipeline. Groq is the only built-in profile for now. It reads its key from the `GROQ_API_KEY` environment variable.
+
+Embedding and search always run locally. With a remote model, only the retrieved excerpts (not the whole repository) leave the machine, and only when the request explicitly allows it. A model running on the same computer needs no such permission.
 
 ## Evaluation
 
@@ -65,5 +72,6 @@ npx tsc -b                # type check
 
 ## Roadmap
 
-- Send the retrieved code to an LLM and show the answer in the interface.
+- Show answers and their sources in the interface.
+- Add profiles for local models (Ollama, LM Studio) and a settings screen for the API key.
 - Bundle the Python backend into the installer.

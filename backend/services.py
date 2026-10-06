@@ -7,6 +7,7 @@ The model is warmed in a background thread at startup (a failed warm-up takes ab
 answer at once). A failure is not fatal: the app runs "degraded", and a request that needs the embedder (`get_ready_embedder`) tries again, but not more
 often than every `retry_after` seconds, otherwise every request would wait those 7 s while Ollama is off.
 """
+import os
 import threading
 import time
 
@@ -14,17 +15,21 @@ import datadir
 import db
 from embedding import OllamaEmbedder
 from embedding.errors import EmbeddingError
+from llm.profiles import llm_from_env
 from fastapi import Depends, Request
 from vectorstore import open_project_store
 
 
 class Services:
-    def __init__(self, embedder, *, connect=None, store_factory=None, clock=time.monotonic, retry_after: float = 5.0):
+    def __init__(self, embedder, *, connect=None, store_factory=None, clock=time.monotonic, retry_after: float = 5.0, llm_factory=None):
         self.embedder = embedder
         self._connect = connect                                    # None: db.get_connection (opened for use across threads), looked up at call time so a test can redirect the database
         self._store_factory = store_factory or (lambda project_id: open_project_store(datadir.data_dir(), project_id))
         self._clock = clock
         self._retry_after = retry_after
+        self._llm_factory = llm_factory or (lambda: llm_from_env(os.environ))      # (profile, client); reads the environment when first needed
+        self._llm = None
+        self._llm_lock = threading.Lock()
         self._stores = {}
         self._stores_lock = threading.Lock()
         self._warm_lock = threading.Lock()
@@ -44,6 +49,13 @@ class Services:
             if project_id not in self._stores:
                 self._stores[project_id] = self._store_factory(project_id)
             return self._stores[project_id]
+
+    def llm_setup(self):
+        """The answer model: (profile, client). Raises LLMNotConfigured (and tries again next time) while it is not set up; a success is kept."""
+        with self._llm_lock:
+            if self._llm is None:
+                self._llm = self._llm_factory()
+            return self._llm
 
     def forget_store(self, project_id: int) -> None:
         """Empty a project's vector store and drop it from the cache (the project is being deleted)."""
