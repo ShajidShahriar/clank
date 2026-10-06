@@ -22,7 +22,7 @@ TOKEN_HEADER = b"x-clank-token"
 MIN_TOKEN_CHARS = 32
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
 _ORIGIN = re.compile(r"^(?:https?://[A-Za-z0-9.\-]+(?::\d{1,5})?|null)$")
-_ALLOWED_METHODS = "GET, POST, OPTIONS"
+_ALLOWED_METHODS = "GET, POST, DELETE, OPTIONS"
 _ALLOWED_HEADERS = "X-Clank-Token, Content-Type"
 
 

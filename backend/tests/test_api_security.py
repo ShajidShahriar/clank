@@ -218,7 +218,7 @@ def test_a_preflight_from_an_allowed_origin_is_answered_without_a_token(make):
     assert r.headers["access-control-allow-origin"] == "http://localhost:5173"
     allowed = r.headers["access-control-allow-headers"].lower()
     assert "x-clank-token" in allowed and "content-type" in allowed
-    assert "POST" in r.headers["access-control-allow-methods"] and r.headers["access-control-max-age"] == "600"
+    assert "POST" in r.headers["access-control-allow-methods"] and "DELETE" in r.headers["access-control-allow-methods"] and r.headers["access-control-max-age"] == "600"
 
 
 def test_a_preflight_from_another_origin_is_refused(make):

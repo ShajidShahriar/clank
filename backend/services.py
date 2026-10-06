@@ -45,6 +45,12 @@ class Services:
                 self._stores[project_id] = self._store_factory(project_id)
             return self._stores[project_id]
 
+    def forget_store(self, project_id: int) -> None:
+        """Empty a project's vector store and drop it from the cache (the project is being deleted)."""
+        self.store_for(project_id).clear()
+        with self._stores_lock:
+            self._stores.pop(project_id, None)
+
     # ---- the embedder
 
     def ensure_warm(self) -> None:

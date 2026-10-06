@@ -333,3 +333,24 @@ def test_leaving_the_app_waits_for_the_sweep_thread_itself(world):
     world.clients.remove(client)
     client.__exit__(None, None, None)
     assert not sync.is_running(), "leaving the app waited for the sweep thread to finish"
+
+
+def test_a_project_deleted_while_the_sweep_runs_is_skipped_and_the_others_go_on(world):
+    from jobs import ProjectNotFound
+    embedder = FakeEmbedder(dim=4, digest="d1")
+    world.index_first(embedder, 1, 2)
+    (world.repos[1] / "n2.py").write_text("def n2():\n    return 2\n")
+    services = Services(embedder, store_factory=lambda pid: world.stores.setdefault(pid, InMemoryVectorStore()))
+    jobs = IndexJobs(services, lock_dir=world.tmp / "locks")
+    real_start = jobs.start
+
+    def start(project_id):
+        if project_id == world.ids[0]:
+            raise ProjectNotFound("deleted a moment ago")
+        return real_start(project_id)
+    jobs.start = start
+    with TestClient(create_app(services, jobs)) as client:
+        services.wait_for_warmup()
+        client.app.state.startup_sync.wait(10)
+        assert sync_status(client)["state"] == "done"
+        assert jobs.status(world.ids[1])["state"] == "done" and "n2.py" in chunk_paths(2)

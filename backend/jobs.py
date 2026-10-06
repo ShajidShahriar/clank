@@ -91,6 +91,13 @@ class IndexJobs:
             job.state = "cancelling"
             return self._describe(job)
 
+    def forget(self, project_id: int) -> None:
+        """Drop what is remembered about a project's last job (the project was deleted). A job that is still running is kept."""
+        with self._guard:
+            job = self._jobs.get(project_id)
+            if job is not None and not (job.thread is not None and job.thread.is_alive()):
+                del self._jobs[project_id]
+
     def is_running(self, project_id: int) -> bool:
         with self._guard:
             job = self._jobs.get(project_id)
