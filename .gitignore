@@ -33,6 +33,7 @@ __pycache__
 *.sln
 *.sw?
 *.md
+!README.md
 # Local databases
 *.db
 *.db-wal
