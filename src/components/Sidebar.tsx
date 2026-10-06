@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderPlus, Trash2, X } from 'lucide-react'
+import { FolderPlus, Settings, Trash2, X } from 'lucide-react'
 import logoDark from '../assets/logo_dark.png'
 import logoLight from '../assets/logo_light.png'
 import type { IndexStatus, Project } from '../api/types'
@@ -15,6 +15,7 @@ interface SidebarProps {
   onAdd: () => void
   onDelete: (id: number) => void
   onDismissNotice: () => void
+  onOpenSettings: () => void
 }
 
 const TONE: Record<Tone, string> = {
@@ -24,7 +25,7 @@ const TONE: Record<Tone, string> = {
   warn: 'text-amber-600 dark:text-amber-400',
 }
 
-function Sidebar({ projects, live, selectedId, canAdd, notice, onSelect, onAdd, onDelete, onDismissNotice }: SidebarProps) {
+function Sidebar({ projects, live, selectedId, canAdd, notice, onSelect, onAdd, onDelete, onDismissNotice, onOpenSettings }: SidebarProps) {
   const [confirming, setConfirming] = useState<number | null>(null)
 
   return (
@@ -100,6 +101,16 @@ function Sidebar({ projects, live, selectedId, canAdd, notice, onSelect, onAdd, 
             )
           })}
         </div>
+      </div>
+
+      <div className="shrink-0 border-t border-gray-200 p-2 dark:border-white/10">
+        <button
+          onClick={onOpenSettings}
+          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-900"
+        >
+          <Settings className="h-3.5 w-3.5 shrink-0" />
+          Answer model
+        </button>
       </div>
     </aside>
   )

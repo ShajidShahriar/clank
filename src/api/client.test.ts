@@ -11,6 +11,7 @@ type Call = { method: string, path: string, body?: object }
 
 function bridgeReplying(reply: { ok: boolean, status: number, body: unknown } | ((c: Call) => unknown)) {
   const calls: Call[] = []
+  const saves: Array<{ config: object, apiKey?: string | null }> = []
   const bridge: Bridge = {
     request: async (method, path, body) => {
       const call = { method, path, body }
@@ -18,8 +19,9 @@ function bridgeReplying(reply: { ok: boolean, status: number, body: unknown } | 
       return (typeof reply === 'function' ? reply(call) : reply) as never
     },
     pickFolder: async () => ({ ok: true, status: 200, body: { path: '/Users/x/proj' } }),
+    saveLlmSettings: async (config: object, apiKey?: string | null) => { saves.push({ config, apiKey }); return (typeof reply === 'function' ? reply({ method: 'SAVE', path: 'save', body: config }) : reply) as never },
   }
-  return { bridge, calls }
+  return { bridge, calls, saves }
 }
 
 const project = { id: 3, name: 'clank', path: '/Users/x/clank', created_at: '2026-10-06T10:00:00', indexed: true, files: 12, chunks: 80, flagged_files: 0, index_state: 'done' }
@@ -146,7 +148,7 @@ test('an answer that was never sent to the model has no usage and still parses',
 })
 
 test('a bridge that throws or rejects is "backend_unavailable", and nothing escapes', async () => {
-  const throwing: Bridge = { request: async () => { throw new Error('ipc closed: secret detail') }, pickFolder: async () => { throw new Error('x') } }
+  const throwing: Bridge = { request: async () => { throw new Error('ipc closed: secret detail') }, pickFolder: async () => { throw new Error('x') }, saveLlmSettings: async () => { throw new Error('y') } }
   const r = await createApi(throwing).listProjects()
   assert.equal(r.ok, false)
   assert.equal(r.ok === false && r.error.code, 'backend_unavailable')
@@ -164,9 +166,9 @@ test('no bridge at all (the page opened in a plain browser) is a clear error', a
 test('pickFolder returns the chosen path, or null when the dialog was cancelled', async () => {
   const chosen = bridgeReplying({ ok: true, status: 200, body: null })
   assert.deepEqual(await createApi(chosen.bridge).pickFolder(), { ok: true, data: '/Users/x/proj' })
-  const cancelled: Bridge = { request: async () => ({ ok: true, status: 200, body: null }), pickFolder: async () => ({ ok: true, status: 200, body: { path: null } }) }
+  const cancelled: Bridge = { request: async () => ({ ok: true, status: 200, body: null }), pickFolder: async () => ({ ok: true, status: 200, body: { path: null } }), saveLlmSettings: async () => ({ ok: true, status: 200, body: null }) }
   assert.deepEqual(await createApi(cancelled).pickFolder(), { ok: true, data: null })
-  const odd: Bridge = { request: async () => ({ ok: true, status: 200, body: null }), pickFolder: async () => ({ ok: true, status: 200, body: { path: 5 } }) }
+  const odd: Bridge = { request: async () => ({ ok: true, status: 200, body: null }), pickFolder: async () => ({ ok: true, status: 200, body: { path: 5 } }), saveLlmSettings: async () => ({ ok: true, status: 200, body: null }) }
   const r = await createApi(odd).pickFolder()
   assert.equal(r.ok === false && r.error.code, 'bad_response')
 })
@@ -176,4 +178,68 @@ test('health returns the report and never needs an id', async () => {
   const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body })
   assert.deepEqual(await createApi(bridge).health(), { ok: true, data: body })
   assert.deepEqual(calls.map((c) => c.path), ['/health'])
+})
+
+// ---- the answer-model settings
+
+const active = { preset: 'groq', label: 'Groq (hosted)', base_url: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b', context_tokens: 2500, max_output_tokens: 1200,
+  local: false, takes_key: true, key_optional: false, key_set: true, key_source: 'memory' }
+const preset = { id: 'groq', label: 'Groq (hosted)', base_url: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b', takes_key: true, key_optional: false, local: false,
+  base_url_editable: false, context_tokens: 2500, max_output_tokens: 1200, note: 'A hosted service.' }
+const llmSettings = { active, presets: [preset] }
+
+test('getLlmSettings returns the active choice and the presets', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: llmSettings })
+  assert.deepEqual(await createApi(bridge).getLlmSettings(), { ok: true, data: llmSettings })
+  assert.deepEqual(calls, [{ method: 'GET', path: '/settings/llm', body: undefined }])
+})
+
+test('settings of the wrong shape are a bad response (the key must never be a field)', async () => {
+  const bad: unknown[] = [null, {}, { active, presets: 'x' }, { active: { ...active, key_set: 'yes' }, presets: [preset] }, { active: { ...active, context_tokens: '2500' }, presets: [preset] },
+    { active: { ...active, key_source: 5 }, presets: [preset] }, { active, presets: [{ ...preset, takes_key: 1 }] }, { active, presets: [{ id: 'x' }] }]
+  for (const body of bad) {
+    const { bridge } = bridgeReplying({ ok: true, status: 200, body })
+    const r = await createApi(bridge).getLlmSettings()
+    assert.equal(r.ok === false && r.error.code, 'bad_response', JSON.stringify(body))
+  }
+})
+
+test('the connection test returns the model and the time it took', async () => {
+  const body = { ok: true, model: 'served', latency_ms: 420, finish_reason: 'stop', reply: 'OK' }
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body })
+  assert.deepEqual(await createApi(bridge).testLlm(), { ok: true, data: body })
+  assert.deepEqual(calls, [{ method: 'POST', path: '/settings/llm/test', body: undefined }])
+  const { bridge: bad } = bridgeReplying({ ok: true, status: 200, body: { ok: true, model: 5 } })
+  assert.equal((await createApi(bad).testLlm()).ok, false)
+  for (const broken of [{ model: 'm', latency_ms: 1, finish_reason: null, reply: 'x' }, { ok: 'yes', model: 'm', latency_ms: 1, finish_reason: null, reply: 'x' }, { ok: true, model: 'm', latency_ms: 1.5, finish_reason: null, reply: 'x' },
+    { ok: true, model: 'm', latency_ms: 1, finish_reason: 5, reply: 'x' }, { ok: true, model: 'm', latency_ms: 1, finish_reason: null }]) {
+    const { bridge: b2 } = bridgeReplying({ ok: true, status: 200, body: broken })
+    assert.equal((await createApi(b2).testLlm()).ok, false, JSON.stringify(broken))
+  }
+})
+
+test('saving settings goes through the desktop app\'s own door, with the key only when given', async () => {
+  const { bridge, saves, calls } = bridgeReplying({ ok: true, status: 200, body: llmSettings })
+  const api = createApi(bridge)
+  assert.deepEqual(await api.saveLlmSettings({ preset: 'groq' }, 'a-key-123'), { ok: true, data: llmSettings })
+  await api.saveLlmSettings({ preset: 'groq' })
+  await api.saveLlmSettings({ preset: 'groq' }, null)
+  assert.deepEqual(saves, [{ config: { preset: 'groq' }, apiKey: 'a-key-123' }, { config: { preset: 'groq' }, apiKey: undefined }, { config: { preset: 'groq' }, apiKey: null }])
+  assert.equal(calls.length, 0, 'never through the generic request door: a key must not travel there')
+})
+
+test('a refused setting comes back as the backend\'s own error', async () => {
+  const body = { error: { code: 'invalid_settings', message: 'The code budget must be a whole number from 500 to 16000.' } }
+  const { bridge } = bridgeReplying({ ok: false, status: 422, body })
+  assert.deepEqual(await createApi(bridge).saveLlmSettings({ preset: 'groq', context_tokens: 5 }), { ok: false, error: { code: 'invalid_settings', message: body.error.message, status: 422 } })
+})
+
+test('saving without a bridge, or with a bridge that throws, is an error and never an exception', async () => {
+  assert.equal((await createApi(undefined).saveLlmSettings({ preset: 'groq' })).ok, false)
+  assert.equal((await createApi(undefined).getLlmSettings()).ok, false)
+  assert.equal((await createApi(undefined).testLlm()).ok, false)
+  const throwing: Bridge = { request: async () => { throw new Error('x') }, pickFolder: async () => { throw new Error('x') }, saveLlmSettings: async () => { throw new Error('secret gsk_leak') } }
+  const r = await createApi(throwing).saveLlmSettings({ preset: 'groq' }, 'gsk_leak')
+  assert.equal(r.ok === false && r.error.code, 'backend_unavailable')
+  assert.equal(JSON.stringify(r).includes('gsk_leak'), false)
 })

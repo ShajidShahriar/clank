@@ -18,6 +18,7 @@ from embedding.ollama import DEFAULT_MODEL
 from indexing import IndexAlreadyRunning
 from llm import (LLMAuthError, LLMBadResponse, LLMContextTooLong, LLMError, LLMModelNotFound, LLMNotConfigured, LLMRateLimited, LLMTimeout,
                  LLMUnavailable)
+from llm.settings import InvalidKey, InvalidSelection
 from jobs import NoIndexRunning, ProjectNotFound, RepoNotFound
 from projects import InvalidProjectPath, ProjectBusy, ProjectExists
 from search import IndexOutOfDate, NotIndexed
@@ -54,6 +55,14 @@ async def _llm_rate_limited(request: Request, exc: LLMRateLimited):
     response = error_response(429, "llm_rate_limited", f"The answer service's rate limit was reached. Try again in about {seconds} second{'s' if seconds != 1 else ''}.")
     response.headers["Retry-After"] = str(seconds)
     return response
+
+
+async def _invalid_settings(request: Request, exc: InvalidSelection):
+    return error_response(422, "invalid_settings", str(exc))            # written for people, and never repeats what was typed
+
+
+async def _invalid_key(request: Request, exc: InvalidKey):
+    return error_response(422, "invalid_key", str(exc))                 # never repeats the key
 
 
 async def _validation(request: Request, exc: RequestValidationError):
@@ -97,6 +106,8 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(LLMTimeout, _fixed(504, "llm_timeout", "The answer service took too long to answer. Try again."))
     app.add_exception_handler(LLMBadResponse, _fixed(502, "llm_bad_response", "The answer service sent a reply Clank could not read."))
     app.add_exception_handler(LLMError, _fixed(502, "llm_error", "The answer service failed."))
+    app.add_exception_handler(InvalidSelection, _invalid_settings)
+    app.add_exception_handler(InvalidKey, _invalid_key)
     app.add_exception_handler(NoIndexRunning, _fixed(409, "no_index_running", "No indexing is running for this project."))
     app.add_exception_handler(IndexAlreadyRunning, _fixed(409, "index_already_running", "This project is already being indexed."))
     app.add_exception_handler(OllamaUnavailable, _fixed(503, "ollama_unavailable", "Ollama is not reachable. Start Ollama and try again."))

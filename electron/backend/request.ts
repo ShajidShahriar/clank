@@ -20,13 +20,13 @@ export type BuiltRequest = {
 }
 
 export function buildBackendRequest({ port, token, method, path, body }: BackendRequestInput): BuiltRequest {
-  if (method !== 'GET' && method !== 'POST' && method !== 'DELETE') throw new Error('the method is not allowed')
+  if (method !== 'GET' && method !== 'POST' && method !== 'PUT' && method !== 'DELETE') throw new Error('the method is not allowed')
   if (typeof path !== 'string' || !PATH.test(path)) throw new Error('the path is not allowed')
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('the port is not valid')
   const headers: Record<string, string> = { 'x-clank-token': token }
   let encoded: string | undefined
   if (body !== undefined) {
-    if (method !== 'POST') throw new Error('only a POST can have a body')
+    if (method !== 'POST' && method !== 'PUT') throw new Error('only a POST or a PUT can have a body')
     const plain = typeof body === 'object' && body !== null && !Array.isArray(body)
       && (Object.getPrototypeOf(body) === Object.prototype || Object.getPrototypeOf(body) === null)
     if (!plain) throw new Error('the body must be a plain object')

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import ChatPane from './components/ChatPane'
+import SettingsDialog from './components/SettingsDialog'
 import { createApi } from './api/client'
 import { getBackendControl, getBridge } from './bridge'
 import { useAllowRemote } from './hooks/useAllowRemote'
@@ -18,6 +19,7 @@ function App() {
   const projects = useProjects(api, ready)
   const answers = useAnswers(api)
   const [notice, setNotice] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const selected = projects.projects.find((p) => p.id === projects.selectedId)
   const live = selected ? projects.live[selected.id] : undefined
@@ -50,6 +52,8 @@ function App() {
       restartBackend()
     } else if (action === 'refresh') {
       void projects.refresh()
+    } else if (action === 'settings') {
+      setSettingsOpen(true)
     }
   }, [selected, answers, allowRemote, projects, setAllowRemote, restartBackend])
 
@@ -65,6 +69,7 @@ function App() {
         onAdd={addProject}
         onDelete={deleteProject}
         onDismissNotice={() => setNotice(null)}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       <ChatPane
         backend={backend}
@@ -80,6 +85,7 @@ function App() {
         onAction={onAction}
         onRestartBackend={restartBackend}
       />
+      {settingsOpen && <SettingsDialog api={api} onClose={() => setSettingsOpen(false)} onSaved={() => {}} />}
     </div>
   )
 }

@@ -38,14 +38,16 @@ type ServiceLike = {
   restart(): Promise<void>
 }
 
+const WINDOW_METHODS = ['GET', 'POST', 'DELETE']
 const FORBIDDEN = { ok: false, status: 0, body: { error: { code: 'forbidden', message: 'This page may not use the Clank backend.' } } }
 const BAD_REQUEST = { ok: false, status: 0, body: { error: { code: 'bad_request', message: 'The request was not allowed.' } } }
 
-export function registerBackendIpc({ ipcMain, service, isTrusted, pickFolder }: {
+export function registerBackendIpc({ ipcMain, service, isTrusted, pickFolder, saveLlm }: {
   ipcMain: IpcMainLike
   service: ServiceLike
   isTrusted: (url: string | undefined) => boolean
   pickFolder: () => Promise<string | null>          // opens the system's folder dialog; null when it was cancelled
+  saveLlm: (payload: { config: object, apiKey?: string | null }) => Promise<unknown>      // the settings flow (settings-flow.ts): the key goes through here and nowhere else
 }): void {
   const trusted = (event: unknown) => isTrusted((event as { senderFrame?: { url?: string } | null })?.senderFrame?.url)
 
@@ -53,6 +55,7 @@ export function registerBackendIpc({ ipcMain, service, isTrusted, pickFolder }: 
     if (!trusted(event)) return FORBIDDEN
     const p = payload as { method?: unknown, path?: unknown, body?: unknown } | null | undefined
     if (typeof p !== 'object' || p === null || Array.isArray(p) || typeof p.method !== 'string' || typeof p.path !== 'string') return BAD_REQUEST
+    if (!WINDOW_METHODS.includes(p.method)) return BAD_REQUEST          // a PUT is the main process's own: the key goes through the settings flow, never this door
     return service.request(p.method, p.path, p.body)           // only these three fields: an address, a port or a header from the window is never passed on
   }) as never)
 
@@ -72,6 +75,21 @@ export function registerBackendIpc({ ipcMain, service, isTrusted, pickFolder }: 
       return { ok: true, status: 200, body: { path: typeof chosen === 'string' && chosen !== '' ? chosen : null } }
     } catch {
       return { ok: false, status: 0, body: { error: { code: 'dialog_failed', message: 'The folder dialog could not be opened.' } } }
+    }
+  }) as never)
+
+  // Saving the answer-model settings. This is the ONLY door for a key: it goes to the main process, which encrypts it and pushes it to the backend's memory.
+  // Only `config` and `apiKey` are passed on (a missing apiKey stays missing: it means "leave the stored key alone").
+  ipcMain.handle(CHANNELS.llmSave, (async (event: unknown, payload: unknown) => {
+    if (!trusted(event)) return FORBIDDEN
+    const p = payload as { config?: unknown, apiKey?: unknown } | null | undefined
+    if (typeof p !== 'object' || p === null || Array.isArray(p) || typeof p.config !== 'object' || p.config === null || Array.isArray(p.config)) return BAD_REQUEST
+    const clean: { config: object, apiKey?: string | null } = { config: p.config }
+    if ('apiKey' in p && p.apiKey !== undefined) clean.apiKey = p.apiKey as string | null
+    try {
+      return await saveLlm(clean)
+    } catch {
+      return { ok: false, status: 0, body: { error: { code: 'settings_failed', message: 'The settings could not be saved.' } } }
     }
   }) as never)
 }

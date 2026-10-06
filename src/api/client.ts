@@ -1,12 +1,13 @@
 // The window's typed wrapper around the backend bridge (`window.clankBackend`, see electron/preload.ts). Everything returns a Result and nothing throws:
 // the data, or an error {code, message, status} written for people. A reply with the wrong shape is "bad_response" and is never half-used.
 // Written with erasable TypeScript only (no enums, no parameter properties) so that `node --test` can run it without a build step.
-import type { Answer, ApiError, Health, IndexStatus, Project, Result, Source } from './types.ts'
+import type { Answer, ApiError, Health, IndexStatus, LlmSettings, LlmTest, Project, Result, Source } from './types.ts'
 
 export type BridgeReply = { ok: boolean, status: number, body: unknown }
 export type Bridge = {
   request(method: 'GET' | 'POST' | 'DELETE', path: string, body?: object): Promise<BridgeReply>
   pickFolder(): Promise<BridgeReply>
+  saveLlmSettings(config: object, apiKey?: string | null): Promise<BridgeReply>     // the ONLY door for a key: the desktop app encrypts it and pushes it to the backend
 }
 
 const INDEX_STATES = ['idle', 'running', 'cancelling', 'done', 'stopped', 'cancelled', 'failed']
@@ -37,6 +38,16 @@ const isAnswer = (v: unknown): v is Answer => isObj(v) && isStr(v.answer) && isB
   && arrayOf((h) => isObj(h) && isStr(h.path) && isStr(h.reason))(v.hidden_files) && arrayOf(isStr)(v.stale_files) && arrayOf(isStr)(v.deleted_files)
   && isNum(v.context_tokens_used) && isNum(v.context_budget) && isBool(v.over_budget) && orNull(isNum)(v.best_score) && isNum(v.k)
   && orNull(isStr)(v.ranking_note) && orNull(isStr)(v.calibration_note)
+
+const isLlmActive = (v: unknown): boolean => isObj(v) && isStr(v.preset) && isStr(v.label) && isStr(v.base_url) && isStr(v.model) && isInt(v.context_tokens)
+  && isInt(v.max_output_tokens) && isBool(v.local) && isBool(v.takes_key) && isBool(v.key_optional) && isBool(v.key_set) && orNull(isStr)(v.key_source)
+
+const isLlmPreset = (v: unknown): boolean => isObj(v) && isStr(v.id) && isStr(v.label) && isStr(v.base_url) && isStr(v.model) && isBool(v.takes_key) && isBool(v.key_optional)
+  && isBool(v.local) && isBool(v.base_url_editable) && isInt(v.context_tokens) && isInt(v.max_output_tokens) && isStr(v.note)
+
+const isLlmSettings = (v: unknown): v is LlmSettings => isObj(v) && isLlmActive(v.active) && arrayOf(isLlmPreset)(v.presets)
+
+const isLlmTest = (v: unknown): v is LlmTest => isObj(v) && isBool(v.ok) && isStr(v.model) && isInt(v.latency_ms) && orNull(isStr)(v.finish_reason) && isStr(v.reply)
 
 const isHealth = (v: unknown): v is Health => isObj(v) && isStr(v.status) && isStr(v.embedder) && orNull(isStr)(v.model) && orNull(isStr)(v.detail)
 
@@ -73,6 +84,18 @@ export function createApi(bridge: Bridge | undefined) {
     ask: (id: number, question: string, allowRemote: boolean, k?: number): Promise<Result<Answer>> => {
       if (typeof question !== 'string' || question.trim() === '') return Promise.resolve(fail('empty_question', 'Type a question first.'))
       return withId(id, (i) => call<Answer>('POST', `/projects/${i}/answer`, k === undefined ? { question, allow_remote: allowRemote } : { question, allow_remote: allowRemote, k }, isAnswer))
+    },
+    getLlmSettings: () => call<LlmSettings>('GET', '/settings/llm', undefined, isLlmSettings),
+    testLlm: () => call<LlmTest>('POST', '/settings/llm/test', undefined, isLlmTest),
+    async saveLlmSettings(config: object, apiKey?: string | null): Promise<Result<LlmSettings>> {
+      if (!bridge) return fail('no_bridge', 'Saving settings only works in the Clank desktop app.')
+      let reply: unknown
+      try {
+        reply = await bridge.saveLlmSettings(config, apiKey)
+      } catch {
+        return fail('backend_unavailable', 'The Clank backend is not reachable.')          // the raw error is not passed on: it could hold the key
+      }
+      return interpret<LlmSettings>(reply, isLlmSettings)
     },
     async pickFolder(): Promise<Result<string | null>> {
       if (!bridge) return fail('no_bridge', 'Choosing a folder only works in the Clank desktop app.')

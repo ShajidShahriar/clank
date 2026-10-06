@@ -27,9 +27,11 @@ The backend listens on 127.0.0.1 only. Every request must carry a token that is 
 
 ## Answer models
 
-The answer endpoint sends the retrieved code excerpts and the question to a chat model and returns the answer together with its sources. The model is chosen by a profile, so adding another provider does not change the rest of the pipeline. Groq is the only built-in profile for now. It reads its key from the `GROQ_API_KEY` environment variable.
+The answer endpoint sends the retrieved code excerpts and the question to a chat model and returns the answer together with its sources. Any service that speaks the OpenAI chat protocol works. Presets are included for Groq, Ollama, LM Studio and a custom address (OpenRouter, OpenAI, vLLM or your own server). The provider, address, model and limits are chosen in the settings screen, which also has a button to test the connection.
 
-Embedding and search always run locally. With a remote model, only the retrieved excerpts (not the whole repository) leave the machine, and only when the request explicitly allows it. A model running on the same computer needs no such permission.
+An API key is kept encrypted with the system keychain and is passed to the backend in memory only. It is never written to the database or to a log, and the interface can store a key but never read one back. If the system cannot encrypt, the key is not saved.
+
+Embedding and search always run locally. With a remote model, only the retrieved excerpts (not the whole repository) leave the machine, and only when the "Send code to remote model" switch is on. A model running on the same computer needs no such permission.
 
 ## Evaluation
 
@@ -63,11 +65,7 @@ uv sync
 npm run dev
 ```
 
-To use the answer step, create a Groq API key and export it in the same terminal before `npm run dev`:
-
-```bash
-export GROQ_API_KEY=your_key_here
-```
+To use the answer step, open **Answer model** in the sidebar, choose a provider and paste the key. For a model on your own computer, such as Ollama, no key is needed. As an alternative for Groq, export `GROQ_API_KEY` in the terminal before `npm run dev`.
 
 ## Testing
 
@@ -79,6 +77,6 @@ npx tsc -b                # type check
 
 ## Roadmap
 
-- Save conversations between sessions.
-- Add profiles for local models (Ollama, LM Studio) and a settings screen for the API key.
+- Save conversations between sessions and let follow-up questions use the earlier ones.
+- Show the code behind a source in the interface.
 - Bundle the Python backend into the installer.

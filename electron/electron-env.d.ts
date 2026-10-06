@@ -31,6 +31,8 @@ interface Window {
     restart(): Promise<import('./backend/service.ts').BackendStatus>
     /** Opens the system folder dialog. `body.path` is the chosen folder, or null if the dialog was cancelled. */
     pickFolder(): Promise<{ ok: boolean, status: number, body: unknown }>
+    /** Saves the answer-model choice and, if given, the key (a string stores it, null removes it, undefined leaves it). The key can be written, never read back. */
+    saveLlmSettings(config: object, apiKey?: string | null): Promise<{ ok: boolean, status: number, body: unknown }>
     onStatus(listener: (status: import('./backend/service.ts').BackendStatus) => void): () => void
   }
 }

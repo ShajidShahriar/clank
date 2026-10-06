@@ -102,6 +102,31 @@ def test_a_profile_with_no_key_variable_needs_no_key():
     assert client._api_key is None
 
 
+# ---- an optional key (a custom service may need none)
+
+def test_an_optional_key_that_is_missing_means_no_key_not_an_error():
+    optional = profile(key_optional=True)
+    assert make_llm(optional, {})._api_key is None
+    assert make_llm(optional, {"EXAMPLE_KEY": "  "})._api_key is None
+    assert make_llm(optional, {"EXAMPLE_KEY": KEY})._api_key == KEY
+    assert make_llm(optional, {}, key=KEY)._api_key == KEY
+
+
+def test_an_optional_key_that_is_present_but_malformed_is_still_refused():
+    with pytest.raises(LLMNotConfigured):
+        make_llm(profile(key_optional=True), {"EXAMPLE_KEY": "has space"})
+
+
+def test_a_key_given_directly_wins_over_the_environment_and_is_checked_too():
+    assert make_llm(GROQ_GPT_OSS_120B, {"GROQ_API_KEY": "env-" + KEY}, key=KEY)._api_key == KEY
+    with pytest.raises(LLMNotConfigured):
+        make_llm(GROQ_GPT_OSS_120B, {}, key="line1\nline2")
+
+
+def test_a_profile_that_takes_no_key_ignores_a_key_given_to_it():
+    assert make_llm(profile(base_url="http://localhost:11434/v1", api_key_env=None, model="llama3"), {}, key=KEY)._api_key is None
+
+
 # ---- choosing the profile
 
 def test_groq_is_the_default_profile_and_the_environment_can_name_another_known_one():

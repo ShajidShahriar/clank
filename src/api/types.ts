@@ -66,3 +66,35 @@ export type Health = { status: string, embedder: string, model: string | null, d
 
 export type ApiError = { code: string, message: string, status: number }
 export type Result<T> = { ok: true, data: T } | { ok: false, error: ApiError }
+
+// ---- the answer-model settings (backend/routes_settings.py). A key is never a field of anything here: it goes through the desktop app's own door.
+export type LlmActive = {
+  preset: string
+  label: string
+  base_url: string
+  model: string
+  context_tokens: number
+  max_output_tokens: number
+  local: boolean
+  takes_key: boolean
+  key_optional: boolean
+  key_set: boolean
+  key_source: string | null
+}
+
+export type LlmPreset = {
+  id: string
+  label: string
+  base_url: string
+  model: string
+  takes_key: boolean
+  key_optional: boolean
+  local: boolean
+  base_url_editable: boolean
+  context_tokens: number
+  max_output_tokens: number
+  note: string
+}
+
+export type LlmSettings = { active: LlmActive, presets: LlmPreset[] }
+export type LlmTest = { ok: boolean, model: string, latency_ms: number, finish_reason: string | null, reply: string }

@@ -15,6 +15,7 @@ const LABELS: Partial<Record<ErrorAction, string>> = {
   retry: 'Try again',
   wait: 'Try again',
   refresh: 'Refresh projects',
+  settings: 'Open settings',
 }
 
 /** What went wrong, in the backend's own words, and the one button that makes sense next. */

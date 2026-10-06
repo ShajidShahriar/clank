@@ -147,7 +147,11 @@ test('each error says what the person can do next', () => {
   for (const code of ['ollama_unavailable', 'llm_unavailable', 'llm_timeout', 'backend_timeout', 'unknown_error', 'bad_response', 'llm_bad_response', 'embedding_error', 'llm_error', 'llm_context_too_long']) {
     assert.equal(action(code), 'retry', code)
   }
-  for (const code of ['llm_not_configured', 'llm_auth_failed', 'llm_model_not_found', 'no_bridge', 'invalid_request', 'invalid_path', 'project_exists', 'project_busy', 'empty_question', 'model_not_found']) {
+  for (const code of ['llm_not_configured', 'llm_auth_failed', 'llm_model_not_found']) {
+    assert.equal(action(code), 'settings', code)
+  }
+  for (const code of ['no_bridge', 'invalid_request', 'invalid_path', 'project_exists', 'project_busy', 'empty_question', 'model_not_found', 'invalid_settings', 'invalid_key',
+    'secure_storage_unavailable', 'key_save_failed', 'settings_failed', 'dialog_failed', 'forbidden']) {
     assert.equal(action(code), 'none', code)
   }
   assert.equal(action('something_never_seen'), 'retry', 'an unknown error can at least be tried again')

@@ -98,7 +98,7 @@ export function progressFraction(index: IndexStatus | undefined): number | null 
   return Math.min(1, Math.max(0, (index.files_done ?? 0) / total))
 }
 
-export type ErrorAction = 'allow_remote' | 'index' | 'restart_backend' | 'retry' | 'wait' | 'refresh' | 'none'
+export type ErrorAction = 'allow_remote' | 'index' | 'restart_backend' | 'retry' | 'wait' | 'refresh' | 'settings' | 'none'
 
 const ACTIONS: Record<string, ErrorAction> = {
   consent_required: 'allow_remote',
@@ -109,8 +109,9 @@ const ACTIONS: Record<string, ErrorAction> = {
   llm_rate_limited: 'wait',
   ollama_unavailable: 'retry', llm_unavailable: 'retry', llm_timeout: 'retry', backend_timeout: 'retry', unknown_error: 'retry', bad_response: 'retry',
   llm_bad_response: 'retry', embedding_error: 'retry', llm_error: 'retry', llm_context_too_long: 'retry',
-  llm_not_configured: 'none', llm_auth_failed: 'none', llm_model_not_found: 'none', no_bridge: 'none', invalid_request: 'none', invalid_path: 'none',
+  llm_not_configured: 'settings', llm_auth_failed: 'settings', llm_model_not_found: 'settings', no_bridge: 'none', invalid_request: 'none', invalid_path: 'none',
   project_exists: 'none', project_busy: 'none', empty_question: 'none', model_not_found: 'none', bad_request: 'none', repo_not_found: 'none', no_index_running: 'none',
+  invalid_settings: 'none', invalid_key: 'none', secure_storage_unavailable: 'none', key_save_failed: 'none', settings_failed: 'none', dialog_failed: 'none', forbidden: 'none',
 }
 
 /** What to show for an error and what the person can do next. The words are the backend's own (they are written for people). */
