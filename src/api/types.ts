@@ -38,6 +38,12 @@ export type Source = {
   narrowed: boolean
 }
 
+/** How long each stage of an answer took, in whole milliseconds; null for a stage that did not happen (a model that does not think has no thinking time). */
+export type Timings = { search_ms: number | null, wait_ms: number | null, thinking_ms: number | null, writing_ms: number | null, total_ms: number | null }
+export type ThinkingInfo = { seen: boolean, pieces: number }
+/** Tokens spent thinking and answering. `estimated` is true when anything here is a count or an estimate instead of the service's own number. */
+export type TokenInfo = { thinking: number | null, answer: number | null, estimated: boolean }
+
 export type Answer = {
   answer: string
   truncated: boolean
@@ -61,7 +67,45 @@ export type Answer = {
   ranking_note: string | null
   calibration_note: string | null
   conversation_id?: number | null         // set when the question was asked inside a saved conversation
+  // Not in answers saved before these existed:
+  timings?: Timings
+  thinking?: ThinkingInfo
+  tokens?: TokenInfo
 }
+
+// ---- an answer written live (backend/routes_answer.py `/answer/stream`, through the desktop app's stream door). Every event is checked in client.ts before it is used.
+export type StartEvent = {
+  type: 'start'
+  stage: 'waiting'
+  search_ms: number
+  llm_called: boolean
+  profile: string
+  sent_off_machine: boolean
+  conversation_id: number | null
+  sources: Source[]
+  dropped: Answer['dropped']
+  hidden_files: Answer['hidden_files']
+  stale_files: string[]
+  deleted_files: string[]
+  context_tokens_used: number
+  context_budget: number
+  over_budget: boolean
+  best_score: number | null
+  k: number
+  ranking_note: string | null
+  calibration_note: string | null
+}
+export type StageEvent = { type: 'stage', stage: 'thinking' | 'writing', at_ms: number }
+export type ThinkingEvent = { type: 'thinking', pieces: number }
+export type DeltaEvent = { type: 'delta', text: string }
+export type DoneEvent = Answer & { type: 'done', timings: Timings, thinking: ThinkingInfo, tokens: TokenInfo, conversation_id: number | null, saved: boolean }
+export type ErrorEvent = { type: 'error', error: { code: string, message: string, status: number }, retry_after?: number }
+export type CancelledEvent = { type: 'cancelled' }
+export type StreamEvent = StartEvent | StageEvent | ThinkingEvent | DeltaEvent | DoneEvent | ErrorEvent | CancelledEvent
+
+/** `ok: true`: the stream ran and its last event (done, error or cancelled) was handed over. `ok: false`: the start was refused or could not be made, and no event will ever come. */
+export type StreamEnd = { ok: true } | { ok: false, error: ApiError }
+export type StreamHandle = { id: string, stop(): Promise<void>, finished: Promise<StreamEnd> }
 
 /** The lines of one project file, from POST /projects/{id}/source. `lines[i]` is line `start_line + i`. */
 export type SourceView = { path: string, start_line: number, end_line: number, total_lines: number, stale: boolean, lines: string[] }

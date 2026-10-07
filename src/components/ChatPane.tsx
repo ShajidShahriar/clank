@@ -21,17 +21,18 @@ interface ChatPaneProps {
   onAsk: (question: string) => void
   onAction: (action: ErrorAction, entry: Entry) => void
   onOpenSource: (source: Source) => void
+  onStop: () => void
   onRestartBackend: () => void
   setup: { view: SetupView, starting: boolean, actionError: string | null, onPull: () => void, onCheck: () => void }
 }
 
-function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onRestartBackend, setup }: ChatPaneProps) {
+function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onStop, onRestartBackend, setup }: ChatPaneProps) {
   const ready = backend.state === 'ready'
-  const pending = entries.some((entry) => entry.state === 'pending')
+  const streaming = entries.some((entry) => entry.state === 'pending' || entry.state === 'streaming')       // an answer is being written: the person can stop it
 
   let placeholder = 'Ask about this code…'
   let hint = 'Ask a question about this project. Clank finds the relevant code and asks the model to answer from it.'
-  let locked = pending
+  let locked = streaming
   if (!ready) {
     placeholder = 'The backend is not running'
     locked = true
@@ -47,8 +48,8 @@ function ChatPane({ backend, project, index, entries, allowRemote, indexing, onT
     placeholder = 'Index this project to ask questions'
     hint = 'This project has not been indexed yet. Press Index so Clank can search its code.'
     locked = true
-  } else if (pending) {
-    placeholder = 'Waiting for the answer…'
+  } else if (streaming) {
+    placeholder = 'Writing the answer…'
   }
 
   return (
@@ -57,7 +58,7 @@ function ChatPane({ backend, project, index, entries, allowRemote, indexing, onT
       <SetupCard view={setup.view} busy={setup.starting} actionError={setup.actionError} onPull={setup.onPull} onCheck={setup.onCheck} />
       <ProjectHeader project={project} index={index} allowRemote={allowRemote} disabled={!ready} onIndex={onIndex} onCancel={onCancel} onToggleRemote={onToggleRemote} />
       <MessageList entries={entries} hint={hint} onAction={onAction} onOpenSource={onOpenSource} />
-      <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} />
+      <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} />
     </div>
   )
 }

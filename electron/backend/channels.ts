@@ -5,5 +5,8 @@ export const CHANNELS = {
   restart: 'clank:backend-restart',
   pickFolder: 'clank:pick-folder',
   llmSave: 'clank:llm-save',
+  streamStart: 'clank:stream-start',
+  streamStop: 'clank:stream-stop',
+  streamEvents: 'clank:stream-events',           // pushed by the main process to the window that asked, not handled
   statusChanged: 'clank:backend-status-changed',      // pushed by the main process, not handled
 } as const

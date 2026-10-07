@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 /** A question the person asked. */
 function MessageBubble({ text }: { text: string }) {
   return (
@@ -9,4 +11,4 @@ function MessageBubble({ text }: { text: string }) {
   )
 }
 
-export default MessageBubble
+export default memo(MessageBubble)

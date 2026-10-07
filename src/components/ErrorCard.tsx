@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type { Entry } from '../types'
 import { describeError, type ErrorAction } from '../lib/present'
@@ -46,4 +47,4 @@ function ErrorCard({ entry, onAction }: ErrorCardProps) {
   )
 }
 
-export default ErrorCard
+export default memo(ErrorCard)

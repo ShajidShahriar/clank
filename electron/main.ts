@@ -8,6 +8,7 @@ import { preloadFile } from './backend/preload-path.ts'
 import { createKeyStore } from './backend/secrets.ts'
 import { createSettingsFlow } from './backend/settings-flow.ts'
 import { BackendService } from './backend/service.ts'
+import { StreamManager } from './backend/streams.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -31,6 +32,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 let backend: BackendService | null = null
+let streams: StreamManager | null = null
 
 // Only the app's own page may use the backend bridge (and only the app's own page may be shown in the window).
 const trustContext = () => ({ devServerUrl: VITE_DEV_SERVER_URL, rendererIndexPath: path.join(RENDERER_DIST, 'index.html') })
@@ -99,8 +101,10 @@ function startBackend() {
   // The answer-model key: encrypted with the system keychain, kept in the user-data folder, pushed to the backend's memory after every start. Never written in plain text.
   const keys = createKeyStore({ dir: path.join(app.getPath('userData'), 'secrets'), safeStorage })
   const settings = createSettingsFlow({ service: backend, keys })
+  const running = backend
+  streams = new StreamManager({ target: () => running.target() })           // answers written live: the main process makes the request, so the window never sees the token
   registerBackendIpc({
-    ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()),
+    ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()), streams,
     saveLlm: (payload) => settings.save(payload as never),
     pickFolder: async () => {
       const options = { title: 'Choose the project folder', properties: ['openDirectory' as const] }
@@ -111,6 +115,7 @@ function startBackend() {
   backend.onStatus((status) => {
     for (const w of BrowserWindow.getAllWindows()) w.webContents.send(CHANNELS.statusChanged, status)
     if (status.state === 'ready') void settings.onBackendReady()        // the backend's memory is empty after a start: push the key of the active provider
+    else streams?.abortAll()                                            // stopped, crashed, restarting or failed: every answer being written ends with an error
   })
   void backend.start()          // not awaited: the window opens at once and shows "starting" until the backend is ready
 }
