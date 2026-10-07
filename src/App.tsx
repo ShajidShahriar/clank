@@ -99,6 +99,7 @@ function App() {
         onCancel={() => selected && void projects.cancelIndex(selected.id)}
         onAsk={(question) => selected && void chats.ask(selected.id, question, allowRemote)}
         onAction={onAction}
+        onStop={() => selected && chats.stop(selected.id)}
         onOpenSource={(source) => selected && setViewing({ projectId: selected.id, source })}
         onRestartBackend={restartBackend}
         setup={{ view: setup.view, starting: setup.starting, actionError: setup.actionError, onPull: () => void setup.startPull(), onCheck: setup.checkAgain }}

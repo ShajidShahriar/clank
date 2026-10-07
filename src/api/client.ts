@@ -1,13 +1,17 @@
 // The window's typed wrapper around the backend bridge (`window.clankBackend`, see electron/preload.ts). Everything returns a Result and nothing throws:
 // the data, or an error {code, message, status} written for people. A reply with the wrong shape is "bad_response" and is never half-used.
 // Written with erasable TypeScript only (no enums, no parameter properties) so that `node --test` can run it without a build step.
-import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, PullStatus, Result, Source, SourceView } from './types.ts'
+import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, PullStatus, Result, Source, SourceView, StreamEnd, StreamEvent, StreamHandle, ThinkingInfo, Timings, TokenInfo } from './types.ts'
 
 export type BridgeReply = { ok: boolean, status: number, body: unknown }
 export type Bridge = {
   request(method: 'GET' | 'POST' | 'DELETE', path: string, body?: object): Promise<BridgeReply>
   pickFolder(): Promise<BridgeReply>
   saveLlmSettings(config: object, apiKey?: string | null): Promise<BridgeReply>     // the ONLY door for a key: the desktop app encrypts it and pushes it to the backend
+  // Answers written live (optional: an older desktop app has no such doors, and the window then asks for the whole answer at once):
+  startStream?(id: string, path: string, body?: object): Promise<BridgeReply>
+  stopStream?(id: string): Promise<BridgeReply>
+  onStreamEvents?(listener: (message: unknown) => void): () => void
 }
 
 const INDEX_STATES = ['idle', 'running', 'cancelling', 'done', 'stopped', 'cancelled', 'failed']
@@ -31,13 +35,48 @@ const isIndexStatus = (v: unknown): v is IndexStatus => isObj(v) && isStr(v.stat
 const isSource = (v: unknown): v is Source => isObj(v) && isStr(v.path) && orNull(isStr)(v.symbol) && orNull(isStr)(v.parent) && isStr(v.kind) && isInt(v.start_line)
   && isInt(v.end_line) && isNum(v.score) && isBool(v.stale) && isBool(v.complete) && isBool(v.narrowed)
 
-export const isAnswer = (v: unknown): v is Answer => isObj(v) && isStr(v.answer) && isBool(v.truncated) && orNull(isStr)(v.finish_reason) && orNull(isStr)(v.notice)
-  && isBool(v.llm_called) && orNull(isStr)(v.model) && isStr(v.profile)
-  && (v.usage === null || (isObj(v.usage) && orNull(isNum)(v.usage.prompt_tokens) && orNull(isNum)(v.usage.completion_tokens)))
-  && isBool(v.sent_off_machine) && arrayOf(isSource)(v.sources) && arrayOf((d) => isObj(d) && isStr(d.path))(v.dropped)
+const isCount = (v: unknown): v is number => isInt(v) && v >= 0
+
+const hasContext = (v: Record<string, unknown>): boolean => isBool(v.sent_off_machine) && arrayOf(isSource)(v.sources) && arrayOf((d) => isObj(d) && isStr(d.path))(v.dropped)
   && arrayOf((h) => isObj(h) && isStr(h.path) && isStr(h.reason))(v.hidden_files) && arrayOf(isStr)(v.stale_files) && arrayOf(isStr)(v.deleted_files)
   && isNum(v.context_tokens_used) && isNum(v.context_budget) && isBool(v.over_budget) && orNull(isNum)(v.best_score) && isNum(v.k)
   && orNull(isStr)(v.ranking_note) && orNull(isStr)(v.calibration_note)
+
+const isTimings = (v: unknown): v is Timings => isObj(v) && ['search_ms', 'wait_ms', 'thinking_ms', 'writing_ms', 'total_ms'].every((key) => v[key] === null || isCount(v[key]))
+const isThinkingInfo = (v: unknown): v is ThinkingInfo => isObj(v) && isBool(v.seen) && isCount(v.pieces)
+const isTokenInfo = (v: unknown): v is TokenInfo => isObj(v) && orNull(isCount)(v.thinking) && orNull(isCount)(v.answer) && isBool(v.estimated)
+
+export const isAnswer = (v: unknown): v is Answer => isObj(v) && isStr(v.answer) && isBool(v.truncated) && orNull(isStr)(v.finish_reason) && orNull(isStr)(v.notice)
+  && isBool(v.llm_called) && orNull(isStr)(v.model) && isStr(v.profile)
+  && (v.usage === null || (isObj(v.usage) && orNull(isNum)(v.usage.prompt_tokens) && orNull(isNum)(v.usage.completion_tokens)))
+  && hasContext(v)
+  && (v.timings === undefined || isTimings(v.timings)) && (v.thinking === undefined || isThinkingInfo(v.thinking)) && (v.tokens === undefined || isTokenInfo(v.tokens))
+
+/** One event of a live answer, or null when it is not exactly what the backend promises (a bad event is never half-used). */
+export function readStreamEvent(value: unknown): StreamEvent | null {
+  if (!isObj(value)) return null
+  switch (value.type) {                    // (a `type` that is not text, or not one of these, falls to the default: null)
+    case 'start':
+      return value.stage === 'waiting' && isCount(value.search_ms) && isBool(value.llm_called) && isStr(value.profile) && isBool(value.sent_off_machine) && orNull(isInt)(value.conversation_id) && hasContext(value)
+        ? value as StreamEvent : null
+    case 'stage':
+      return (value.stage === 'thinking' || value.stage === 'writing') && isCount(value.at_ms) ? value as StreamEvent : null
+    case 'thinking':
+      return isCount(value.pieces) ? value as StreamEvent : null
+    case 'delta':
+      return isStr(value.text) ? value as StreamEvent : null
+    case 'done':
+      return isAnswer(value) && isTimings(value.timings) && isThinkingInfo(value.thinking) && isTokenInfo(value.tokens) && orNull(isInt)(value.conversation_id) && isBool((value as Record<string, unknown>).saved)
+        ? value as StreamEvent : null
+    case 'error':
+      return isObj(value.error) && isStr(value.error.code) && isStr(value.error.message) && isNum(value.error.status) && (value.retry_after === undefined || isNum(value.retry_after))
+        ? value as StreamEvent : null
+    case 'cancelled':
+      return value as StreamEvent
+    default:
+      return null
+  }
+}
 
 const isSourceView = (v: unknown): v is SourceView => isObj(v) && isStr(v.path) && isInt(v.start_line) && isInt(v.end_line) && isInt(v.total_lines) && isBool(v.stale)
   && arrayOf(isStr)(v.lines)
@@ -109,6 +148,79 @@ export function createApi(bridge: Bridge | undefined) {
       if (k !== undefined) body.k = k
       if (conversationId !== undefined) body.conversation_id = conversationId
       return withId(id, (i) => call<Answer>('POST', `/projects/${i}/answer`, body, isAnswer))
+    },
+    /** True when the desktop app can write an answer live; if not, ask for the whole answer at once with `ask`. */
+    canStream: Boolean(bridge?.startStream && bridge.stopStream && bridge.onStreamEvents),
+    /**
+     * Ask for an answer written live. Every event is checked and handed to `onEvent` in order; the last one is `done`, `error` or `cancelled`. `finished` resolves `{ok: true}` after
+     * the last event, or `{ok: false, error}` when the start was refused (no consent, not indexed, a rate limit...) or could not be made, and then no event comes.
+     * The id is made here so `stop()` works from the very first moment, and the listener is in place before the start is sent.
+     */
+    askStream(options: { projectId: number, question: string, allowRemote: boolean, conversationId?: number, k?: number, onEvent: (event: StreamEvent) => void }): StreamHandle {
+      const refuse = (code: string, message: string): StreamHandle => ({ id: '', stop: async () => {}, finished: Promise.resolve({ ok: false, error: { code, message, status: 0 } }) })
+      if (!bridge?.startStream || !bridge.stopStream || !bridge.onStreamEvents) return refuse('stream_unsupported', 'This version of the desktop app cannot write an answer live.')
+      const { projectId, question, allowRemote, conversationId, k, onEvent } = options
+      if (typeof question !== 'string' || question.trim() === '') return refuse('empty_question', 'Type a question first.')
+      if (!validId(projectId) || (conversationId !== undefined && !validId(conversationId))) return refuse('bad_request', 'That project or conversation id is not valid.')
+      const body: Record<string, unknown> = { question, allow_remote: allowRemote }
+      if (k !== undefined) body.k = k
+      if (conversationId !== undefined) body.conversation_id = conversationId
+
+      const id = globalThis.crypto.randomUUID()
+      const { startStream, stopStream } = bridge
+      let ended = false
+      let stopping: Promise<void> | null = null
+      let settle: (end: StreamEnd) => void = () => {}
+      const finished = new Promise<StreamEnd>((resolve) => { settle = resolve })
+      const stopOnce = (): Promise<void> => {
+        if (ended) return Promise.resolve()                      // a finished stream has nothing left to stop
+        if (stopping === null) stopping = (async () => { try { await stopStream.call(bridge, id) } catch { /* nothing more to do */ } })()
+        return stopping
+      }
+      const finish = (end: StreamEnd) => {
+        ended = true                                             // (every caller checks `ended` first)
+        unsubscribe()
+        settle(end)
+      }
+      const deliver = (event: StreamEvent) => {
+        try { onEvent(event) } catch { /* a handler that fails must not break the stream */ }
+      }
+      const unsubscribe = bridge.onStreamEvents((message: unknown) => {
+        if (ended || !isObj(message) || message.id !== id || !Array.isArray(message.events)) return
+        for (const raw of message.events) {
+          const event = readStreamEvent(raw)
+          if (event === null) {
+            deliver({ type: 'error', error: { code: 'bad_response', message: BAD_REPLY, status: 0 } })
+            void stopOnce()
+            finish({ ok: true })
+            return
+          }
+          deliver(event)
+          if (event.type === 'done' || event.type === 'error' || event.type === 'cancelled') {
+            finish({ ok: true })
+            return
+          }
+        }
+      })
+      void (async () => {
+        let reply: unknown
+        try {
+          reply = await startStream.call(bridge, id, `/projects/${projectId}/answer/stream`, body)
+        } catch {
+          finish({ ok: false, error: { code: 'backend_unavailable', message: 'The Clank backend is not reachable.', status: 0 } })        // the raw error is not passed on
+          return
+        }
+        if (ended) return
+        if (!isObj(reply) || !isBool(reply.ok) || !isNum(reply.status)) {
+          finish({ ok: false, error: { code: 'bad_response', message: BAD_REPLY, status: 0 } })
+          return
+        }
+        if (!reply.ok) {
+          const refusal = errorFrom<never>(reply.status, reply.body)
+          finish({ ok: false, error: (refusal as { error: ApiError }).error })
+        }
+      })()
+      return { id, stop: stopOnce, finished }
     },
     listConversations: (id: number) => withId(id, (i) => call<ConversationSummary[]>('GET', `/projects/${i}/conversations`, undefined, arrayOf(isConversationSummary))),
     createConversation: (id: number) => withId(id, (i) => call<ConversationSummary>('POST', `/projects/${i}/conversations`, undefined, isConversationSummary)),

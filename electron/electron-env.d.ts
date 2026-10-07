@@ -33,6 +33,13 @@ interface Window {
     pickFolder(): Promise<{ ok: boolean, status: number, body: unknown }>
     /** Saves the answer-model choice and, if given, the key (a string stores it, null removes it, undefined leaves it). The key can be written, never read back. */
     saveLlmSettings(config: object, apiKey?: string | null): Promise<{ ok: boolean, status: number, body: unknown }>
+    /** Starts an answer written live. `id` is chosen by the caller (8 to 64 letters, digits, _ or -). Resolves when the backend has answered the request: {ok: true, body: {id}} and then
+     *  events arrive through onStreamEvents, or {ok: false, ...} for a refusal (nothing will arrive). */
+    startStream(id: string, path: string, body?: object): Promise<{ ok: boolean, status: number, body: unknown }>
+    /** Stops an answer this window started. Resolves with {body: {stopped}}; the window then also gets a `cancelled` event. */
+    stopStream(id: string): Promise<{ ok: boolean, status: number, body: unknown }>
+    /** Events of this window's streams: `{id, events}` in batches, the last event of a stream being done, error or cancelled. */
+    onStreamEvents(listener: (message: unknown) => void): () => void
     onStatus(listener: (status: import('./backend/service.ts').BackendStatus) => void): () => void
   }
 }

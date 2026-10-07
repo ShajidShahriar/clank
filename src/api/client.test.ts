@@ -380,3 +380,16 @@ test('a setup without Ollama keeps the backend sentence', async () => {
   const r = await createApi(bridgeReplying({ ok: false, status: 409, body }).bridge).startPull()
   assert.deepEqual(r, { ok: false, error: { code: 'pull_not_available', message: body.error.message, status: 409 } })
 })
+
+
+test('an answer whose new fields (timings, thinking, tokens) are wrong is a bad_response, and one without them is fine', async () => {
+  const wrong: Array<Record<string, unknown>> = [{ timings: { search_ms: 'x' } }, { timings: 5 }, { thinking: { seen: 'yes', pieces: 1 } }, { thinking: [] }, { tokens: { thinking: 1 } }, { tokens: 'many' }]
+  for (const extra of wrong) {
+    const { bridge } = bridgeReplying({ ok: true, status: 200, body: { ...answer, ...extra } })
+    const r = await createApi(bridge).ask(3, 'q', true)
+    assert.equal(r.ok === false && r.error.code, 'bad_response', JSON.stringify(extra))
+  }
+  const good = { ...answer, timings: { search_ms: 1, wait_ms: null, thinking_ms: null, writing_ms: null, total_ms: 2 }, thinking: { seen: false, pieces: 0 }, tokens: { thinking: null, answer: 3, estimated: false } }
+  assert.equal((await createApi(bridgeReplying({ ok: true, status: 200, body: good }).bridge).ask(3, 'q', true)).ok, true)
+  assert.equal((await createApi(bridgeReplying({ ok: true, status: 200, body: answer }).bridge).ask(3, 'q', true)).ok, true)
+})

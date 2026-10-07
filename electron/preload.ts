@@ -33,6 +33,15 @@ contextBridge.exposeInMainWorld('clankBackend', {
   pickFolder: () => ipcRenderer.invoke(CHANNELS.pickFolder),
   // The only door for an API key: the main process encrypts it, stores it and pushes it to the backend. There is no way to read a key back.
   saveLlmSettings: (config: object, apiKey?: string | null) => ipcRenderer.invoke(CHANNELS.llmSave, apiKey === undefined ? { config } : { config, apiKey }),
+  // Answers written live. The window picks the id (so it can stop an answer even while the backend is still searching), the main process makes the request and pushes
+  // the events back to THIS window only. Nothing here carries the token or the port.
+  startStream: (id: string, path: string, body?: object) => ipcRenderer.invoke(CHANNELS.streamStart, body === undefined ? { id, path } : { id, path, body }),
+  stopStream: (id: string) => ipcRenderer.invoke(CHANNELS.streamStop, { id }),
+  onStreamEvents(listener: (message: unknown) => void) {
+    const handler = (_event: unknown, message: unknown) => listener(message)
+    ipcRenderer.on(CHANNELS.streamEvents, handler)
+    return () => { ipcRenderer.off(CHANNELS.streamEvents, handler) }
+  },
   onStatus(listener: (status: unknown) => void) {
     const handler = (_event: unknown, status: unknown) => listener(status)
     ipcRenderer.on(CHANNELS.statusChanged, handler)

@@ -1,5 +1,7 @@
+import { memo } from 'react'
 import { Bot, Cloud } from 'lucide-react'
 import type { Answer, Source } from '../api/types'
+import { summaryLine } from '../lib/liveAnswer'
 import { answerWarnings, tokenSummary } from '../lib/present'
 import Markdown from './Markdown'
 import SourcesList from './SourcesList'
@@ -7,7 +9,7 @@ import SourcesList from './SourcesList'
 /** The model's answer (prose and code blocks), the warnings that matter, its sources, and a small line of facts about how it was made. */
 function AnswerCard({ answer, onOpenSource }: { answer: Answer, onOpenSource: (source: Source) => void }) {
   const warnings = answerWarnings(answer)
-  const facts = [answer.model, tokenSummary(answer.usage)].filter(Boolean).join(' · ')
+  const facts = [answer.model, summaryLine(answer) ?? tokenSummary(answer.usage)].filter(Boolean).join(' · ')
 
   return (
     <div className="flex items-start gap-2">
@@ -36,4 +38,4 @@ function AnswerCard({ answer, onOpenSource }: { answer: Answer, onOpenSource: (s
   )
 }
 
-export default AnswerCard
+export default memo(AnswerCard)

@@ -221,3 +221,54 @@ for (const [name, text] of [
     assert.ok(Date.now() - started < 2000, `took ${Date.now() - started} ms`)
   })
 }
+
+// ---- an answer being written (step 1.4): every half-written state must be readable
+
+const SAMPLE = [
+  '# Overview', '', 'The function **handle** in `src/app.py:10-20` calls *route*【src/app.py:10-20】 and then:', '',
+  '1. parse the request', '2. look up the **handler**', '   - nested point', '',
+  '| name | role |', '| --- | --- |', '| `a` | first |', '| b | **second** |', '', '> a quoted note', '', '---', '',
+  '```python', 'def f(x):', '    return x * 2  # **not bold** `not code`', '```', '', 'Done. 日本語 🙂 and a lone *star and `tick',
+].join('\n')
+
+test('every half-written state of an answer can be read without an error', () => {
+  for (let end = 0; end <= SAMPLE.length; end++) {
+    assert.doesNotThrow(() => parseMarkdown(SAMPLE.slice(0, end)), `cut at ${end}`)
+  }
+})
+
+test('a code block that has been opened and not closed yet is code, and its text is not read as markdown', () => {
+  const blocks = parseMarkdown('Look:\n\n```python\ndef f():\n    return **x**')
+  const code = blocks.find((block) => block.type === 'code')
+  assert.ok(code && code.type === 'code')
+  assert.equal(code.text, 'def f():\n    return **x**')
+  assert.equal(code.lang, 'python')
+})
+
+test('a half-written fence (two backticks, or the opening line cut) never swallows the text before it', () => {
+  for (const cut of ['text\n\n``', 'text\n\n```', 'text\n\n```py']) {
+    const blocks = parseMarkdown(cut)
+    assert.ok(blocks.length >= 1 && blocks[0].type === 'paragraph', JSON.stringify(cut))
+  }
+})
+
+test('a half-written table row is still a table or plain text, never a crash', () => {
+  for (const cut of ['| a | b |', '| a | b |\n| ---', '| a | b |\n| --- | --- |\n| 1 |', '| a | b |\n| --- | --- |\n| 1 | 2']) {
+    assert.doesNotThrow(() => parseMarkdown(cut), JSON.stringify(cut))
+  }
+})
+
+test('the text of a half-written answer is never lost: every visible character of a plain prefix is still there', () => {
+  const plain = 'First paragraph with words.\n\nSecond paragraph, longer, with more words.'
+  for (let end = 1; end <= plain.length; end++) {
+    const blocks = parseMarkdown(plain.slice(0, end))
+    const shown = blocks.flatMap((block) => (block.type === 'paragraph' ? block.inline : [])).map((piece) => (piece.type === 'text' ? piece.text : '')).join('')
+    assert.equal(shown.replace(/\s+/g, ''), plain.slice(0, end).replace(/\s+/g, ''), `cut at ${end}`)
+  }
+})
+
+test('growing the text never makes the earlier blocks change shape (a finished paragraph stays the same while the next one is written)', () => {
+  const before = parseMarkdown('First paragraph.\n\nSecond')
+  const after = parseMarkdown('First paragraph.\n\nSecond paragraph, now longer.')
+  assert.deepEqual(before[0], after[0])
+})

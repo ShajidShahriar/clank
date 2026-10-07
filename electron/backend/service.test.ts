@@ -243,3 +243,45 @@ test('a listener can be removed', async () => {
   await h.service.start()
   assert.deepEqual(seen, [])
 })
+
+
+// ---- the target of a live stream (the door needs the port and the token, which the window never sees)
+
+test('the target is the running backend\'s port and token, and nothing before it is ready or after it is gone', async () => {
+  const h = harness()
+  assert.equal(h.service.target(), null, 'not started')
+  await h.service.start()
+  assert.deepEqual(h.service.target(), { port: 4001, token: `token-1-`.padEnd(43, 'x') })
+  await h.service.stop()
+  assert.equal(h.service.target(), null, 'stopped')
+})
+
+test('a restart gives the target a new port and a new token', async () => {
+  const h = harness()
+  await h.service.start()
+  const first = h.service.target()
+  await h.service.restart()
+  const second = h.service.target()
+  assert.ok(first && second)
+  assert.notEqual(second.port, first.port)
+  assert.notEqual(second.token, first.token)
+})
+
+test('a crashed backend has no target', async () => {
+  const h = harness()
+  await h.service.start()
+  h.children[0].die(1)
+  assert.equal(h.service.target(), null)
+})
+
+test('a backend that is still starting has no target (the token exists, but nothing may be sent to it yet)', async () => {
+  const h = harness()
+  h.state.healthy = false                                  // the health check keeps failing: the start is waiting
+  const starting = h.service.start()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(h.service.status().state, 'starting')
+  assert.equal(h.service.target(), null)
+  h.state.healthy = true
+  await starting
+  assert.notEqual(h.service.target(), null)
+})

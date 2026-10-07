@@ -90,6 +90,13 @@ export class BackendService {
     return callBackend({ port: run.port, token: run.token, method, path, body, fetchFn: this.deps.fetchFn as never, timeoutMs: this.deps.requestTimeoutMs })
   }
 
+  /** Where the running backend is and the token it wants: for the stream door in the main process (the window never sees either). Null unless it is ready. */
+  target(): { port: number, token: string } | null {
+    const run = this.run
+    if (this.current.state !== 'ready' || run === null || !run.ready) return null
+    return { port: run.port, token: run.token }
+  }
+
   /** A synchronous SIGKILL, for the last moment (the app is going away and cannot wait). */
   killNow(): void {
     this.run?.proc?.killNow()
