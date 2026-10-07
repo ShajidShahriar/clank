@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { MessageCircle } from 'lucide-react'
 import type { Source } from '../api/types'
 import type { Entry } from '../types'
 import { isNearBottom } from '../lib/scroll'
@@ -12,12 +11,11 @@ import PartialAnswer from './PartialAnswer'
 
 interface MessageListProps {
   entries: Entry[]
-  hint: string
   onAction: (action: ErrorAction, entry: Entry) => void
   onOpenSource: (source: Source) => void
 }
 
-function MessageList({ entries, hint, onAction, onOpenSource }: MessageListProps) {
+function MessageList({ entries, onAction, onOpenSource }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const following = useRef(true)                                   // is the person at the bottom? Then new text is followed; if they scrolled up to re-read, it is not
   const count = useRef(entries.length)
@@ -30,21 +28,11 @@ function MessageList({ entries, hint, onAction, onOpenSource }: MessageListProps
     if (following.current) el.scrollTop = el.scrollHeight
   }, [entries])
 
-  if (entries.length === 0) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 dark:border-white/20">
-          <MessageCircle className="h-5 w-5 text-gray-400" />
-        </div>
-        <p className="max-w-sm text-xs leading-relaxed text-gray-500 dark:text-gray-400">{hint}</p>
-      </div>
-    )
-  }
-
   return (
-    <div ref={containerRef} onScroll={() => { if (containerRef.current) following.current = isNearBottom(containerRef.current) }} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+    <div ref={containerRef} onScroll={() => { if (containerRef.current) following.current = isNearBottom(containerRef.current) }} className="flex flex-1 flex-col overflow-y-auto px-5 py-6">
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6">
       {entries.map((entry) => (
-        <div key={entry.id} className="flex flex-col gap-3">
+        <div key={entry.id} className="flex flex-col gap-4">
           <MessageBubble text={entry.question} />
           {(entry.state === 'pending' || entry.state === 'streaming') && <LiveAnswer entry={entry} onOpenSource={onOpenSource} />}
           {entry.state === 'done' && entry.answer && <AnswerCard answer={entry.answer} onOpenSource={onOpenSource} />}
@@ -52,6 +40,7 @@ function MessageList({ entries, hint, onAction, onOpenSource }: MessageListProps
           {entry.state === 'error' && <ErrorCard entry={entry} onAction={onAction} />}
         </div>
       ))}
+      </div>
     </div>
   )
 }

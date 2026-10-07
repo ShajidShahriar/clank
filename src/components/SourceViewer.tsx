@@ -3,6 +3,7 @@ import { Loader2, X } from 'lucide-react'
 import type { createApi } from '../api/client'
 import type { ApiError, Source, SourceView } from '../api/types'
 import { describeError, sourceLabel } from '../lib/present'
+import { BUTTON, ICON_BUTTON } from './ui'
 import { describeShown, mergeViews, moreRange, referenceRows, requestRange, rowsFor, viewNotice, type Row } from '../lib/sourceView'
 
 type Api = ReturnType<typeof createApi>
@@ -20,9 +21,9 @@ export function SourceLines({ rows, markedRef, firstMarkedLine }: { rows: Row[],
     <table className="w-full border-collapse font-mono text-[12px] leading-5">
       <tbody>
         {rows.map((row) => (
-          <tr key={row.n} ref={row.n === firstMarkedLine ? markedRef : undefined} className={row.marked ? 'bg-blue-50 dark:bg-blue-500/10' : ''} data-marked={row.marked || undefined}>
-            <td className="select-none whitespace-nowrap px-3 text-right align-top tabular-nums text-gray-400 dark:text-gray-600">{row.n}</td>
-            <td className="whitespace-pre pr-4 text-gray-900 dark:text-gray-100">{row.text === '' ? ' ' : row.text}</td>
+          <tr key={row.n} ref={row.n === firstMarkedLine ? markedRef : undefined} className={row.marked ? 'bg-accent-soft' : ''} data-marked={row.marked || undefined}>
+            <td className="select-none whitespace-nowrap px-3 text-right align-top tabular-nums text-label-3">{row.n}</td>
+            <td className="whitespace-pre pr-4 text-label">{row.text === '' ? ' ' : row.text}</td>
           </tr>
         ))}
       </tbody>
@@ -32,9 +33,9 @@ export function SourceLines({ rows, markedRef, firstMarkedLine }: { rows: Row[],
 
 export function ViewerToolbar({ summary, browsing, onToggle }: { summary: string, browsing: boolean, onToggle: () => void }) {
   return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-1.5 text-xs text-gray-500 dark:border-white/10 dark:text-gray-400">
+    <div className="flex shrink-0 items-center gap-2 px-4 pb-2 text-xs text-label-2">
       <span className="flex-1 tabular-nums">{summary}</span>
-      <button onClick={onToggle} className="shrink-0 rounded-md border border-gray-200 px-2 py-0.5 font-medium text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-gray-300 dark:hover:bg-gray-800">
+      <button onClick={onToggle} className={`${BUTTON} !px-2.5 !py-0.5 !text-xs`}>
         {browsing ? 'Show only these lines' : 'Browse the file'}
       </button>
     </div>
@@ -43,7 +44,7 @@ export function ViewerToolbar({ summary, browsing, onToggle }: { summary: string
 
 export function MoreButton({ label, busy, disabled, onClick }: { label: string, busy: boolean, disabled: boolean, onClick: () => void }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="flex w-full items-center justify-center gap-1.5 border-y border-gray-100 py-1.5 text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-900 disabled:cursor-wait disabled:opacity-60 dark:border-white/5 dark:hover:bg-gray-900 dark:hover:text-white">
+    <button onClick={onClick} disabled={disabled} className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-accent transition-colors hover:bg-fill disabled:cursor-wait disabled:opacity-60">
       {busy && <Loader2 className="h-3 w-3 animate-spin" />}
       {label}
     </button>
@@ -111,27 +112,27 @@ function SourceViewer({ api, projectId, source, onClose }: SourceViewerProps) {
   const canShowMore = browsing && view !== null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label="Source code">
-      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#0a0a0a]">
-        <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-2.5 dark:border-white/10">
-          <span className="min-w-0 flex-1 truncate font-mono text-xs text-gray-900 dark:text-gray-100" title={sourceLabel(source)}>{sourceLabel(source)}</span>
-          <button onClick={onClose} aria-label="Close" className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white">
+    <div className="animate-scrim fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label="Source code">
+      <div className="animate-sheet flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-sheet bg-bg shadow-float">
+        <div className="flex shrink-0 items-center gap-2 px-4 pb-1 pt-3">
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-label" title={sourceLabel(source)}>{sourceLabel(source)}</span>
+          <button onClick={onClose} aria-label="Close" className={`${ICON_BUTTON} !p-1`}>
             <X className="h-4 w-4" />
           </button>
         </div>
         {view && <ViewerToolbar summary={describeShown(rows, view.total_lines)} browsing={browsing} onToggle={() => setBrowsing((value) => !value)} />}
-        {notice && <p className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">{notice}</p>}
-        <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+        {notice && <p className="shrink-0 bg-warn-soft px-4 py-1.5 text-xs text-warn">{notice}</p>}
+        <div ref={scroller} className="selectable min-h-0 flex-1 overflow-auto py-1">
           {!view && !error && (
-            <p className="flex items-center gap-2 p-4 text-xs text-gray-500 dark:text-gray-400"><Loader2 className="h-3.5 w-3.5 animate-spin" />Loading the lines…</p>
+            <p className="flex items-center gap-2 p-4 text-xs text-label-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />Loading the lines…</p>
           )}
-          {error && <p className="p-4 text-xs text-red-700 dark:text-red-300">{describeError(error).message}</p>}
+          {error && <p className="p-4 text-xs text-danger">{describeError(error).message}</p>}
           {view && (
             <>
               {canShowMore && moreRange(view, 'before') && <MoreButton label="Show earlier lines" busy={loadingMore === 'before'} disabled={loadingMore !== null} onClick={() => void showMore('before')} />}
               <SourceLines rows={rows} markedRef={firstMarked} firstMarkedLine={firstMarkedLine} />
               {canShowMore && moreRange(view, 'after') && <MoreButton label="Show more lines" busy={loadingMore === 'after'} disabled={loadingMore !== null} onClick={() => void showMore('after')} />}
-              {moreError && <p className="px-4 py-2 text-xs text-red-700 dark:text-red-300">{describeError(moreError).message}</p>}
+              {moreError && <p className="px-4 py-2 text-xs text-danger">{describeError(moreError).message}</p>}
             </>
           )}
         </div>

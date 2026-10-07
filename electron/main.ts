@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, safeStorage } from 'electron'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -9,6 +9,7 @@ import { createKeyStore } from './backend/secrets.ts'
 import { createSettingsFlow } from './backend/settings-flow.ts'
 import { BackendService } from './backend/service.ts'
 import { StreamManager } from './backend/streams.ts'
+import { themeSource } from './backend/theme.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -45,13 +46,22 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#000000',
+    // On a Mac: no title bar (the traffic lights sit inside the window), and the sidebar is see-through (vibrancy). Elsewhere: a plain window.
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 18, y: 18 }, vibrancy: 'sidebar' as const, visualEffectState: 'followWindow' as const, backgroundColor: '#00000000' }
+      : { backgroundColor: '#000000' }),
     show: false,
     webPreferences: {
       // the build writes preload.js or preload.mjs depending on the package's module type: find the one that exists
       preload: preloadFile(__dirname, { exists: fs.existsSync, modified: (p) => fs.statSync(p).mtimeMs }),
     },
   })
+
+  // Tell the page when it is full screen, so it can use the room the traffic lights leave. It also asks once when it has loaded.
+  const tellFullscreen = () => { if (win && !win.isDestroyed()) win.webContents.send(CHANNELS.fullscreen, win.isFullScreen()) }
+  win.on('enter-full-screen', tellFullscreen)
+  win.on('leave-full-screen', tellFullscreen)
+  win.webContents.on('did-finish-load', tellFullscreen)
 
   win.once('ready-to-show', () => {
     win?.show()
@@ -103,6 +113,11 @@ function startBackend() {
   const settings = createSettingsFlow({ service: backend, keys })
   const running = backend
   streams = new StreamManager({ target: () => running.target() })           // answers written live: the main process makes the request, so the window never sees the token
+  ipcMain.on(CHANNELS.theme, (event, value) => {
+    if (!isTrustedSender(event.senderFrame?.url, trustContext())) return
+    nativeTheme.themeSource = themeSource(value)
+  })
+
   registerBackendIpc({
     ipcMain, service: backend, isTrusted: (url) => isTrustedSender(url, trustContext()), streams,
     saveLlm: (payload) => settings.save(payload as never),

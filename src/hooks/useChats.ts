@@ -9,7 +9,8 @@ type Api = ReturnType<typeof createApi>
 
 /**
  * The saved conversations of each project, which one is open, and the entries (questions with their answers) of each.
- * The open conversation of a project is remembered while the window runs; a new question in "no conversation yet" creates one first.
+ * The open conversation of a project is remembered while the window runs; a project the window has not shown yet starts in a new chat (no conversation open), and a
+ * new question in "no conversation yet" creates one first.
  */
 export function useChats(api: Api, ready: boolean, projectId: number | null) {
   const [lists, setLists] = useState<Record<number, ConversationSummary[]>>({})
@@ -63,10 +64,9 @@ export function useChats(api: Api, ready: boolean, projectId: number | null) {
   useEffect(() => {
     if (!ready || projectId === null) return
     void (async () => {
-      const list = await loadList(projectId)
-      if (list && activeRef.current[projectId] === undefined && list.length > 0) await open(projectId, list[0].id)    // the newest one, the first time
+      await loadList(projectId)                                                        // the list only: the app always starts in a new chat, never in an old one
     })()
-  }, [ready, projectId, loadList, open])
+  }, [ready, projectId, loadList])
 
   const run = useCallback(async (pid: number, key: string, cid: number, id: string, question: string, allowRemote: boolean) => {
     if (!api.canStream) {                                                              // an older desktop app: ask for the whole answer at once

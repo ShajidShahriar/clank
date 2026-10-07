@@ -3,13 +3,18 @@ import Sidebar from './components/Sidebar'
 import ChatPane from './components/ChatPane'
 import SettingsDialog from './components/SettingsDialog'
 import SourceViewer from './components/SourceViewer'
+import BootScreen from './components/BootScreen'
+import SidebarToggle from './components/SidebarToggle'
 import type { Source } from './api/types'
 import { createApi } from './api/client'
 import { getBackendControl, getBridge } from './bridge'
 import { useAllowRemote } from './hooks/useAllowRemote'
 import { useChats } from './hooks/useChats'
 import { useBackendStatus } from './hooks/useBackendStatus'
+import { useFullscreen } from './hooks/useFullscreen'
 import { useProjects } from './hooks/useProjects'
+import { useTheme } from './hooks/useTheme'
+import { useSidebarCollapsed } from './hooks/useSidebarCollapsed'
 import { useSetup } from './hooks/useSetup'
 import type { ErrorAction } from './lib/present'
 import type { Entry } from './types'
@@ -23,6 +28,9 @@ function App() {
   const setup = useSetup(api, ready)
   const [notice, setNotice] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [collapsed, toggleSidebar] = useSidebarCollapsed()
+  useFullscreen()
+  const { theme, toggle: toggleTheme } = useTheme()
   const [viewing, setViewing] = useState<{ projectId: number, source: Source } | null>(null)
 
   const selected = projects.projects.find((p) => p.id === projects.selectedId)
@@ -69,8 +77,11 @@ function App() {
   }, [selected, chats, allowRemote, projects, setAllowRemote, restartBackend])
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="relative flex h-screen w-screen overflow-hidden">
       <Sidebar
+        collapsed={collapsed}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         projects={projects.projects}
         live={projects.live}
         selectedId={projects.selectedId}
@@ -88,6 +99,7 @@ function App() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <ChatPane
+        sidebarCollapsed={collapsed}
         backend={backend}
         project={selected}
         index={live}
@@ -105,6 +117,9 @@ function App() {
         setup={{ view: setup.view, starting: setup.starting, actionError: setup.actionError, onPull: () => void setup.startPull(), onCheck: setup.checkAgain }}
       />
       {viewing && viewing.projectId === selected?.id && <SourceViewer api={api} projectId={viewing.projectId} source={viewing.source} onClose={() => setViewing(null)} />}
+      <BootScreen booting={backend.state === 'starting'} message={backend.message} />
+      {/* Last in the page on purpose: where a drag strip and a no-drag button overlap, the later one wins, and the button must win. */}
+      <SidebarToggle collapsed={collapsed} onToggle={toggleSidebar} />
       {settingsOpen && <SettingsDialog api={api} onClose={() => setSettingsOpen(false)} onSaved={() => {}} />}
     </div>
   )
