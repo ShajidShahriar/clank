@@ -277,3 +277,9 @@ def test_a_key_is_never_sent_in_clear_text_to_a_remote_address():
     OpenAICompatibleClient(base_url="http://localhost:11434/v1", model="m", api_key=KEY)
     OpenAICompatibleClient(base_url="http://127.0.0.1:1234/v1", model="m")
     OpenAICompatibleClient(base_url="http://api.example.com/v1", model="m")                    # no key, nothing secret to protect: allowed
+
+
+def test_an_extra_stream_options_field_is_never_sent_by_complete():
+    with FakeLLMServer() as server:
+        client(server, extra_body={"stream_options": {"include_usage": True}, "reasoning_effort": "low"}).complete(MESSAGES, max_output_tokens=10)
+    assert "stream_options" not in server.requests[0].json and server.requests[0].json["reasoning_effort"] == "low"
