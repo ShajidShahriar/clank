@@ -47,16 +47,41 @@ async def _invalid_path(request: Request, exc: InvalidProjectPath):
     return error_response(422, "invalid_path", str(exc))               # written for people, and never contains the path
 
 
-async def _llm_not_configured(request: Request, exc: LLMNotConfigured):
-    return error_response(503, "llm_not_configured", str(exc))         # authored, and it names the variable to set, never a value
+# What a failure of the answer model looks like to the caller, in ONE place: the exception handlers below use it for a refusal before an answer starts, and the
+# streaming route uses it for a failure in the middle of one (the HTTP status was already sent, so it becomes an `error` event). Most specific class first.
+_LLM_FIXED = (
+    (LLMAuthError, 502, "llm_auth_failed", "The answer service refused the API key. Check the key and try again."),
+    (LLMModelNotFound, 502, "llm_model_not_found", "The answer service does not know the configured model. Check the model name."),
+    (LLMContextTooLong, 413, "llm_context_too_long", "The code excerpts are larger than the model accepts right now. "
+                                                     "Ask a narrower question, or wait a minute if you asked several in a row."),
+    (LLMUnavailable, 503, "llm_unavailable", "The answer service could not be reached. Check the connection and try again."),
+    (LLMTimeout, 504, "llm_timeout", "The answer service took too long to answer. Try again."),
+    (LLMBadResponse, 502, "llm_bad_response", "The answer service sent a reply Clank could not read."),
+    (LLMError, 502, "llm_error", "The answer service failed."),
+)
 
 
-async def _llm_rate_limited(request: Request, exc: LLMRateLimited):
-    if exc.retry_after is None:
-        return error_response(429, "llm_rate_limited", "The answer service's rate limit was reached. Try again in a minute.")
-    seconds = max(1, math.ceil(exc.retry_after))
-    response = error_response(429, "llm_rate_limited", f"The answer service's rate limit was reached. Try again in about {seconds} second{'s' if seconds != 1 else ''}.")
-    response.headers["Retry-After"] = str(seconds)
+def llm_error_info(exc: BaseException) -> dict | None:
+    """{"status", "code", "message"} (and "retry_after" in whole seconds for a rate limit that said how long) for a failure of the answer model; None for anything else."""
+    if isinstance(exc, LLMNotConfigured):
+        return {"status": 503, "code": "llm_not_configured", "message": str(exc)}          # authored, and it names the variable to set, never a value
+    if isinstance(exc, LLMRateLimited):
+        if exc.retry_after is None:
+            return {"status": 429, "code": "llm_rate_limited", "message": "The answer service's rate limit was reached. Try again in a minute."}
+        seconds = max(1, math.ceil(exc.retry_after))
+        return {"status": 429, "code": "llm_rate_limited", "retry_after": seconds,
+                "message": f"The answer service's rate limit was reached. Try again in about {seconds} second{'s' if seconds != 1 else ''}."}
+    for kind, status, code, message in _LLM_FIXED:
+        if isinstance(exc, kind):
+            return {"status": status, "code": code, "message": message}
+    return None
+
+
+async def _llm_failure(request: Request, exc: LLMError):
+    info = llm_error_info(exc)
+    response = error_response(info["status"], info["code"], info["message"])
+    if info.get("retry_after") is not None:
+        response.headers["Retry-After"] = str(info["retry_after"])
     return response
 
 
@@ -110,16 +135,8 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ProjectBusy, _fixed(409, "project_busy", "Indexing is running for this project. Wait for it to finish or cancel it, then try again."))
     app.add_exception_handler(ConsentRequired, _fixed(403, "consent_required", "The answer model is a remote service. Sending code excerpts to it needs your "
                                                                               "permission: allow it and ask again."))
-    app.add_exception_handler(LLMNotConfigured, _llm_not_configured)
-    app.add_exception_handler(LLMRateLimited, _llm_rate_limited)
-    app.add_exception_handler(LLMAuthError, _fixed(502, "llm_auth_failed", "The answer service refused the API key. Check the key and try again."))
-    app.add_exception_handler(LLMModelNotFound, _fixed(502, "llm_model_not_found", "The answer service does not know the configured model. Check the model name."))
-    app.add_exception_handler(LLMContextTooLong, _fixed(413, "llm_context_too_long", "The code excerpts are larger than the model accepts right now. "
-                                                                                    "Ask a narrower question, or wait a minute if you asked several in a row."))
-    app.add_exception_handler(LLMUnavailable, _fixed(503, "llm_unavailable", "The answer service could not be reached. Check the connection and try again."))
-    app.add_exception_handler(LLMTimeout, _fixed(504, "llm_timeout", "The answer service took too long to answer. Try again."))
-    app.add_exception_handler(LLMBadResponse, _fixed(502, "llm_bad_response", "The answer service sent a reply Clank could not read."))
-    app.add_exception_handler(LLMError, _fixed(502, "llm_error", "The answer service failed."))
+    for kind in (LLMNotConfigured, LLMRateLimited, *(entry[0] for entry in _LLM_FIXED)):
+        app.add_exception_handler(kind, _llm_failure)
     app.add_exception_handler(InvalidSelection, _invalid_settings)
     app.add_exception_handler(InvalidKey, _invalid_key)
     app.add_exception_handler(NoIndexRunning, _fixed(409, "no_index_running", "No indexing is running for this project."))

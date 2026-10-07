@@ -283,3 +283,20 @@ def test_an_extra_stream_options_field_is_never_sent_by_complete():
     with FakeLLMServer() as server:
         client(server, extra_body={"stream_options": {"include_usage": True}, "reasoning_effort": "low"}).complete(MESSAGES, max_output_tokens=10)
     assert "stream_options" not in server.requests[0].json and server.requests[0].json["reasoning_effort"] == "low"
+
+
+def test_the_thinking_tokens_are_read_when_the_service_reports_them():
+    reply = good_reply(text="x")
+    reply[2]["usage"]["completion_tokens_details"] = {"reasoning_tokens": 5}
+    with FakeLLMServer(lambda request: reply) as server:
+        completion = client(server).complete(MESSAGES, max_output_tokens=10)
+    assert completion.reasoning_tokens == 5 and completion.completion_tokens == 7
+
+
+def test_the_thinking_tokens_are_none_when_the_service_does_not_report_them():
+    with FakeLLMServer() as server:
+        assert client(server).complete(MESSAGES, max_output_tokens=10).reasoning_tokens is None
+    reply = good_reply(text="x")
+    reply[2]["usage"]["completion_tokens_details"] = {"reasoning_tokens": "5"}
+    with FakeLLMServer(lambda request: reply) as server:
+        assert client(server).complete(MESSAGES, max_output_tokens=10).reasoning_tokens is None

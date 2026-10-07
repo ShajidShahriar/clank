@@ -164,8 +164,10 @@ class OpenAICompatibleClient:
             raise LLMBadResponse("the answer service sent something that is not a chat answer")
         usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
         model = data.get("model") if isinstance(data.get("model"), str) and data.get("model") else self.model
+        details = usage.get("completion_tokens_details")
         return Completion(text=content, finish_reason=finish, model=model, prompt_tokens=_count(usage.get("prompt_tokens")),
-                          completion_tokens=_count(usage.get("completion_tokens")))
+                          completion_tokens=_count(usage.get("completion_tokens")),
+                          reasoning_tokens=_count(details.get("reasoning_tokens")) if isinstance(details, dict) else None)
 
     def _for_status(self, error: urllib.error.HTTPError):
         try:

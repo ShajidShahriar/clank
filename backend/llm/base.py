@@ -17,7 +17,8 @@ class Completion:
     finish_reason: str | None           # "stop" = finished by itself, "length" = cut by the length cap
     model: str                          # the model that answered
     prompt_tokens: int | None = None    # what the service counted, None when it did not say
-    completion_tokens: int | None = None
+    completion_tokens: int | None = None    # ALL the output tokens, the thinking ones included
+    reasoning_tokens: int | None = None     # the thinking part of them, None when the service does not say
 
 
 @dataclass(frozen=True)
