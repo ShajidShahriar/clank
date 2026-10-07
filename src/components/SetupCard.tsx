@@ -1,5 +1,8 @@
 import { AlertTriangle, Download, Loader2, RefreshCw } from 'lucide-react'
 import type { SetupView } from '../lib/setup'
+import { BUTTON_PRIMARY } from './ui'
+
+const BUTTON = BUTTON_PRIMARY
 
 interface SetupCardProps {
   view: SetupView
@@ -9,7 +12,6 @@ interface SetupCardProps {
   onCheck: () => void
 }
 
-const BUTTON = 'flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-900 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:text-white dark:hover:bg-gray-800'
 
 /** The first-run card: what Clank is missing to read code (Ollama, or its search model), and the one thing to do about it. Nothing when all is well. */
 function SetupCard({ view, busy, actionError, onPull, onCheck }: SetupCardProps) {
@@ -40,21 +42,21 @@ function SetupCard({ view, busy, actionError, onPull, onCheck }: SetupCardProps)
   }
 
   return (
-    <div role="status" className="shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-950 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
+    <div role="status" className="animate-rise mx-5 mb-1 shrink-0 rounded-card bg-accent-soft px-4 py-3 text-xs text-label">
       <div className="flex items-start gap-3">
-        {view.kind === 'pulling' ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+        {view.kind === 'pulling' ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-accent" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={1.75} />}
         <div className="min-w-0 flex-1">
-          <p className="font-medium">{title}</p>
-          <p className="mt-0.5 leading-relaxed opacity-90">{body}</p>
+          <p className="text-[13px] font-semibold">{title}</p>
+          <p className="selectable mt-0.5 leading-relaxed text-label-2">{body}</p>
           {view.kind === 'pulling' && (
             <div className="mt-2">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-blue-200 dark:bg-blue-500/20" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={view.percent ?? undefined}>
-                <div className="h-full rounded-full bg-blue-600 transition-all dark:bg-blue-400" style={{ width: `${view.percent ?? 0}%` }} />
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-fill-strong" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={view.percent ?? undefined}>
+                <div className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out" style={{ width: `${view.percent ?? 0}%` }} />
               </div>
               <p className="mt-1 tabular-nums opacity-80">{[view.percent === null ? 'Starting…' : `${view.percent}%`, view.summary].filter(Boolean).join(' · ')}</p>
             </div>
           )}
-          {actionError && <p className="mt-1.5 text-red-700 dark:text-red-300">{actionError}</p>}
+          {actionError && <p className="selectable mt-1.5 text-danger">{actionError}</p>}
         </div>
         {action}
       </div>

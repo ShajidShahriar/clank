@@ -42,6 +42,14 @@ contextBridge.exposeInMainWorld('clankBackend', {
     ipcRenderer.on(CHANNELS.streamEvents, handler)
     return () => { ipcRenderer.off(CHANNELS.streamEvents, handler) }
   },
+  // Whether the window is full screen (on a Mac the traffic lights are hidden then). Only a true or false comes through.
+  onFullscreen(listener: (full: boolean) => void) {
+    const handler = (_event: unknown, full: unknown) => listener(full === true)
+    ipcRenderer.on(CHANNELS.fullscreen, handler)
+    return () => { ipcRenderer.off(CHANNELS.fullscreen, handler) }
+  },
+  // Tells the main process which theme the window shows, so the Mac's see-through sidebar matches. Only 'light', 'dark' or 'system' is understood.
+  setTheme: (theme: 'light' | 'dark' | 'system') => ipcRenderer.send(CHANNELS.theme, theme),
   onStatus(listener: (status: unknown) => void) {
     const handler = (_event: unknown, status: unknown) => listener(status)
     ipcRenderer.on(CHANNELS.statusChanged, handler)

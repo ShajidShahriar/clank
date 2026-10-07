@@ -4,6 +4,7 @@ import type { ApiError, LlmSettings, LlmTest, Result } from '../api/types'
 import { formFromSettings, isDirty, payloadFromForm, switchPreset, validateForm, type Form } from '../lib/settingsForm'
 import { describeError } from '../lib/present'
 import SettingsForm from './SettingsForm'
+import { BUTTON } from './ui'
 
 type Api = ReturnType<typeof createApi>
 
@@ -91,16 +92,16 @@ function SettingsDialog({ api, onClose, onSaved }: SettingsDialogProps) {
   }, [api, dirty, save])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label="Answer model settings">
+    <div className="animate-scrim fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label="Answer model settings">
       {settings && form ? (
         <SettingsForm settings={settings} form={form} errors={errors} dirty={dirty} saving={saving} testing={testing} saved={saved} saveError={saveError} testResult={testResult}
           onChange={change} onPreset={choosePreset} onSave={() => void save()} onTest={() => void test()} onClose={onClose} />
       ) : (
-        <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-xl dark:border-white/10 dark:bg-[#0a0a0a] dark:text-gray-300">
+        <div className="animate-sheet w-full max-w-sm rounded-sheet bg-bg p-5 text-sm text-label shadow-float">
           {loadError ? (
             <>
               <p>{describeError(loadError).message}</p>
-              <button onClick={onClose} className="mt-3 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium dark:border-white/10">Close</button>
+              <button onClick={onClose} className={`${BUTTON} mt-3`}>Close</button>
             </>
           ) : (
             <p>Loading the settings…</p>

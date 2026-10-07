@@ -9,6 +9,7 @@ import MessageList from './MessageList'
 import ProjectHeader from './ProjectHeader'
 
 interface ChatPaneProps {
+  sidebarCollapsed: boolean
   backend: BackendView
   project: Project | undefined
   index: IndexStatus | undefined
@@ -26,10 +27,11 @@ interface ChatPaneProps {
   setup: { view: SetupView, starting: boolean, actionError: string | null, onPull: () => void, onCheck: () => void }
 }
 
-function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onStop, onRestartBackend, setup }: ChatPaneProps) {
+function ChatPane({ sidebarCollapsed, backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onStop, onRestartBackend, setup }: ChatPaneProps) {
   const ready = backend.state === 'ready'
   const streaming = entries.some((entry) => entry.state === 'pending' || entry.state === 'streaming')       // an answer is being written: the person can stop it
 
+  const heading = !ready ? 'Clank is starting' : !project ? 'Add a project to begin' : 'What do you want to know?'
   let placeholder = 'Ask about this code…'
   let hint = 'Ask a question about this project. Clank finds the relevant code and asks the model to answer from it.'
   let locked = streaming
@@ -53,12 +55,22 @@ function ChatPane({ backend, project, index, entries, allowRemote, indexing, onT
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-black">
+    <div className="flex min-w-0 flex-1 flex-col bg-bg">
       <BackendBanner backend={backend} onRestart={onRestartBackend} />
       <SetupCard view={setup.view} busy={setup.starting} actionError={setup.actionError} onPull={setup.onPull} onCheck={setup.onCheck} />
-      <ProjectHeader project={project} index={index} allowRemote={allowRemote} disabled={!ready} onIndex={onIndex} onCancel={onCancel} onToggleRemote={onToggleRemote} />
-      <MessageList entries={entries} hint={hint} onAction={onAction} onOpenSource={onOpenSource} />
-      <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} />
+      <ProjectHeader sidebarCollapsed={sidebarCollapsed} project={project} index={index} allowRemote={allowRemote} disabled={!ready} onIndex={onIndex} onCancel={onCancel} onToggleRemote={onToggleRemote} />
+      {entries.length === 0 ? (
+        <div className="animate-rise flex flex-1 flex-col items-center justify-center px-5 pb-16">
+          <h1 className="mb-7 text-center text-[28px] font-medium leading-tight tracking-[-0.02em] text-label">{heading}</h1>
+          <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} centered />
+          <p className="mt-4 max-w-[420px] text-center text-[13px] leading-relaxed text-label-2">{hint}</p>
+        </div>
+      ) : (
+        <>
+          <MessageList entries={entries} onAction={onAction} onOpenSource={onOpenSource} />
+          <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} />
+        </>
+      )}
     </div>
   )
 }

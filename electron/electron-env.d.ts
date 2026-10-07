@@ -40,6 +40,10 @@ interface Window {
     stopStream(id: string): Promise<{ ok: boolean, status: number, body: unknown }>
     /** Events of this window's streams: `{id, events}` in batches, the last event of a stream being done, error or cancelled. */
     onStreamEvents(listener: (message: unknown) => void): () => void
+    /** True when the window is full screen (the Mac's traffic lights are hidden then), false when it is not. Also told once when the page has loaded. */
+    onFullscreen(listener: (full: boolean) => void): () => void
+    /** Tells the main process which theme the window shows (it sets the app's native theme, which the Mac's see-through sidebar follows). */
+    setTheme(theme: 'light' | 'dark' | 'system'): void
     onStatus(listener: (status: import('./backend/service.ts').BackendStatus) => void): () => void
   }
 }
