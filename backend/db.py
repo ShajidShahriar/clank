@@ -37,6 +37,7 @@ USER_TABLES_SQL = """
             role TEXT NOT NULL,
             content TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            meta TEXT,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         );
 """
@@ -117,6 +118,8 @@ def init_db() -> bool:
     """
     conn = get_connection()
     conn.executescript(USER_TABLES_SQL)
+    if "meta" not in {row["name"] for row in conn.execute("PRAGMA table_info(messages)")}:
+        conn.execute("ALTER TABLE messages ADD COLUMN meta TEXT")        # saved before conversations had extras: keep every message, add the column
     had_chunk_tables = conn.execute(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('files', 'chunks')").fetchone()[0] > 0
     reset = False

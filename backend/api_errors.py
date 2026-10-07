@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from answer import ConsentRequired
+from conversations import ConversationNotFound
 from embedding.errors import EmbeddingError, ModelNotFound, OllamaUnavailable
 from embedding.ollama import DEFAULT_MODEL
 from indexing import IndexAlreadyRunning
@@ -91,6 +92,7 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(IndexOutOfDate, _index_out_of_date)
     app.add_exception_handler(ProjectNotFound, _fixed(404, "project_not_found", "There is no project with this id."))
     app.add_exception_handler(RepoNotFound, _fixed(409, "repo_not_found", "The project's folder no longer exists. Check that it was not moved or deleted."))
+    app.add_exception_handler(ConversationNotFound, _fixed(404, "conversation_not_found", "There is no conversation with this id in this project."))
     app.add_exception_handler(InvalidProjectPath, _invalid_path)
     app.add_exception_handler(ProjectExists, _fixed(409, "project_exists", "This folder is already a project."))
     app.add_exception_handler(ProjectBusy, _fixed(409, "project_busy", "Indexing is running for this project. Wait for it to finish or cancel it, then try again."))

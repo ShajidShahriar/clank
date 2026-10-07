@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI
 from api_errors import register_error_handlers
 from jobs import IndexJobs
 from routes_answer import router as answer_router
+from routes_conversations import router as conversations_router
 from routes_context import router as context_router
 from routes_index import router as index_router
 from routes_projects import router as projects_router
@@ -37,6 +38,7 @@ def create_app(services: Services | None = None, jobs: IndexJobs | None = None, 
     app.include_router(projects_router)
     app.include_router(context_router)
     app.include_router(answer_router)
+    app.include_router(conversations_router)
     app.include_router(settings_router)
     app.add_middleware(GuardMiddleware)                           # Host, Origin, CORS preflight, token: see security.py
 
