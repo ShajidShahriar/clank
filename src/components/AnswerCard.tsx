@@ -1,11 +1,11 @@
 import { Bot, Cloud } from 'lucide-react'
-import type { Answer } from '../api/types'
+import type { Answer, Source } from '../api/types'
 import { answerWarnings, tokenSummary } from '../lib/present'
 import Markdown from './Markdown'
 import SourcesList from './SourcesList'
 
 /** The model's answer (prose and code blocks), the warnings that matter, its sources, and a small line of facts about how it was made. */
-function AnswerCard({ answer }: { answer: Answer }) {
+function AnswerCard({ answer, onOpenSource }: { answer: Answer, onOpenSource: (source: Source) => void }) {
   const warnings = answerWarnings(answer)
   const facts = [answer.model, tokenSummary(answer.usage)].filter(Boolean).join(' · ')
 
@@ -23,7 +23,7 @@ function AnswerCard({ answer }: { answer: Answer }) {
           </ul>
         )}
 
-        <SourcesList sources={answer.sources} />
+        <SourcesList sources={answer.sources} onOpen={onOpenSource} />
 
         {(facts || answer.sent_off_machine) && (
           <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-500">

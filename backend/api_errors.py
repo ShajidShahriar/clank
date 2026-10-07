@@ -23,6 +23,7 @@ from llm.settings import InvalidKey, InvalidSelection
 from jobs import NoIndexRunning, ProjectNotFound, RepoNotFound
 from projects import InvalidProjectPath, ProjectBusy, ProjectExists
 from search import IndexOutOfDate, NotIndexed
+from source_view import BadRange, SourceChanged, SourceNotAvailable, SourceNotText, SourceTooBig
 
 log = logging.getLogger("clank.api")
 
@@ -66,6 +67,10 @@ async def _invalid_key(request: Request, exc: InvalidKey):
     return error_response(422, "invalid_key", str(exc))                 # never repeats the key
 
 
+async def _bad_range(request: Request, exc: BadRange):
+    return error_response(422, "invalid_request", str(exc))              # written for people
+
+
 async def _validation(request: Request, exc: RequestValidationError):
     fields = []
     for problem in exc.errors():
@@ -93,6 +98,11 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ProjectNotFound, _fixed(404, "project_not_found", "There is no project with this id."))
     app.add_exception_handler(RepoNotFound, _fixed(409, "repo_not_found", "The project's folder no longer exists. Check that it was not moved or deleted."))
     app.add_exception_handler(ConversationNotFound, _fixed(404, "conversation_not_found", "There is no conversation with this id in this project."))
+    app.add_exception_handler(SourceNotAvailable, _fixed(404, "file_not_available", "This file cannot be shown. It may have moved, changed or never been indexed."))
+    app.add_exception_handler(SourceTooBig, _fixed(413, "file_too_big", "This file is too big to show."))
+    app.add_exception_handler(SourceNotText, _fixed(415, "file_not_text", "This file is not text, so it cannot be shown."))
+    app.add_exception_handler(SourceChanged, _fixed(409, "file_changed", "This file has changed since it was indexed and no longer has those lines. Index the project again."))
+    app.add_exception_handler(BadRange, _bad_range)
     app.add_exception_handler(InvalidProjectPath, _invalid_path)
     app.add_exception_handler(ProjectExists, _fixed(409, "project_exists", "This folder is already a project."))
     app.add_exception_handler(ProjectBusy, _fixed(409, "project_busy", "Indexing is running for this project. Wait for it to finish or cancel it, then try again."))

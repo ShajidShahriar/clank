@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Bot, Loader2, MessageCircle } from 'lucide-react'
+import type { Source } from '../api/types'
 import type { Entry } from '../types'
 import type { ErrorAction } from '../lib/present'
 import MessageBubble from './MessageBubble'
@@ -10,9 +11,10 @@ interface MessageListProps {
   entries: Entry[]
   hint: string
   onAction: (action: ErrorAction, entry: Entry) => void
+  onOpenSource: (source: Source) => void
 }
 
-function MessageList({ entries, hint, onAction }: MessageListProps) {
+function MessageList({ entries, hint, onAction, onOpenSource }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,7 +48,7 @@ function MessageList({ entries, hint, onAction }: MessageListProps) {
               Searching the code and asking the model…
             </div>
           )}
-          {entry.state === 'done' && entry.answer && <AnswerCard answer={entry.answer} />}
+          {entry.state === 'done' && entry.answer && <AnswerCard answer={entry.answer} onOpenSource={onOpenSource} />}
           {entry.state === 'error' && <ErrorCard entry={entry} onAction={onAction} />}
         </div>
       ))}
