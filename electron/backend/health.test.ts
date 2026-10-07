@@ -82,3 +82,12 @@ test('the token never appears in an error', async () => {
     (e: Error) => !e.message.includes(TOKEN),
   )
 })
+
+test('with no limit given it waits a full minute: the first start of a freshly installed backend is scanned by the system and took 11 to 21 seconds', async () => {
+  const c = clock()
+  await assert.rejects(
+    waitForHealth({ url: 'u', token: TOKEN, isAlive: () => true, ...c, fetchFn: (async () => { throw new Error('ECONNREFUSED') }) as never }),
+    /did not become ready within 60 seconds/,
+  )
+  assert.ok(c.now() >= 60000 && c.now() < 61000)
+})

@@ -11,6 +11,14 @@
     "dist",
     "dist-electron"
   ],
+  // The frozen Python backend (made by `npm run build:backend`) goes next to the app archive, not inside it: a program cannot be started from an asar archive.
+  // electron/backend/env.ts starts <resources>/backend/clank-backend.
+  "extraResources": [
+    {
+      "from": "build/backend/clank-backend",
+      "to": "backend"
+    }
+  ],
   "mac": {
     "target": [
       "dmg"
