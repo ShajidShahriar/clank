@@ -1,5 +1,6 @@
 // Wait for the backend to answer /health (task 8.7). Every request needs the token, this one too. It gives up when the process has died or the time is up,
-// and the token is never put in an error.
+// and the token is never put in an error. The default wait is a minute: the first start of a freshly installed (unsigned) backend is scanned by the system
+// and took 11 to 21 seconds on the development machine; every later start takes about half a second.
 
 type FetchLike = (url: string, init: { method: string, headers: Record<string, string> }) => Promise<{ status: number, json(): Promise<unknown> }>
 
@@ -16,7 +17,7 @@ export type WaitInput = {
 
 export async function waitForHealth({
   url, token, fetchFn = fetch as unknown as FetchLike, isAlive, now = Date.now,
-  sleep = (ms) => new Promise((r) => setTimeout(r, ms)), timeoutMs = 30000, intervalMs = 250,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)), timeoutMs = 60000, intervalMs = 250,
 }: WaitInput): Promise<void> {
   const started = now()
   let lastProblem = 'no answer yet'

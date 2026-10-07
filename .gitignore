@@ -44,3 +44,6 @@ chroma/
 
 # Eval run results (machine-specific timings; the numbers that matter go in the devlog)
 backend/eval/results/
+
+# The frozen backend and PyInstaller scratch (made by backend/scripts/freeze_backend.py)
+/build/

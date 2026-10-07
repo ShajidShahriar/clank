@@ -10,6 +10,7 @@ import { useAllowRemote } from './hooks/useAllowRemote'
 import { useChats } from './hooks/useChats'
 import { useBackendStatus } from './hooks/useBackendStatus'
 import { useProjects } from './hooks/useProjects'
+import { useSetup } from './hooks/useSetup'
 import type { ErrorAction } from './lib/present'
 import type { Entry } from './types'
 
@@ -19,6 +20,7 @@ function App() {
   const ready = backend.state === 'ready'
   const [allowRemote, setAllowRemote] = useAllowRemote()
   const projects = useProjects(api, ready)
+  const setup = useSetup(api, ready)
   const [notice, setNotice] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [viewing, setViewing] = useState<{ projectId: number, source: Source } | null>(null)
@@ -99,6 +101,7 @@ function App() {
         onAction={onAction}
         onOpenSource={(source) => selected && setViewing({ projectId: selected.id, source })}
         onRestartBackend={restartBackend}
+        setup={{ view: setup.view, starting: setup.starting, actionError: setup.actionError, onPull: () => void setup.startPull(), onCheck: setup.checkAgain }}
       />
       {viewing && viewing.projectId === selected?.id && <SourceViewer api={api} projectId={viewing.projectId} source={viewing.source} onClose={() => setViewing(null)} />}
       {settingsOpen && <SettingsDialog api={api} onClose={() => setSettingsOpen(false)} onSaved={() => {}} />}

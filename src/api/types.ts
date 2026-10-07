@@ -71,7 +71,19 @@ export type ConversationSummary = { id: number, title: string | null, created_at
 export type SavedMessage = { id: number, role: 'user' | 'assistant', content: string, meta: Record<string, unknown> | null, created_at: string }
 export type Conversation = { id: number, title: string | null, created_at: string, updated_at: string, messages: SavedMessage[] }
 
-export type Health = { status: string, embedder: string, model: string | null, detail: string | null }
+/** `problem` says WHY the search model is not ready (null when it is ready or still warming): ollama_unavailable, model_not_found or embedding_error. */
+export type Health = { status: string, embedder: string, model: string | null, detail: string | null, problem: string | null }
+
+/** The download of the search model through Ollama (backend/model_pull.py). `percent` is a whole number, or null until the size is known. */
+export type PullStatus = {
+  state: 'idle' | 'pulling' | 'done' | 'failed'
+  model: string
+  message: string | null
+  percent: number | null
+  completed: number | null
+  total: number | null
+  error: string | null
+}
 
 export type ApiError = { code: string, message: string, status: number }
 export type Result<T> = { ok: true, data: T } | { ok: false, error: ApiError }

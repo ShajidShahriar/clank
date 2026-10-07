@@ -95,7 +95,7 @@ def test_startup_warms_the_model_and_health_says_ready(db_file):
     with started(make_services(embedder)) as client:
         body = client.get("/health").json()
     assert embedder.warmup_count == 1
-    assert body == {"status": "ok", "embedder": "ready", "model": "fake-hash-4@d1", "detail": None}
+    assert body == {"status": "ok", "embedder": "ready", "model": "fake-hash-4@d1", "detail": None, "problem": None}
 
 
 def test_the_app_starts_degraded_when_ollama_is_off_and_health_still_answers(db_file):
