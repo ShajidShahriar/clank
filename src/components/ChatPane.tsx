@@ -1,4 +1,4 @@
-import type { IndexStatus, Project } from '../api/types'
+import type { IndexStatus, Project, Source } from '../api/types'
 import type { BackendView, Entry } from '../types'
 import type { ErrorAction } from '../lib/present'
 import BackendBanner from './BackendBanner'
@@ -18,10 +18,11 @@ interface ChatPaneProps {
   onCancel: () => void
   onAsk: (question: string) => void
   onAction: (action: ErrorAction, entry: Entry) => void
+  onOpenSource: (source: Source) => void
   onRestartBackend: () => void
 }
 
-function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onRestartBackend }: ChatPaneProps) {
+function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onRestartBackend }: ChatPaneProps) {
   const ready = backend.state === 'ready'
   const pending = entries.some((entry) => entry.state === 'pending')
 
@@ -51,7 +52,7 @@ function ChatPane({ backend, project, index, entries, allowRemote, indexing, onT
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-black">
       <BackendBanner backend={backend} onRestart={onRestartBackend} />
       <ProjectHeader project={project} index={index} allowRemote={allowRemote} disabled={!ready} onIndex={onIndex} onCancel={onCancel} onToggleRemote={onToggleRemote} />
-      <MessageList entries={entries} hint={hint} onAction={onAction} />
+      <MessageList entries={entries} hint={hint} onAction={onAction} onOpenSource={onOpenSource} />
       <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} />
     </div>
   )

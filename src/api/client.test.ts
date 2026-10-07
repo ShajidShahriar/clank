@@ -309,3 +309,40 @@ test('a conversation that is not there is an error written for people', async ()
   const r = await createApi(bridge).getConversation(3, 7)
   assert.deepEqual(r, { ok: false, error: { code: 'conversation_not_found', message: 'There is no conversation with this id in this project.', status: 404 } })
 })
+
+// ---- the source viewer
+
+const view = { path: 'src/a.py', start_line: 3, end_line: 4, total_lines: 100, stale: false, lines: ['line 3', 'line 4'] }
+
+test('getSource sends the path and the lines in the body, never in the address', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: view })
+  const r = await createApi(bridge).getSource(3, 'src/a.py', 3, 4)
+  assert.deepEqual(r, { ok: true, data: view })
+  assert.deepEqual(calls, [{ method: 'POST', path: '/projects/3/source', body: { path: 'src/a.py', start_line: 3, end_line: 4 } }])
+})
+
+test('getSource refuses a bad id, path or range without calling the backend', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: view })
+  const api = createApi(bridge)
+  const bad = [
+    await api.getSource(0, 'a.py', 1, 2), await api.getSource(3, '', 1, 2), await api.getSource(3, 5 as never, 1, 2),
+    await api.getSource(3, 'a.py', 0, 2), await api.getSource(3, 'a.py', 1.5, 2), await api.getSource(3, 'a.py', 5, 4), await api.getSource(3, 'a.py', '1' as never, 2),
+  ]
+  for (const r of bad) assert.equal(r.ok === false && r.error.code, 'bad_request')
+  assert.equal(calls.length, 0)
+})
+
+test('a source reply with the wrong shape is bad_response', async () => {
+  for (const body of [{ ...view, lines: 'x' }, { ...view, lines: [1] }, { ...view, stale: 'no' }, { ...view, total_lines: null }, { ...view, path: 5 }, null, []]) {
+    const { bridge } = bridgeReplying({ ok: true, status: 200, body })
+    const r = await createApi(bridge).getSource(3, 'a.py', 3, 4)
+    assert.equal(r.ok === false && r.error.code, 'bad_response', JSON.stringify(body))
+  }
+})
+
+test('a file that cannot be shown keeps the backend sentence', async () => {
+  const body = { error: { code: 'file_not_available', message: 'This file cannot be shown. It may have moved, changed or never been indexed.' } }
+  const { bridge } = bridgeReplying({ ok: false, status: 404, body })
+  const r = await createApi(bridge).getSource(3, 'a.py', 1, 2)
+  assert.deepEqual(r, { ok: false, error: { code: 'file_not_available', message: body.error.message, status: 404 } })
+})

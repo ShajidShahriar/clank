@@ -1,7 +1,7 @@
 // The window's typed wrapper around the backend bridge (`window.clankBackend`, see electron/preload.ts). Everything returns a Result and nothing throws:
 // the data, or an error {code, message, status} written for people. A reply with the wrong shape is "bad_response" and is never half-used.
 // Written with erasable TypeScript only (no enums, no parameter properties) so that `node --test` can run it without a build step.
-import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, Result, Source } from './types.ts'
+import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, Result, Source, SourceView } from './types.ts'
 
 export type BridgeReply = { ok: boolean, status: number, body: unknown }
 export type Bridge = {
@@ -38,6 +38,9 @@ export const isAnswer = (v: unknown): v is Answer => isObj(v) && isStr(v.answer)
   && arrayOf((h) => isObj(h) && isStr(h.path) && isStr(h.reason))(v.hidden_files) && arrayOf(isStr)(v.stale_files) && arrayOf(isStr)(v.deleted_files)
   && isNum(v.context_tokens_used) && isNum(v.context_budget) && isBool(v.over_budget) && orNull(isNum)(v.best_score) && isNum(v.k)
   && orNull(isStr)(v.ranking_note) && orNull(isStr)(v.calibration_note)
+
+const isSourceView = (v: unknown): v is SourceView => isObj(v) && isStr(v.path) && isInt(v.start_line) && isInt(v.end_line) && isInt(v.total_lines) && isBool(v.stale)
+  && arrayOf(isStr)(v.lines)
 
 const isConversationSummary = (v: unknown): v is ConversationSummary => isObj(v) && isInt(v.id) && orNull(isStr)(v.title) && isStr(v.created_at) && isStr(v.updated_at)
   && isInt(v.message_count)
@@ -105,6 +108,13 @@ export function createApi(bridge: Bridge | undefined) {
     createConversation: (id: number) => withId(id, (i) => call<ConversationSummary>('POST', `/projects/${i}/conversations`, undefined, isConversationSummary)),
     getConversation: (id: number, conversationId: number) => withIds(id, conversationId, (i, c) => call<Conversation>('GET', `/projects/${i}/conversations/${c}`, undefined, isConversation)),
     deleteConversation: (id: number, conversationId: number) => withIds(id, conversationId, (i, c) => call<null>('DELETE', `/projects/${i}/conversations/${c}`, undefined, (v) => v === null || v === undefined)),
+    /** The lines of an indexed file of the project. The path goes in the body: the door to the backend allows no query and no dots in an address. */
+    getSource: (id: number, path: string, startLine: number, endLine: number): Promise<Result<SourceView>> => {
+      if (typeof path !== 'string' || path === '' || !validId(startLine) || !validId(endLine) || endLine < startLine) {
+        return Promise.resolve(fail('bad_request', 'Those lines cannot be shown.'))
+      }
+      return withId(id, (i) => call<SourceView>('POST', `/projects/${i}/source`, { path, start_line: startLine, end_line: endLine }, isSourceView))
+    },
     getLlmSettings: () => call<LlmSettings>('GET', '/settings/llm', undefined, isLlmSettings),
     testLlm: () => call<LlmTest>('POST', '/settings/llm/test', undefined, isLlmTest),
     async saveLlmSettings(config: object, apiKey?: string | null): Promise<Result<LlmSettings>> {

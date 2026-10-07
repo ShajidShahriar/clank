@@ -63,6 +63,9 @@ export type Answer = {
   conversation_id?: number | null         // set when the question was asked inside a saved conversation
 }
 
+/** The lines of one project file, from POST /projects/{id}/source. `lines[i]` is line `start_line + i`. */
+export type SourceView = { path: string, start_line: number, end_line: number, total_lines: number, stale: boolean, lines: string[] }
+
 export type ConversationSummary = { id: number, title: string | null, created_at: string, updated_at: string, message_count: number }
 /** The answer's extras as saved: everything of an Answer except its text, which is the message's `content`. Checked when it is turned back into an Answer. */
 export type SavedMessage = { id: number, role: 'user' | 'assistant', content: string, meta: Record<string, unknown> | null, created_at: string }
