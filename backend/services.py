@@ -14,16 +14,18 @@ import time
 import datadir
 import db
 from embedding import OllamaEmbedder
-from embedding.errors import EmbeddingError
+from embedding.errors import EmbeddingError, ModelNotFound, OllamaUnavailable
 from llm.profiles import make_llm
+from model_pull import ModelPuller
 from llm.settings import clean_key, load_selection, save_selection, selection_to_profile
 from fastapi import Depends, Request
 from vectorstore import open_project_store
 
 
 class Services:
-    def __init__(self, embedder, *, connect=None, store_factory=None, clock=time.monotonic, retry_after: float = 5.0, llm_factory=None, environ=None):
+    def __init__(self, embedder, *, connect=None, store_factory=None, clock=time.monotonic, retry_after: float = 5.0, llm_factory=None, environ=None, puller=None):
         self.embedder = embedder
+        self.puller = puller                                        # downloads the embedding model through Ollama; None when there is no Ollama behind this setup
         self._connect = connect                                    # None: db.get_connection (opened for use across threads), looked up at call time so a test can redirect the database
         self._store_factory = store_factory or (lambda project_id: open_project_store(datadir.data_dir(), project_id))
         self._clock = clock
@@ -120,12 +122,23 @@ class Services:
                 raise
             self._warm, self._error = True, None
 
+    def retry_warmup(self) -> None:
+        """Try the warm-up again NOW, without waiting out the retry gap: the model was just downloaded. A problem that is still there stays in the status."""
+        with self._warm_lock:
+            self._tried_at = None
+        try:
+            self.ensure_warm()
+        except EmbeddingError:
+            pass
+
     def status(self) -> dict:
+        """`problem` says WHY the embedder is not ready, for the first-run screen: ollama_unavailable, model_not_found or embedding_error (None when ready or warming)."""
         if self._warm:
-            return {"embedder": "ready", "model": self.embedder.model_name, "detail": None}
+            return {"embedder": "ready", "model": self.embedder.model_name, "detail": None, "problem": None}
         if self._error is not None:
-            return {"embedder": "degraded", "model": None, "detail": str(self._error)}
-        return {"embedder": "warming", "model": None, "detail": None}
+            problem = "ollama_unavailable" if isinstance(self._error, OllamaUnavailable) else "model_not_found" if isinstance(self._error, ModelNotFound) else "embedding_error"
+            return {"embedder": "degraded", "model": None, "detail": str(self._error), "problem": problem}
+        return {"embedder": "warming", "model": None, "detail": None, "problem": None}
 
     # ---- startup
 
@@ -155,7 +168,10 @@ class Services:
 
 
 def default_services() -> Services:
-    return Services(OllamaEmbedder())
+    embedder = OllamaEmbedder()
+    services = Services(embedder)
+    services.puller = ModelPuller(embedder.model, embedder.base_url, on_done=services.retry_warmup)      # the embedder's own model and address: nothing a caller can change
+    return services
 
 
 # ---- FastAPI dependencies

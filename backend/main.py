@@ -9,6 +9,7 @@ from routes_conversations import router as conversations_router
 from routes_context import router as context_router
 from routes_index import router as index_router
 from routes_projects import router as projects_router
+from routes_setup import router as setup_router
 from routes_source import router as source_router
 from routes_settings import router as settings_router
 from security import GuardMiddleware, Security
@@ -41,6 +42,7 @@ def create_app(services: Services | None = None, jobs: IndexJobs | None = None, 
     app.include_router(answer_router)
     app.include_router(conversations_router)
     app.include_router(source_router)
+    app.include_router(setup_router)
     app.include_router(settings_router)
     app.add_middleware(GuardMiddleware)                           # Host, Origin, CORS preflight, token: see security.py
 

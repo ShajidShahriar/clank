@@ -2,6 +2,8 @@ import type { IndexStatus, Project, Source } from '../api/types'
 import type { BackendView, Entry } from '../types'
 import type { ErrorAction } from '../lib/present'
 import BackendBanner from './BackendBanner'
+import SetupCard from './SetupCard'
+import type { SetupView } from '../lib/setup'
 import MessageInput from './MessageInput'
 import MessageList from './MessageList'
 import ProjectHeader from './ProjectHeader'
@@ -20,9 +22,10 @@ interface ChatPaneProps {
   onAction: (action: ErrorAction, entry: Entry) => void
   onOpenSource: (source: Source) => void
   onRestartBackend: () => void
+  setup: { view: SetupView, starting: boolean, actionError: string | null, onPull: () => void, onCheck: () => void }
 }
 
-function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onRestartBackend }: ChatPaneProps) {
+function ChatPane({ backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onRestartBackend, setup }: ChatPaneProps) {
   const ready = backend.state === 'ready'
   const pending = entries.some((entry) => entry.state === 'pending')
 
@@ -51,6 +54,7 @@ function ChatPane({ backend, project, index, entries, allowRemote, indexing, onT
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-black">
       <BackendBanner backend={backend} onRestart={onRestartBackend} />
+      <SetupCard view={setup.view} busy={setup.starting} actionError={setup.actionError} onPull={setup.onPull} onCheck={setup.onCheck} />
       <ProjectHeader project={project} index={index} allowRemote={allowRemote} disabled={!ready} onIndex={onIndex} onCancel={onCancel} onToggleRemote={onToggleRemote} />
       <MessageList entries={entries} hint={hint} onAction={onAction} onOpenSource={onOpenSource} />
       <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} />

@@ -1,7 +1,7 @@
 // The window's typed wrapper around the backend bridge (`window.clankBackend`, see electron/preload.ts). Everything returns a Result and nothing throws:
 // the data, or an error {code, message, status} written for people. A reply with the wrong shape is "bad_response" and is never half-used.
 // Written with erasable TypeScript only (no enums, no parameter properties) so that `node --test` can run it without a build step.
-import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, Result, Source, SourceView } from './types.ts'
+import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, PullStatus, Result, Source, SourceView } from './types.ts'
 
 export type BridgeReply = { ok: boolean, status: number, body: unknown }
 export type Bridge = {
@@ -61,7 +61,10 @@ const isLlmSettings = (v: unknown): v is LlmSettings => isObj(v) && isLlmActive(
 
 const isLlmTest = (v: unknown): v is LlmTest => isObj(v) && isBool(v.ok) && isStr(v.model) && isInt(v.latency_ms) && orNull(isStr)(v.finish_reason) && isStr(v.reply)
 
-const isHealth = (v: unknown): v is Health => isObj(v) && isStr(v.status) && isStr(v.embedder) && orNull(isStr)(v.model) && orNull(isStr)(v.detail)
+const isHealth = (v: unknown): v is Health => isObj(v) && isStr(v.status) && isStr(v.embedder) && orNull(isStr)(v.model) && orNull(isStr)(v.detail) && orNull(isStr)(v.problem)
+
+const isPullStatus = (v: unknown): v is PullStatus => isObj(v) && (v.state === 'idle' || v.state === 'pulling' || v.state === 'done' || v.state === 'failed') && isStr(v.model)
+  && orNull(isStr)(v.message) && orNull(isNum)(v.percent) && orNull(isNum)(v.completed) && orNull(isNum)(v.total) && orNull(isStr)(v.error)
 
 function fail<T>(code: string, message: string, status = 0): Result<T> {
   return { ok: false, error: { code, message, status } }
@@ -90,6 +93,9 @@ export function createApi(bridge: Bridge | undefined) {
 
   return {
     health: () => call<Health>('GET', '/health', undefined, isHealth),
+    /** Download the search model through Ollama. It takes no model name: the backend downloads its own. */
+    startPull: () => call<PullStatus>('POST', '/setup/pull-model', undefined, isPullStatus),
+    getPullStatus: () => call<PullStatus>('GET', '/setup/pull-model', undefined, isPullStatus),
     listProjects: () => call<Project[]>('GET', '/projects', undefined, arrayOf(isProject)),
     addProject: (path: string, name?: string) => call<Project>('POST', '/projects', name === undefined ? { path } : { path, name }, isProject),
     deleteProject: (id: number) => withId(id, (i) => call<null>('DELETE', `/projects/${i}`, undefined, (v) => v === null || v === undefined)),

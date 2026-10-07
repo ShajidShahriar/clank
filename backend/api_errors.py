@@ -20,6 +20,7 @@ from indexing import IndexAlreadyRunning
 from llm import (LLMAuthError, LLMBadResponse, LLMContextTooLong, LLMError, LLMModelNotFound, LLMNotConfigured, LLMRateLimited, LLMTimeout,
                  LLMUnavailable)
 from llm.settings import InvalidKey, InvalidSelection
+from model_pull import PullNotAvailable
 from jobs import NoIndexRunning, ProjectNotFound, RepoNotFound
 from projects import InvalidProjectPath, ProjectBusy, ProjectExists
 from search import IndexOutOfDate, NotIndexed
@@ -103,6 +104,7 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(SourceNotText, _fixed(415, "file_not_text", "This file is not text, so it cannot be shown."))
     app.add_exception_handler(SourceChanged, _fixed(409, "file_changed", "This file has changed since it was indexed and no longer has those lines. Index the project again."))
     app.add_exception_handler(BadRange, _bad_range)
+    app.add_exception_handler(PullNotAvailable, _fixed(409, "pull_not_available", "This setup does not download models. Install the model yourself with: ollama pull " + DEFAULT_MODEL))
     app.add_exception_handler(InvalidProjectPath, _invalid_path)
     app.add_exception_handler(ProjectExists, _fixed(409, "project_exists", "This folder is already a project."))
     app.add_exception_handler(ProjectBusy, _fixed(409, "project_busy", "Indexing is running for this project. Wait for it to finish or cancel it, then try again."))

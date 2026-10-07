@@ -174,7 +174,7 @@ test('pickFolder returns the chosen path, or null when the dialog was cancelled'
 })
 
 test('health returns the report and never needs an id', async () => {
-  const body = { status: 'ok', embedder: 'ready', model: 'q@1', detail: null }
+  const body = { status: 'ok', embedder: 'ready', model: 'q@1', detail: null, problem: null }
   const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body })
   assert.deepEqual(await createApi(bridge).health(), { ok: true, data: body })
   assert.deepEqual(calls.map((c) => c.path), ['/health'])
@@ -345,4 +345,38 @@ test('a file that cannot be shown keeps the backend sentence', async () => {
   const { bridge } = bridgeReplying({ ok: false, status: 404, body })
   const r = await createApi(bridge).getSource(3, 'a.py', 1, 2)
   assert.deepEqual(r, { ok: false, error: { code: 'file_not_available', message: body.error.message, status: 404 } })
+})
+
+// ---- first run
+
+const pullStatus = { state: 'pulling', model: 'qwen3-embedding:0.6b', message: 'pulling abc', percent: 37, completed: 237, total: 640, error: null }
+
+test('health carries the problem, and one that is missing or the wrong type is bad_response', async () => {
+  const good = { status: 'ok', embedder: 'degraded', model: null, detail: 'Ollama is not running', problem: 'ollama_unavailable' }
+  assert.deepEqual(await createApi(bridgeReplying({ ok: true, status: 200, body: good }).bridge).health(), { ok: true, data: good })
+  for (const body of [{ ...good, problem: 5 }, { status: 'ok', embedder: 'ready', model: null, detail: null }]) {
+    const r = await createApi(bridgeReplying({ ok: true, status: 200, body }).bridge).health()
+    assert.equal(r.ok === false && r.error.code, 'bad_response')
+  }
+})
+
+test('the pull calls use the setup address, with no body', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 202, body: pullStatus })
+  const api = createApi(bridge)
+  assert.deepEqual(await api.startPull(), { ok: true, data: pullStatus })
+  assert.deepEqual(await api.getPullStatus(), { ok: true, data: pullStatus })
+  assert.deepEqual(calls, [{ method: 'POST', path: '/setup/pull-model', body: undefined }, { method: 'GET', path: '/setup/pull-model', body: undefined }])
+})
+
+test('a pull status with the wrong shape is bad_response', async () => {
+  for (const body of [{ ...pullStatus, state: 'busy' }, { ...pullStatus, percent: '37' }, { ...pullStatus, completed: 'x' }, { ...pullStatus, error: 5 }, { ...pullStatus, model: null }, null]) {
+    const r = await createApi(bridgeReplying({ ok: true, status: 200, body }).bridge).getPullStatus()
+    assert.equal(r.ok === false && r.error.code, 'bad_response', JSON.stringify(body))
+  }
+})
+
+test('a setup without Ollama keeps the backend sentence', async () => {
+  const body = { error: { code: 'pull_not_available', message: 'This setup does not download models. Install the model yourself with: ollama pull qwen3-embedding:0.6b' } }
+  const r = await createApi(bridgeReplying({ ok: false, status: 409, body }).bridge).startPull()
+  assert.deepEqual(r, { ok: false, error: { code: 'pull_not_available', message: body.error.message, status: 409 } })
 })
