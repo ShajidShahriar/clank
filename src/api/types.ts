@@ -60,7 +60,13 @@ export type Answer = {
   k: number
   ranking_note: string | null
   calibration_note: string | null
+  conversation_id?: number | null         // set when the question was asked inside a saved conversation
 }
+
+export type ConversationSummary = { id: number, title: string | null, created_at: string, updated_at: string, message_count: number }
+/** The answer's extras as saved: everything of an Answer except its text, which is the message's `content`. Checked when it is turned back into an Answer. */
+export type SavedMessage = { id: number, role: 'user' | 'assistant', content: string, meta: Record<string, unknown> | null, created_at: string }
+export type Conversation = { id: number, title: string | null, created_at: string, updated_at: string, messages: SavedMessage[] }
 
 export type Health = { status: string, embedder: string, model: string | null, detail: string | null }
 

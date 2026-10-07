@@ -9,8 +9,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+import conversations
 import db
-from answer import NO_MATCH_TEXT, ConsentRequired, build_messages
+from answer import NO_MATCH_TEXT, ConsentRequired, build_messages, history_messages
 from jobs import ProjectNotFound
 from routes_context import DEFAULT_K, MAX_K, MAX_QUESTION_CHARS, _dropped, _passage
 from search import DEFAULT_DEMOTION, build_context
@@ -24,6 +25,7 @@ class AnswerRequest(BaseModel):
     question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUESTION_CHARS)]
     k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K, strict=True)
     allow_remote: bool = Field(default=False, strict=True)
+    conversation_id: int | None = Field(default=None, strict=True, ge=1)
 
 
 @router.post("/projects/{project_id}/answer")
@@ -31,6 +33,8 @@ def answer_question(project_id: int, body: AnswerRequest, conn=Depends(get_conn)
     project = db.get_project(conn, project_id)
     if project is None:
         raise ProjectNotFound(f"no project {project_id}")
+    if body.conversation_id is not None and conversations.get_conversation(conn, project_id, body.conversation_id) is None:
+        raise conversations.ConversationNotFound(f"no conversation {body.conversation_id}")      # before anything is embedded or sent
     profile, llm = services.llm_setup()                # 503 if the model is not set up
     if not profile.is_local and not body.allow_remote:
         raise ConsentRequired("the answer model is a remote service")
@@ -39,13 +43,14 @@ def answer_question(project_id: int, body: AnswerRequest, conn=Depends(get_conn)
                         test_policy=DEFAULT_DEMOTION, cutoff=None)
     completion = None
     if ctx.passages:
-        completion = llm.complete(build_messages(body.question, ctx.text), max_output_tokens=profile.max_output_tokens)
+        history = [] if body.conversation_id is None else history_messages(conversations.recent_turns(conn, body.conversation_id))
+        completion = llm.complete(build_messages(body.question, ctx.text, history), max_output_tokens=profile.max_output_tokens)
     truncated = completion is not None and completion.finish_reason == "length"
     notice = None
     if truncated:
         notice = ("The model used its whole answer allowance before writing anything. Try again or ask a narrower question." if not completion.text
                   else "The answer was cut off by the length limit.")
-    return {
+    result = {
         "answer": NO_MATCH_TEXT if completion is None else completion.text,
         "truncated": truncated,
         "finish_reason": None if completion is None else completion.finish_reason,
@@ -68,3 +73,6 @@ def answer_question(project_id: int, body: AnswerRequest, conn=Depends(get_conn)
         "ranking_note": ctx.ranking_note,
         "calibration_note": ctx.calibration_note,
     }
+    if body.conversation_id is not None:
+        conversations.add_exchange(conn, body.conversation_id, body.question, result["answer"], {k: v for k, v in result.items() if k != "answer"})
+    return {**result, "conversation_id": body.conversation_id}

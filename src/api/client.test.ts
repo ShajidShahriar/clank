@@ -243,3 +243,69 @@ test('saving without a bridge, or with a bridge that throws, is an error and nev
   assert.equal(r.ok === false && r.error.code, 'backend_unavailable')
   assert.equal(JSON.stringify(r).includes('gsk_leak'), false)
 })
+
+// ---- saved conversations
+
+const summary = { id: 7, title: 'how does it work?', created_at: '2026-10-07T10:00:00', updated_at: '2026-10-07T10:05:00', message_count: 2 }
+const { answer: answerText, ...answerMeta } = answer
+const saved = {
+  id: 7, title: 'how does it work?', created_at: summary.created_at, updated_at: summary.updated_at,
+  messages: [
+    { id: 1, role: 'user', content: 'how does it work?', meta: null, created_at: summary.created_at },
+    { id: 2, role: 'assistant', content: answerText, meta: answerMeta, created_at: summary.created_at },
+  ],
+}
+
+test('the conversation calls use the project and conversation ids in the path', async () => {
+  const { bridge, calls } = bridgeReplying((c) => ({ ok: true, status: c.method === 'DELETE' ? 204 : c.method === 'POST' ? 201 : 200, body: c.method === 'DELETE' ? null : c.path.endsWith('/7') ? saved : c.method === 'POST' ? summary : [summary] }))
+  const api = createApi(bridge)
+  assert.deepEqual(await api.listConversations(3), { ok: true, data: [summary] })
+  assert.deepEqual(await api.createConversation(3), { ok: true, data: summary })
+  assert.deepEqual(await api.getConversation(3, 7), { ok: true, data: saved })
+  assert.deepEqual(await api.deleteConversation(3, 7), { ok: true, data: null })
+  assert.deepEqual(calls.map((c) => `${c.method} ${c.path}`), ['GET /projects/3/conversations', 'POST /projects/3/conversations', 'GET /projects/3/conversations/7', 'DELETE /projects/3/conversations/7'])
+})
+
+test('ask sends the conversation id only when there is one', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: { ...answer, conversation_id: 7 } })
+  const api = createApi(bridge)
+  const r = await api.ask(3, 'q', true, undefined, 7)
+  await api.ask(3, 'q', true)
+  await api.ask(3, 'q', true, 5, 7)
+  assert.deepEqual(calls.map((c) => c.body), [{ question: 'q', allow_remote: true, conversation_id: 7 }, { question: 'q', allow_remote: true }, { question: 'q', allow_remote: true, k: 5, conversation_id: 7 }])
+  assert.equal(r.ok && r.data.conversation_id, 7)
+})
+
+test('a conversation id that is not a positive whole number is refused without calling the backend', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: {} })
+  const api = createApi(bridge)
+  for (const id of [0, -1, 1.5, NaN, '7' as never, null as never]) {
+    for (const r of [await api.getConversation(3, id), await api.deleteConversation(3, id), await api.ask(3, 'q', true, undefined, id as never)]) {
+      assert.equal(r.ok, false)
+      assert.equal(r.ok === false && r.error.code, 'bad_request')
+    }
+  }
+  assert.equal((await api.getConversation(0, 7)).ok, false)
+  assert.equal(calls.length, 0)
+})
+
+test('a conversation reply with the wrong shape is bad_response', async () => {
+  const wrong: Array<[string, unknown]> = [
+    ['listConversations', [{ ...summary, id: 'x' }]], ['listConversations', [{ ...summary, message_count: null }]], ['listConversations', {}],
+    ['createConversation', { ...summary, title: 5 }], ['getConversation', { ...saved, messages: 'none' }],
+    ['getConversation', { ...saved, messages: [{ ...saved.messages[0], role: 'system' }] }], ['getConversation', { ...saved, messages: [{ ...saved.messages[0], meta: 'text' }] }],
+    ['getConversation', { ...saved, messages: [{ ...saved.messages[0], content: 5 }] }],
+  ]
+  for (const [method, body] of wrong) {
+    const { bridge } = bridgeReplying({ ok: true, status: 200, body })
+    const api = createApi(bridge)
+    const r = method === 'listConversations' ? await api.listConversations(3) : method === 'createConversation' ? await api.createConversation(3) : await api.getConversation(3, 7)
+    assert.equal(r.ok === false && r.error.code, 'bad_response', `${method} ${JSON.stringify(body).slice(0, 60)}`)
+  }
+})
+
+test('a conversation that is not there is an error written for people', async () => {
+  const { bridge } = bridgeReplying({ ok: false, status: 404, body: { error: { code: 'conversation_not_found', message: 'There is no conversation with this id in this project.' } } })
+  const r = await createApi(bridge).getConversation(3, 7)
+  assert.deepEqual(r, { ok: false, error: { code: 'conversation_not_found', message: 'There is no conversation with this id in this project.', status: 404 } })
+})
