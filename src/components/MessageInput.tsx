@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
 
 interface MessageInputProps {
@@ -10,11 +10,13 @@ interface MessageInputProps {
   onStop?: () => void
   /** The first view of a conversation: the bar sits in the middle, under the heading, not at the bottom. */
   centered?: boolean
+  /** Something that sits inside the bar, before the send button (the usage meter). */
+  accessory?: ReactNode
 }
 
 const ROUND = 'press flex h-8 w-8 shrink-0 items-center justify-center rounded-full'
 
-function MessageInput({ onSend, disabled, placeholder, streaming, onStop, centered }: MessageInputProps) {
+function MessageInput({ onSend, disabled, placeholder, streaming, onStop, centered, accessory }: MessageInputProps) {
   const [value, setValue] = useState('')
 
   const handleSubmit = (e: FormEvent) => {
@@ -38,6 +40,7 @@ function MessageInput({ onSend, disabled, placeholder, streaming, onStop, center
           maxLength={2000}
           className="min-w-0 flex-1 bg-transparent text-sm text-label placeholder-label-3 outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
+        {accessory}
         {streaming ? (
           <button type="button" onClick={onStop} aria-label="Stop" title="Stop the answer" className={`${ROUND} bg-label text-bg hover:opacity-80`}>
             <Square className="h-3 w-3 fill-current" />

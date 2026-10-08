@@ -81,6 +81,7 @@ class OpenAICompatibleClient:
         try:
             with self._opener.open(request, timeout=self.timeout) as reply:
                 raw = reply.read(MAX_REPLY_BYTES)
+                headers = rate_limit_headers(reply.headers.items())
         except urllib.error.HTTPError as error:
             raise self._for_status(error) from None
         except urllib.error.URLError as error:
@@ -91,7 +92,7 @@ class OpenAICompatibleClient:
             raise LLMTimeout("the answer service did not answer in time") from None
         except (http.client.HTTPException, OSError):
             raise LLMUnavailable("the connection to the answer service failed") from None
-        return self._parse(raw)
+        return self._parse(raw, headers)
 
     def _body(self, messages: list[dict], max_output_tokens: int, *, stream: bool, include_usage: bool = True) -> dict:
         reserved = {"model", "messages", "stream", "stream_options", *LIMIT_PARAMS}
@@ -147,7 +148,7 @@ class OpenAICompatibleClient:
 
     # ---- reading what came back
 
-    def _parse(self, raw: bytes) -> Completion:
+    def _parse(self, raw: bytes, headers: dict | None = None) -> Completion:
         try:
             data = json.loads(raw)
             choice = data["choices"][0]
@@ -167,7 +168,7 @@ class OpenAICompatibleClient:
         details = usage.get("completion_tokens_details")
         return Completion(text=content, finish_reason=finish, model=model, prompt_tokens=_count(usage.get("prompt_tokens")),
                           completion_tokens=_count(usage.get("completion_tokens")),
-                          reasoning_tokens=_count(details.get("reasoning_tokens")) if isinstance(details, dict) else None)
+                          reasoning_tokens=_count(details.get("reasoning_tokens")) if isinstance(details, dict) else None, rate_limit_headers=headers or {})
 
     def _for_status(self, error: urllib.error.HTTPError):
         try:
@@ -194,7 +195,8 @@ class OpenAICompatibleClient:
         if status == 413 or (status == 400 and (code == "context_length_exceeded" or _CONTEXT_WORDS.search(message))):
             return LLMContextTooLong("the request is larger than the model accepts")
         if status == 429:
-            return LLMRateLimited(retry_after=_retry_after(headers.get("retry-after") if headers else None, message))
+            return LLMRateLimited(retry_after=_retry_after(headers.get("retry-after") if headers else None, message),
+                                  rate_limit_headers=rate_limit_headers(headers.items()) if headers else {})
         if status >= 500:
             return LLMUnavailable("the answer service failed on its side")
         if 300 <= status < 400:
@@ -215,8 +217,7 @@ class OpenAIStream:
         self._closed = False
         self._iterating = False
         self._lock = threading.Lock()
-        self.rate_limit_headers = {name.lower(): value[:MAX_HEADER_VALUE_CHARS] for name, value in reply.getheaders()
-                                   if name.lower().startswith("x-ratelimit-") or name.lower() == "retry-after"}
+        self.rate_limit_headers = rate_limit_headers(reply.getheaders())
 
     def __repr__(self) -> str:
         return f"OpenAIStream(model={self._default_model!r})"
@@ -326,6 +327,11 @@ class OpenAIStream:
         yield StreamDone(finish_reason=finish, model=model or self._default_model,
                          prompt_tokens=usage.prompt_tokens if usage else None, completion_tokens=usage.completion_tokens if usage else None,
                          reasoning_tokens=usage.reasoning_tokens if usage else None)
+
+
+def rate_limit_headers(pairs) -> dict:
+    """Only the service's `x-ratelimit-*` and `retry-after` headers, lower case names, values cut short: nothing else a service sends is kept."""
+    return {name.lower(): value[:MAX_HEADER_VALUE_CHARS] for name, value in pairs if name.lower().startswith("x-ratelimit-") or name.lower() == "retry-after"}
 
 
 def _count(value):

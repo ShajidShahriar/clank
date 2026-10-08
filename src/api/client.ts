@@ -1,7 +1,7 @@
 // The window's typed wrapper around the backend bridge (`window.clankBackend`, see electron/preload.ts). Everything returns a Result and nothing throws:
 // the data, or an error {code, message, status} written for people. A reply with the wrong shape is "bad_response" and is never half-used.
 // Written with erasable TypeScript only (no enums, no parameter properties) so that `node --test` can run it without a build step.
-import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, PullStatus, Result, Source, SourceView, StreamEnd, StreamEvent, StreamHandle, ThinkingInfo, Timings, TokenInfo } from './types.ts'
+import type { Answer, ApiError, Conversation, ConversationSummary, Health, IndexStatus, LlmSettings, LlmTest, Project, PullStatus, Result, Source, SourceView, StreamEnd, StreamEvent, StreamHandle, ThinkingInfo, Timings, TokenInfo, UsageLimits, UsageReport } from './types.ts'
 
 export type BridgeReply = { ok: boolean, status: number, body: unknown }
 export type Bridge = {
@@ -99,6 +99,20 @@ const isLlmPreset = (v: unknown): boolean => isObj(v) && isStr(v.id) && isStr(v.
 const isLlmSettings = (v: unknown): v is LlmSettings => isObj(v) && isLlmActive(v.active) && arrayOf(isLlmPreset)(v.presets)
 
 const isLlmTest = (v: unknown): v is LlmTest => isObj(v) && isBool(v.ok) && isStr(v.model) && isInt(v.latency_ms) && orNull(isStr)(v.finish_reason) && isStr(v.reply)
+
+const isKind = (v: unknown): boolean => v === 'tokens' || v === 'requests'
+const isAmount = (v: unknown): v is number => isNum(v) && v >= 0
+const isUsageLimitRow = (v: unknown): boolean => isObj(v) && isStr(v.window) && isKind(v.kind) && isCount(v.limit) && isCount(v.used) && isAmount(v.percent) && isBool(v.reached) && isBool(v.rolling)
+  && orNull(isNum)(v.resets_at) && orNull(isAmount)(v.resets_in_seconds) && (v.source === 'yours' || v.source === 'published')
+const isUsageProviderRow = (v: unknown): boolean => isObj(v) && isKind(v.kind) && orNull(isStr)(v.window) && isCount(v.limit) && isCount(v.remaining) && isCount(v.used) && isAmount(v.percent)
+  && orNull(isAmount)(v.full_again_in_seconds) && isAmount(v.age_seconds)
+const isUsageClosest = (v: unknown): boolean => isObj(v) && (v.source === 'yours' || v.source === 'published' || v.source === 'provider') && orNull(isStr)(v.window) && isKind(v.kind)
+  && isCount(v.limit) && isCount(v.used) && isAmount(v.percent) && isBool(v.reached) && orNull(isAmount)(v.resets_in_seconds)
+const isUsageCounts = (v: unknown): boolean => isObj(v) && ['requests', 'prompt_tokens', 'thinking_tokens', 'answer_tokens', 'estimated_calls'].every((key) => isCount(v[key]))
+  && (v.thinking_share === null || (isNum(v.thinking_share) && v.thinking_share >= 0 && v.thinking_share <= 1))
+const isUsageReport = (v: unknown): v is UsageReport => isObj(v) && isStr(v.provider) && orNull(isStr)(v.model) && isNum(v.now) && arrayOf(isUsageLimitRow)(v.limits)
+  && (v.limits_source === 'yours' || v.limits_source === 'published' || v.limits_source === 'none') && isBool(v.has_suggestion) && orNull(isStr)(v.published_note) && arrayOf(isUsageProviderRow)(v.provider_reported)
+  && (v.closest === null || isUsageClosest(v.closest)) && isUsageCounts(v.counts)
 
 const isHealth = (v: unknown): v is Health => isObj(v) && isStr(v.status) && isStr(v.embedder) && orNull(isStr)(v.model) && orNull(isStr)(v.detail) && orNull(isStr)(v.problem)
 
@@ -234,6 +248,12 @@ export function createApi(bridge: Bridge | undefined) {
       return withId(id, (i) => call<SourceView>('POST', `/projects/${i}/source`, { path, start_line: startLine, end_line: endLine }, isSourceView))
     },
     getLlmSettings: () => call<LlmSettings>('GET', '/settings/llm', undefined, isLlmSettings),
+    getUsage: () => call<UsageReport>('GET', '/usage', undefined, isUsageReport),
+    /** Save the person's limits for the chosen provider: `{}` clears them, `null` goes back to the suggestion. The backend checks the numbers and answers with the new report. */
+    saveUsageLimits: (limits: UsageLimits | null): Promise<Result<UsageReport>> =>
+      limits === null || (isObj(limits)) ? call<UsageReport>('POST', '/usage/limits', { limits }, isUsageReport) : Promise.resolve(fail('bad_request', 'Those limits cannot be saved.')),
+    /** Clear the counts (the limits and the provider's own numbers stay). */
+    resetUsage: () => call<UsageReport>('DELETE', '/usage', undefined, isUsageReport),
     testLlm: () => call<LlmTest>('POST', '/settings/llm/test', undefined, isLlmTest),
     async saveLlmSettings(config: object, apiKey?: string | null): Promise<Result<LlmSettings>> {
       if (!bridge) return fail('no_bridge', 'Saving settings only works in the Clank desktop app.')

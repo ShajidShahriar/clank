@@ -5,11 +5,15 @@ import BackendBanner from './BackendBanner'
 import SetupCard from './SetupCard'
 import type { SetupView } from '../lib/setup'
 import MessageInput from './MessageInput'
+import UsageMeter from './UsageMeter'
+import type { UsageReport } from '../api/types'
 import MessageList from './MessageList'
 import ProjectHeader from './ProjectHeader'
 
 interface ChatPaneProps {
   sidebarCollapsed: boolean
+  usage: UsageReport | null
+  onOpenUsage: () => void
   backend: BackendView
   project: Project | undefined
   index: IndexStatus | undefined
@@ -27,7 +31,7 @@ interface ChatPaneProps {
   setup: { view: SetupView, starting: boolean, actionError: string | null, onPull: () => void, onCheck: () => void }
 }
 
-function ChatPane({ sidebarCollapsed, backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onStop, onRestartBackend, setup }: ChatPaneProps) {
+function ChatPane({ sidebarCollapsed, usage, onOpenUsage, backend, project, index, entries, allowRemote, indexing, onToggleRemote, onIndex, onCancel, onAsk, onAction, onOpenSource, onStop, onRestartBackend, setup }: ChatPaneProps) {
   const ready = backend.state === 'ready'
   const streaming = entries.some((entry) => entry.state === 'pending' || entry.state === 'streaming')       // an answer is being written: the person can stop it
 
@@ -54,6 +58,8 @@ function ChatPane({ sidebarCollapsed, backend, project, index, entries, allowRem
     placeholder = 'Writing the answer…'
   }
 
+  const meter = <UsageMeter report={usage} onOpen={onOpenUsage} />
+
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-bg">
       <BackendBanner backend={backend} onRestart={onRestartBackend} />
@@ -62,13 +68,13 @@ function ChatPane({ sidebarCollapsed, backend, project, index, entries, allowRem
       {entries.length === 0 ? (
         <div className="animate-rise flex flex-1 flex-col items-center justify-center px-5 pb-16">
           <h1 className="mb-7 text-center text-[28px] font-medium leading-tight tracking-[-0.02em] text-label">{heading}</h1>
-          <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} centered />
+          <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} centered accessory={meter} />
           <p className="mt-4 max-w-[420px] text-center text-[13px] leading-relaxed text-label-2">{hint}</p>
         </div>
       ) : (
         <>
           <MessageList entries={entries} onAction={onAction} onOpenSource={onOpenSource} />
-          <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} />
+          <MessageInput onSend={onAsk} disabled={locked} placeholder={placeholder} streaming={streaming && ready} onStop={onStop} accessory={meter} />
         </>
       )}
     </div>

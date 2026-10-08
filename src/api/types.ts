@@ -163,3 +163,63 @@ export type LlmPreset = {
 
 export type LlmSettings = { active: LlmActive, presets: LlmPreset[] }
 export type LlmTest = { ok: boolean, model: string, latency_ms: number, finish_reason: string | null, reply: string }
+
+// ---- usage and limits (backend/usage_report.py `GET /usage`). Checked at run time in client.ts.
+export type UsageKind = 'tokens' | 'requests'
+/** One limit of the person's (or Groq's published one): what was used inside its window. `percent` is not capped (125 means over). */
+export type UsageLimitRow = {
+  window: string
+  kind: UsageKind
+  limit: number
+  used: number
+  percent: number
+  reached: boolean
+  rolling: boolean
+  resets_at: number | null
+  resets_in_seconds: number | null
+  source: 'yours' | 'published'
+}
+/** What the provider itself said about a limit, as it would be now. `window` is only named where it is known. */
+export type UsageProviderRow = {
+  kind: UsageKind
+  window: string | null
+  limit: number
+  remaining: number
+  used: number
+  percent: number
+  full_again_in_seconds: number | null
+  age_seconds: number
+}
+/** The limit the person is closest to, of all of them. */
+export type UsageClosest = {
+  source: 'yours' | 'published' | 'provider'
+  window: string | null
+  kind: UsageKind
+  limit: number
+  used: number
+  percent: number
+  reached: boolean
+  resets_in_seconds: number | null
+}
+export type UsageCounts = {
+  requests: number
+  prompt_tokens: number
+  thinking_tokens: number
+  answer_tokens: number
+  estimated_calls: number
+  thinking_share: number | null
+}
+export type UsageReport = {
+  provider: string
+  model: string | null
+  now: number
+  limits: UsageLimitRow[]
+  limits_source: 'yours' | 'published' | 'none'
+  has_suggestion: boolean                                  // is there a suggested set (Groq's published one) to go back to
+  published_note: string | null
+  provider_reported: UsageProviderRow[]
+  closest: UsageClosest | null
+  counts: UsageCounts
+}
+/** The limits as they are sent: per window, a number of tokens and/or requests. */
+export type UsageLimits = Record<string, { tokens?: number, requests?: number }>

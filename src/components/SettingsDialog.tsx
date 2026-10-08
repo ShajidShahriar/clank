@@ -4,18 +4,23 @@ import type { ApiError, LlmSettings, LlmTest, Result } from '../api/types'
 import { formFromSettings, isDirty, payloadFromForm, switchPreset, validateForm, type Form } from '../lib/settingsForm'
 import { describeError } from '../lib/present'
 import SettingsForm from './SettingsForm'
-import { BUTTON } from './ui'
+import SettingsSheet, { type SettingsTab } from './SettingsSheet'
+import UsageTab from './UsageTab'
+import type { ApiError as UsageApiError, UsageLimits, UsageReport } from '../api/types'
 
 type Api = ReturnType<typeof createApi>
 
 interface SettingsDialogProps {
   api: Api
+  initialTab: SettingsTab
+  usage: { report: UsageReport | null, problem: UsageApiError | null, saveLimits: (limits: UsageLimits | null) => Promise<UsageApiError | null>, reset: () => Promise<UsageApiError | null> }
   onClose: () => void
   onSaved: () => void
 }
 
 /** The answer-model settings dialog: loads the current settings, lets the person change them, saves them (the key goes through the desktop app's own door) and tests the connection. */
-function SettingsDialog({ api, onClose, onSaved }: SettingsDialogProps) {
+function SettingsDialog({ api, initialTab, usage, onClose, onSaved }: SettingsDialogProps) {
+  const [tab, setTab] = useState<SettingsTab>(initialTab)
   const [settings, setSettings] = useState<LlmSettings | null>(null)
   const [loadError, setLoadError] = useState<ApiError | null>(null)
   const [form, setForm] = useState<Form | null>(null)
@@ -91,23 +96,20 @@ function SettingsDialog({ api, onClose, onSaved }: SettingsDialogProps) {
     setTestResult(result)
   }, [api, dirty, save])
 
+  const body = tab === 'usage'
+    ? <UsageTab report={usage.report} problem={usage.problem} onSaveLimits={usage.saveLimits} onReset={usage.reset} />
+    : settings && form ? (
+      <SettingsForm settings={settings} form={form} errors={errors} dirty={dirty} saving={saving} testing={testing} saved={saved} saveError={saveError} testResult={testResult}
+        onChange={change} onPreset={choosePreset} onSave={() => void save()} onTest={() => void test()} />
+    ) : (
+      <div className="flex min-h-0 flex-1 items-center justify-center px-5 text-sm text-label">
+        {loadError ? <p className="selectable text-danger">{describeError(loadError).message}</p> : <p className="text-label-2">Loading the settings…</p>}
+      </div>
+    )
+
   return (
-    <div className="animate-scrim fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label="Answer model settings">
-      {settings && form ? (
-        <SettingsForm settings={settings} form={form} errors={errors} dirty={dirty} saving={saving} testing={testing} saved={saved} saveError={saveError} testResult={testResult}
-          onChange={change} onPreset={choosePreset} onSave={() => void save()} onTest={() => void test()} onClose={onClose} />
-      ) : (
-        <div className="animate-sheet w-full max-w-sm rounded-sheet bg-bg p-5 text-sm text-label shadow-float">
-          {loadError ? (
-            <>
-              <p>{describeError(loadError).message}</p>
-              <button onClick={onClose} className={`${BUTTON} mt-3`}>Close</button>
-            </>
-          ) : (
-            <p>Loading the settings…</p>
-          )}
-        </div>
-      )}
+    <div className="animate-scrim fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label="Settings">
+      <SettingsSheet tab={tab} onTab={setTab} onClose={onClose}>{body}</SettingsSheet>
     </div>
   )
 }

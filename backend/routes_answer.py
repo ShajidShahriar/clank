@@ -26,11 +26,12 @@ from starlette.responses import StreamingResponse
 
 import conversations
 import db
+import usage_recording
 from answer import NO_MATCH_TEXT, ConsentRequired, build_messages, history_messages
 from answer_stats import build_timings, token_summary
 from api_errors import llm_error_info
 from jobs import ProjectNotFound
-from llm import StreamDone, TextPiece, ThinkingPiece
+from llm import LLMError, StreamDone, TextPiece, ThinkingPiece
 from routes_context import DEFAULT_K, MAX_K, MAX_QUESTION_CHARS, _dropped, _passage
 from search import DEFAULT_DEMOTION, build_context
 from services import Services, get_conn, get_services
@@ -139,7 +140,14 @@ def answer_question(project_id: int, body: AnswerRequest, conn=Depends(get_conn)
     completion, requested = None, None
     if prep.ctx.passages:
         requested = _clock()
-        completion = prep.llm.complete(_messages(prep, body), max_output_tokens=prep.profile.max_output_tokens)
+        try:
+            completion = prep.llm.complete(_messages(prep, body), max_output_tokens=prep.profile.max_output_tokens)
+        except LLMError as failure:
+            usage_recording.record_headers(services, prep.profile.name, getattr(failure, "rate_limit_headers", None))      # a 429's numbers matter most
+            raise
+        usage_recording.record_call(services, prep.profile, messages=_messages(prep, body), kind="answer", outcome="done", model=completion.model,
+                                    prompt_tokens=completion.prompt_tokens, completion_tokens=completion.completion_tokens, reasoning_tokens=completion.reasoning_tokens,
+                                    thinking_pieces=0, text=completion.text, headers=completion.rate_limit_headers)
     finished = _clock()
     result = _result(prep, body, called=completion is not None, text="" if completion is None else completion.text,
                      finish_reason=None if completion is None else completion.finish_reason, model=None if completion is None else completion.model,
@@ -176,7 +184,11 @@ def answer_stream(project_id: int, body: AnswerRequest, conn=Depends(get_conn), 
     stream, requested = None, None
     if prep.ctx.passages:
         requested = _clock()
-        stream = prep.llm.stream(_messages(prep, body), max_output_tokens=prep.profile.max_output_tokens)         # a refusal raises HERE: an ordinary error response
+        try:
+            stream = prep.llm.stream(_messages(prep, body), max_output_tokens=prep.profile.max_output_tokens)         # a refusal raises HERE: an ordinary error response
+        except LLMError as failure:
+            usage_recording.record_headers(services, prep.profile.name, getattr(failure, "rate_limit_headers", None))
+            raise
     return StreamingResponse(_events(prep, body, services, stream, requested), media_type="application/x-ndjson",
                              headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
                              background=BackgroundTask(stream.close) if stream is not None else None)         # (closing twice is fine: the generator's `finally` is the main way)
@@ -188,6 +200,7 @@ async def _events(prep: Prepared, body: AnswerRequest, services: Services, strea
     thinking_pieces = 0
     parts: list[str] = []
     finish: StreamDone | None = None
+    outcome = "stopped"                                      # what it is if the generator is cancelled before the end: the person (or the window) left
     try:
         yield _line({"type": "start", "stage": "waiting", "search_ms": _at(prep, prep.searched), "llm_called": stream is not None, "profile": prep.profile.name, "sent_off_machine": stream is not None and not prep.profile.is_local,
                      "conversation_id": body.conversation_id, **_context_fields(prep, body)})
@@ -217,6 +230,7 @@ async def _events(prep: Prepared, body: AnswerRequest, services: Services, strea
                 elif isinstance(event, StreamDone):
                     finish = event
                     break
+        outcome = "done"
         finished = clock()
         text = "".join(parts)
         called = stream is not None
@@ -235,6 +249,7 @@ async def _events(prep: Prepared, body: AnswerRequest, services: Services, strea
                 result["notice"] = ((result["notice"] + " ") if result["notice"] else "") + "This answer could not be saved to the conversation."
         yield _line({"type": "done", **result, "conversation_id": body.conversation_id, "saved": saved})
     except Exception as failure:                              # noqa: BLE001 - becomes the one last event; cancellation is not an Exception and passes through
+        outcome = "failed"
         info = llm_error_info(failure)
         if info is None:
             log.error("unexpected error while streaming an answer", exc_info=failure)
@@ -246,6 +261,10 @@ async def _events(prep: Prepared, body: AnswerRequest, services: Services, strea
     finally:
         if stream is not None:
             stream.close()                                    # on every end, and when the client has left: this is what stops the model
+            usage_recording.record_call(services, prep.profile, messages=_messages(prep, body), kind="answer", outcome=outcome,       # tokens were spent whatever the end was
+                                        model=finish.model if finish else None, prompt_tokens=finish.prompt_tokens if finish else None,
+                                        completion_tokens=finish.completion_tokens if finish else None, reasoning_tokens=finish.reasoning_tokens if finish else None,
+                                        thinking_pieces=thinking_pieces, text="".join(parts), headers=stream.rate_limit_headers)
 
 
 def _at(prep: Prepared, moment: float) -> int:

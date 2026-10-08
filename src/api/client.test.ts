@@ -393,3 +393,89 @@ test('an answer whose new fields (timings, thinking, tokens) are wrong is a bad_
   assert.equal((await createApi(bridgeReplying({ ok: true, status: 200, body: good }).bridge).ask(3, 'q', true)).ok, true)
   assert.equal((await createApi(bridgeReplying({ ok: true, status: 200, body: answer }).bridge).ask(3, 'q', true)).ok, true)
 })
+
+// ---- usage and limits
+
+const limitRow = { window: 'minute', kind: 'tokens', limit: 8000, used: 6000, percent: 75, reached: false, rolling: true, resets_at: 1700000030, resets_in_seconds: 30, source: 'published' }
+const providerRow = { kind: 'requests', window: 'day', limit: 1000, remaining: 990, used: 10, percent: 1, full_again_in_seconds: 600, age_seconds: 4 }
+const closest = { source: 'yours', window: 'minute', kind: 'tokens', limit: 8000, used: 6000, percent: 75, reached: false, resets_in_seconds: 30 }
+const usageReport = {
+  provider: 'groq', model: 'openai/gpt-oss-120b', now: 1700000000, limits: [limitRow], limits_source: 'published', has_suggestion: true, published_note: 'These are the free-tier limits Groq publishes.',
+  provider_reported: [providerRow], closest,
+  counts: { requests: 3, prompt_tokens: 300, thinking_tokens: 40, answer_tokens: 80, estimated_calls: 1, thinking_share: 0.3333 },
+}
+
+test('getUsage returns the report', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: usageReport })
+  assert.deepEqual(await createApi(bridge).getUsage(), { ok: true, data: usageReport })
+  assert.deepEqual(calls, [{ method: 'GET', path: '/usage', body: undefined }])
+})
+
+test('an empty report (no limits, nothing known) is a good report', async () => {
+  const empty = { ...usageReport, limits: [], limits_source: 'none', has_suggestion: false, published_note: null, provider_reported: [], closest: null, model: null,
+    counts: { requests: 0, prompt_tokens: 0, thinking_tokens: 0, answer_tokens: 0, estimated_calls: 0, thinking_share: null } }
+  const { bridge } = bridgeReplying({ ok: true, status: 200, body: empty })
+  assert.deepEqual(await createApi(bridge).getUsage(), { ok: true, data: empty })
+})
+
+test('a report of the wrong shape is a bad response, field by field', async () => {
+  const breaks: Array<[string, (r: typeof usageReport) => unknown]> = [
+    ['not an object', () => 'x'], ['no provider', (r) => ({ ...r, provider: undefined })], ['now is text', (r) => ({ ...r, now: 'soon' })],
+    ['limits not a list', (r) => ({ ...r, limits: 'x' })], ['a limit without a window', (r) => ({ ...r, limits: [{ ...limitRow, window: 5 }] })],
+    ['a limit of an unknown kind', (r) => ({ ...r, limits: [{ ...limitRow, kind: 'words' }] })], ['a limit used is text', (r) => ({ ...r, limits: [{ ...limitRow, used: '6000' }] })],
+    ['a limit reached is text', (r) => ({ ...r, limits: [{ ...limitRow, reached: 'no' }] })], ['a limit percent is missing', (r) => ({ ...r, limits: [{ ...limitRow, percent: undefined }] })],
+    ['a reset is text', (r) => ({ ...r, limits: [{ ...limitRow, resets_in_seconds: 'now' }] })], ['an unknown source', (r) => ({ ...r, limits: [{ ...limitRow, source: 'guess' }] })],
+    ['has_suggestion is text', (r) => ({ ...r, has_suggestion: 'yes' })], ['has_suggestion is missing', (r) => ({ ...r, has_suggestion: undefined })],
+    ['an unknown limits_source', (r) => ({ ...r, limits_source: 'guess' })], ['a note that is a number', (r) => ({ ...r, published_note: 5 })],
+    ['provider rows not a list', (r) => ({ ...r, provider_reported: {} })], ['a provider row of an unknown kind', (r) => ({ ...r, provider_reported: [{ ...providerRow, kind: 'x' }] })],
+    ['a provider row age is text', (r) => ({ ...r, provider_reported: [{ ...providerRow, age_seconds: 'old' }] })], ['a provider row window is a number', (r) => ({ ...r, provider_reported: [{ ...providerRow, window: 3 }] })],
+    ['closest of an unknown source', (r) => ({ ...r, closest: { ...closest, source: 'guess' } })], ['closest without a percent', (r) => ({ ...r, closest: { ...closest, percent: null } })],
+    ['closest is a list', (r) => ({ ...r, closest: [] })], ['no counts', (r) => ({ ...r, counts: undefined })],
+    ['a count is negative', (r) => ({ ...r, counts: { ...r.counts, requests: -1 } })], ['a count is a fraction', (r) => ({ ...r, counts: { ...r.counts, prompt_tokens: 1.5 } })],
+    ['a limit percent is negative', (r) => ({ ...r, limits: [{ ...limitRow, percent: -1 }] })], ['a provider age is negative', (r) => ({ ...r, provider_reported: [{ ...providerRow, age_seconds: -1 }] })],
+    ['a reset is negative', (r) => ({ ...r, limits: [{ ...limitRow, resets_in_seconds: -3 }] })], ['closest percent is negative', (r) => ({ ...r, closest: { ...closest, percent: -2 } })],
+    ['thinking_share is text', (r) => ({ ...r, counts: { ...r.counts, thinking_share: 'half' } })], ['thinking_share is above 1', (r) => ({ ...r, counts: { ...r.counts, thinking_share: 2 } })],
+  ]
+  for (const [name, make] of breaks) {
+    const { bridge } = bridgeReplying({ ok: true, status: 200, body: make(usageReport) })
+    const r = await createApi(bridge).getUsage()
+    assert.equal(r.ok === false && r.error.code, 'bad_response', name)
+  }
+})
+
+test('saving limits posts them in a body and answers with the new report; null and an empty set are both allowed', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: usageReport })
+  const api = createApi(bridge)
+  assert.deepEqual(await api.saveUsageLimits({ hour: { tokens: 50000 }, day: { requests: 100 } }), { ok: true, data: usageReport })
+  assert.equal((await api.saveUsageLimits({})).ok, true)
+  assert.equal((await api.saveUsageLimits(null)).ok, true)
+  assert.deepEqual(calls.map((c) => [c.method, c.path, c.body]), [
+    ['POST', '/usage/limits', { limits: { hour: { tokens: 50000 }, day: { requests: 100 } } }], ['POST', '/usage/limits', { limits: {} }], ['POST', '/usage/limits', { limits: null }]])
+})
+
+test('limits that are not an object or null are refused before anything is sent', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: usageReport })
+  for (const bad of ['x', 5, [], true, undefined]) {
+    const r = await createApi(bridge).saveUsageLimits(bad as never)
+    assert.equal(r.ok === false && r.error.code, 'bad_request', String(bad))
+  }
+  assert.deepEqual(calls, [])
+})
+
+test("the backend's refusal of limits comes back with its own sentence", async () => {
+  const { bridge } = bridgeReplying({ ok: false, status: 422, body: { error: { code: 'invalid_limits', message: 'The day tokens limit must be at least 1.' } } })
+  assert.deepEqual(await createApi(bridge).saveUsageLimits({ day: { tokens: 0 } }), { ok: false, error: { code: 'invalid_limits', message: 'The day tokens limit must be at least 1.', status: 422 } })
+})
+
+test('resetting the counts is a DELETE and answers with the new report', async () => {
+  const { bridge, calls } = bridgeReplying({ ok: true, status: 200, body: usageReport })
+  assert.deepEqual(await createApi(bridge).resetUsage(), { ok: true, data: usageReport })
+  assert.deepEqual(calls, [{ method: 'DELETE', path: '/usage', body: undefined }])
+})
+
+test('the usage calls without a bridge are errors, never exceptions', async () => {
+  for (const run of [(a: ReturnType<typeof createApi>) => a.getUsage(), (a: ReturnType<typeof createApi>) => a.saveUsageLimits({}), (a: ReturnType<typeof createApi>) => a.resetUsage()]) {
+    const r = await run(createApi(undefined))
+    assert.equal(r.ok === false && r.error.code, 'no_bridge')
+  }
+})

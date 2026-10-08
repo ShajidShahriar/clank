@@ -20,6 +20,7 @@ from indexing import IndexAlreadyRunning
 from llm import (LLMAuthError, LLMBadResponse, LLMContextTooLong, LLMError, LLMModelNotFound, LLMNotConfigured, LLMRateLimited, LLMTimeout,
                  LLMUnavailable)
 from llm.settings import InvalidKey, InvalidSelection
+from usage_limits import InvalidLimits
 from model_pull import PullNotAvailable
 from jobs import NoIndexRunning, ProjectNotFound, RepoNotFound
 from projects import InvalidProjectPath, ProjectBusy, ProjectExists
@@ -89,6 +90,10 @@ async def _invalid_settings(request: Request, exc: InvalidSelection):
     return error_response(422, "invalid_settings", str(exc))            # written for people, and never repeats what was typed
 
 
+async def _invalid_limits(request: Request, exc: InvalidLimits):
+    return error_response(422, "invalid_limits", str(exc))             # written for people, and never repeats what was typed
+
+
 async def _invalid_key(request: Request, exc: InvalidKey):
     return error_response(422, "invalid_key", str(exc))                 # never repeats the key
 
@@ -139,6 +144,7 @@ def register_error_handlers(app: FastAPI) -> None:
         app.add_exception_handler(kind, _llm_failure)
     app.add_exception_handler(InvalidSelection, _invalid_settings)
     app.add_exception_handler(InvalidKey, _invalid_key)
+    app.add_exception_handler(InvalidLimits, _invalid_limits)
     app.add_exception_handler(NoIndexRunning, _fixed(409, "no_index_running", "No indexing is running for this project."))
     app.add_exception_handler(IndexAlreadyRunning, _fixed(409, "index_already_running", "This project is already being indexed."))
     app.add_exception_handler(OllamaUnavailable, _fixed(503, "ollama_unavailable", "Ollama is not reachable. Start Ollama and try again."))

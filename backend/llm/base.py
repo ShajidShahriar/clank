@@ -4,7 +4,7 @@ A new provider is one new class with `complete()`. Messages are the usual chat l
 """
 import ipaddress
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
@@ -19,6 +19,7 @@ class Completion:
     prompt_tokens: int | None = None    # what the service counted, None when it did not say
     completion_tokens: int | None = None    # ALL the output tokens, the thinking ones included
     reasoning_tokens: int | None = None     # the thinking part of them, None when the service does not say
+    rate_limit_headers: dict = field(default_factory=dict, compare=False)     # the service's `x-ratelimit-*` and `retry-after` headers (lower case names)
 
 
 @dataclass(frozen=True)

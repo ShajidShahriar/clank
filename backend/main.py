@@ -12,6 +12,7 @@ from routes_projects import router as projects_router
 from routes_setup import router as setup_router
 from routes_source import router as source_router
 from routes_settings import router as settings_router
+from routes_usage import router as usage_router
 from security import GuardMiddleware, Security
 from startup_sync import StartupSync
 from services import Services, default_services, get_services
@@ -44,6 +45,7 @@ def create_app(services: Services | None = None, jobs: IndexJobs | None = None, 
     app.include_router(source_router)
     app.include_router(setup_router)
     app.include_router(settings_router)
+    app.include_router(usage_router)
     app.add_middleware(GuardMiddleware)                           # Host, Origin, CORS preflight, token: see security.py
 
     @app.get("/health")

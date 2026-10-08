@@ -18,7 +18,6 @@ interface SettingsFormProps {
   onPreset: (id: string) => void
   onSave: () => void
   onTest: () => void
-  onClose: () => void
 }
 
 const LABEL = 'mb-1 block text-xs font-medium text-label-2'
@@ -36,7 +35,7 @@ function Field({ label, error, hint, children }: { label: string, error?: string
 }
 
 /** The answer-model settings, drawn. All the logic is in lib/settingsForm.ts; the stateful wrapper is SettingsDialog. */
-function SettingsForm({ settings, form, errors, dirty, saving, testing, saved, saveError, testResult, onChange, onPreset, onSave, onTest, onClose }: SettingsFormProps) {
+function SettingsForm({ settings, form, errors, dirty, saving, testing, saved, saveError, testResult, onChange, onPreset, onSave, onTest }: SettingsFormProps) {
   const preset = settings.presets.find((p) => p.id === form.preset) ?? settings.presets[0]
   const active = settings.active
   const hasProblems = Object.keys(errors).length > 0
@@ -44,13 +43,8 @@ function SettingsForm({ settings, form, errors, dirty, saving, testing, saved, s
   const busy = saving || testing
 
   return (
-    <div className="animate-sheet flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-sheet bg-bg shadow-float">
-      <div className="flex shrink-0 items-center justify-between px-5 pb-1 pt-4">
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-label">Answer model</h2>
-        <button onClick={onClose} className="press rounded-control px-2 py-1 text-[13px] font-medium text-accent hover:bg-accent-soft">Done</button>
-      </div>
-
-      <div className="flex flex-col gap-4 overflow-y-auto px-5 py-5">
+    <>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
         <Field label="Provider">
           <select value={form.preset} onChange={(e) => onPreset(e.target.value)} disabled={busy} className={INPUT}>
             {settings.presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
@@ -137,7 +131,7 @@ function SettingsForm({ settings, form, errors, dirty, saving, testing, saved, s
           Save
         </button>
       </div>
-    </div>
+    </>
   )
 }
 
