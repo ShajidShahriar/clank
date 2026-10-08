@@ -9,7 +9,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from llm import host_is_local
+import usage_recording
+from llm import LLMError, host_is_local
 from llm.settings import PRESETS, build_selection, selection_to_profile
 from services import Services, get_services
 
@@ -69,6 +70,14 @@ def test_llm(services: Services = Depends(get_services)):
     """One tiny real call to the configured service. No code is sent, so no consent is needed. Failures are the same friendly errors an answer gives."""
     profile, client = services.llm_setup()
     started = time.monotonic()
-    completion = client.complete([{"role": "user", "content": "Reply with the single word OK."}], max_output_tokens=min(profile.max_output_tokens, 100))
+    messages = [{"role": "user", "content": "Reply with the single word OK."}]
+    try:
+        completion = client.complete(messages, max_output_tokens=min(profile.max_output_tokens, 100))
+    except LLMError as failure:
+        usage_recording.record_headers(services, profile.name, getattr(failure, "rate_limit_headers", None))
+        raise
+    usage_recording.record_call(services, profile, messages=messages, kind="test", outcome="done", model=completion.model, prompt_tokens=completion.prompt_tokens,
+                                completion_tokens=completion.completion_tokens, reasoning_tokens=completion.reasoning_tokens, thinking_pieces=0, text=completion.text,
+                                headers=completion.rate_limit_headers)
     return {"ok": True, "model": completion.model, "latency_ms": int((time.monotonic() - started) * 1000), "finish_reason": completion.finish_reason,
             "reply": completion.text.strip()[:80]}

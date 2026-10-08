@@ -144,7 +144,7 @@ function Sidebar({ collapsed, theme, onToggleTheme, projects, live, selectedId, 
         <div className="flex shrink-0 items-center gap-1 p-2">
           <button onClick={onOpenSettings} className={`${ROW_BUTTON} min-w-0 flex-1 gap-2.5 px-2.5 py-2 text-sm text-label-2 hover:text-label`}>
             <Settings className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-            Answer model
+            Settings
           </button>
           <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'} className={`${ICON_BUTTON} !p-2`}>
             {theme === 'dark' ? <Sun className="h-4 w-4" strokeWidth={1.6} /> : <Moon className="h-4 w-4" strokeWidth={1.6} />}

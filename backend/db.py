@@ -40,6 +40,28 @@ USER_TABLES_SQL = """
             meta TEXT,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         );
+
+        -- One row per model call: when, which provider and model, token counts. Never a question, an answer, a project or a path (see usage.py).
+        CREATE TABLE IF NOT EXISTS usage_calls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            at REAL NOT NULL,
+            provider TEXT NOT NULL CHECK (provider <> ''),
+            model TEXT,
+            kind TEXT NOT NULL CHECK (kind IN ('answer', 'test')),
+            outcome TEXT NOT NULL CHECK (outcome IN ('done', 'stopped', 'failed')),
+            prompt_tokens INTEGER CHECK (prompt_tokens IS NULL OR prompt_tokens >= 0),
+            thinking_tokens INTEGER CHECK (thinking_tokens IS NULL OR thinking_tokens >= 0),
+            answer_tokens INTEGER CHECK (answer_tokens IS NULL OR answer_tokens >= 0),
+            estimated INTEGER NOT NULL DEFAULT 0 CHECK (estimated IN (0, 1))
+        );
+        CREATE INDEX IF NOT EXISTS idx_usage_calls_at ON usage_calls(at);
+
+        -- The provider's latest rate-limit numbers (its own headers), one row per provider.
+        CREATE TABLE IF NOT EXISTS usage_snapshots (
+            provider TEXT PRIMARY KEY,
+            headers TEXT NOT NULL,
+            at REAL NOT NULL
+        );
 """
 
 # Derived from the repo, so they can be dropped and rebuilt when SCHEMA_VERSION changes.

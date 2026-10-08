@@ -185,6 +185,36 @@ def test_a_rate_limit_carries_the_retry_after_header():
     assert caught.value.retry_after == 12.0
 
 
+RATE_HEADERS = {"x-ratelimit-limit-requests": "1000", "X-RateLimit-Remaining-Tokens": "7000", "retry-after": "3", "set-cookie": "never", "x-request-id": "abc"}
+KEPT = {"x-ratelimit-limit-requests": "1000", "x-ratelimit-remaining-tokens": "7000", "retry-after": "3"}
+
+
+def test_a_good_reply_carries_only_the_rate_limit_headers():
+    status, _, body = good_reply()
+    with FakeLLMServer(lambda r: (status, RATE_HEADERS, body)) as server:
+        completion = client(server).complete(MESSAGES, max_output_tokens=10)
+    assert completion.rate_limit_headers == KEPT
+
+
+def test_a_reply_with_no_rate_limit_headers_has_none():
+    with FakeLLMServer(lambda r: good_reply()) as server:
+        assert client(server).complete(MESSAGES, max_output_tokens=10).rate_limit_headers == {}
+
+
+def test_a_429_carries_the_rate_limit_headers_the_service_sent_with_it():
+    with FakeLLMServer(lambda r: error_reply(429, "x", headers=RATE_HEADERS)) as server:
+        with pytest.raises(LLMRateLimited) as caught:
+            client(server).complete(MESSAGES, max_output_tokens=10)
+    assert caught.value.rate_limit_headers == KEPT
+
+
+def test_a_long_header_value_is_cut():
+    status, _, body = good_reply()
+    with FakeLLMServer(lambda r: (status, {"x-ratelimit-limit-requests": "9" * 500}, body)) as server:
+        value = client(server).complete(MESSAGES, max_output_tokens=10).rate_limit_headers["x-ratelimit-limit-requests"]
+    assert value == "9" * 100
+
+
 def test_a_rate_limit_without_the_header_reads_the_wait_from_the_message():
     cases = [("Rate limit reached. Please try again in 7.66s.", 7.66), ("Please try again in 2m30s", 150.0), ("try again in 450ms", 0.45), ("try again in 1m", 60.0),
              ("Rate limit reached.", None)]

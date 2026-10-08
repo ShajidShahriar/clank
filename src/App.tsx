@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import ChatPane from './components/ChatPane'
 import SettingsDialog from './components/SettingsDialog'
 import SourceViewer from './components/SourceViewer'
 import BootScreen from './components/BootScreen'
+import type { SettingsTab } from './components/SettingsSheet'
 import SidebarToggle from './components/SidebarToggle'
 import type { Source } from './api/types'
 import { createApi } from './api/client'
@@ -14,6 +15,7 @@ import { useBackendStatus } from './hooks/useBackendStatus'
 import { useFullscreen } from './hooks/useFullscreen'
 import { useProjects } from './hooks/useProjects'
 import { useTheme } from './hooks/useTheme'
+import { useUsage } from './hooks/useUsage'
 import { useSidebarCollapsed } from './hooks/useSidebarCollapsed'
 import { useSetup } from './hooks/useSetup'
 import type { ErrorAction } from './lib/present'
@@ -27,7 +29,8 @@ function App() {
   const projects = useProjects(api, ready)
   const setup = useSetup(api, ready)
   const [notice, setNotice] = useState<string | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null)           // null: closed
+  const usage = useUsage(api, ready)
   const [collapsed, toggleSidebar] = useSidebarCollapsed()
   useFullscreen()
   const { theme, toggle: toggleTheme } = useTheme()
@@ -38,6 +41,9 @@ function App() {
   const indexing = selected ? ['running', 'cancelling'].includes(live?.state ?? selected.index_state) : false
   const chats = useChats(api, ready, selected?.id ?? null)
   const entries = selected ? chats.entries : []
+  const finished = entries.filter((entry) => entry.state === 'done' || entry.state === 'stopped' || entry.state === 'error').length
+  const { refresh: refreshUsage } = usage
+  useEffect(() => { if (finished > 0) void refreshUsage() }, [finished, refreshUsage])      // an answer ended (finished, stopped or failed): the numbers changed
 
   const restartBackend = useCallback(() => { void getBackendControl()?.restart() }, [])
 
@@ -72,7 +78,7 @@ function App() {
     } else if (action === 'refresh') {
       void projects.refresh()
     } else if (action === 'settings') {
-      setSettingsOpen(true)
+      setSettingsTab('model')
     }
   }, [selected, chats, allowRemote, projects, setAllowRemote, restartBackend])
 
@@ -96,10 +102,12 @@ function App() {
         onNewConversation={() => selected && chats.startNew(selected.id)}
         onDeleteConversation={deleteConversation}
         onDismissNotice={() => { setNotice(null); chats.clearProblem() }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => setSettingsTab('model')}
       />
       <ChatPane
         sidebarCollapsed={collapsed}
+        usage={usage.report}
+        onOpenUsage={() => setSettingsTab('usage')}
         backend={backend}
         project={selected}
         index={live}
@@ -120,7 +128,7 @@ function App() {
       <BootScreen booting={backend.state === 'starting'} message={backend.message} />
       {/* Last in the page on purpose: where a drag strip and a no-drag button overlap, the later one wins, and the button must win. */}
       <SidebarToggle collapsed={collapsed} onToggle={toggleSidebar} />
-      {settingsOpen && <SettingsDialog api={api} onClose={() => setSettingsOpen(false)} onSaved={() => {}} />}
+      {settingsTab && <SettingsDialog api={api} initialTab={settingsTab} usage={usage} onClose={() => setSettingsTab(null)} onSaved={() => void refreshUsage()} />}
     </div>
   )
 }

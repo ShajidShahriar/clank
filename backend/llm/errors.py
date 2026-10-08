@@ -29,9 +29,10 @@ class LLMContextTooLong(LLMError):
 class LLMRateLimited(LLMError):
     """The service said to slow down. `retry_after` is the wait in seconds when the service said how long, else None."""
 
-    def __init__(self, message: str = "the rate limit was reached", retry_after: float | None = None):
+    def __init__(self, message: str = "the rate limit was reached", retry_after: float | None = None, rate_limit_headers: dict | None = None):
         super().__init__(message)
         self.retry_after = retry_after
+        self.rate_limit_headers = dict(rate_limit_headers or {})         # the service's `x-ratelimit-*` numbers at the moment it said no (the most useful ones)
 
 
 class LLMUnavailable(LLMError):
