@@ -1,4 +1,5 @@
 import os
+import stat
 from pathlib import Path
 import pathspec
 
@@ -21,6 +22,8 @@ import pathspec
 #       if any part of its path is in HARD_IGNORE_DIRS
 #           (.git, node_modules, venv, dist, build, etc.) -> skip it
 #       if the gitignore matcher says this path is ignored -> skip it
+#       if it is not a regular file (a FIFO, a socket, a device)  -> skip it
+#       if it is a symlink that leads outside the repo            -> skip it
 #       if its extension is not one we care about
 #           (.py, .js, .md, .rst, .json, etc.)                   -> skip it
 #
@@ -65,11 +68,19 @@ MAX_DATA_FILE_BYTES = 20_000
 BINARY_SNIFF_BYTES = 8192
 
 def is_binary(path: Path) -> bool:
+    # Opened without waiting (O_NONBLOCK) and checked as a regular file BEFORE reading: opening a FIFO that nobody writes to would otherwise wait forever.
     try:
-        with open(path, "rb") as f:
-            return b"\0" in f.read(BINARY_SNIFF_BYTES)
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
     except OSError:
         return True  # unreadable: don't try to index it
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return True  # a FIFO, a device, a socket: never read
+        return b"\0" in os.read(fd, BINARY_SNIFF_BYTES)
+    except OSError:
+        return True
+    finally:
+        os.close(fd)
 
 def load_gitignore(repo_path: Path) -> pathspec.PathSpec:
     gitignore_path = repo_path / ".gitignore"
@@ -107,9 +118,18 @@ def discover_files(repo_path: str) -> list[Path]:
             if spec.match_file(str(path.relative_to(repo_path))):
                 continue
 
+            # Only a regular file is indexed. A FIFO, a socket or a device is skipped (reading a FIFO can wait forever). A symlink is followed to its final target, which
+            # must be a regular file INSIDE the repo (the rule `search/fresh.py` and `search/stitch.py` use when they read the file again): a link out of the repo is skipped.
             try:
-                size = path.stat().st_size
-            except OSError:
+                info = path.lstat()
+                if stat.S_ISLNK(info.st_mode):
+                    if not path.resolve().is_relative_to(repo_path):
+                        continue
+                    info = path.stat()
+                if not stat.S_ISREG(info.st_mode):
+                    continue
+                size = info.st_size
+            except (OSError, RuntimeError):      # a broken link, a loop of links, a file that vanished
                 continue
             if size > MAX_FILE_BYTES or (path.suffix in DATA_EXTENSIONS and size > MAX_DATA_FILE_BYTES):
                 continue
