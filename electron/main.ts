@@ -41,7 +41,7 @@ const trustContext = () => ({ devServerUrl: VITE_DEV_SERVER_URL, rendererIndexPa
 function createWindow() {
   win = new BrowserWindow({
     title: 'Clank',
-    icon: path.join(process.env.VITE_PUBLIC, 'logo_dark.png'),
+    icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -145,6 +145,8 @@ app.on('before-quit', (event) => {
 process.on('exit', () => backend?.killNow())      // the last line of defence: a synchronous SIGKILL
 
 app.whenReady().then(() => {
+  // A packaged Mac app gets its icon from the bundle (icons/icon.icns, set in electron-builder.json5). In development the Dock would show Electron's own, so set ours.
+  if (process.platform === 'darwin' && VITE_DEV_SERVER_URL) app.dock?.setIcon(path.join(process.env.VITE_PUBLIC!, 'icon.png'))
   startBackend()
   createWindow()
 })

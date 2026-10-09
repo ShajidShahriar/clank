@@ -6,6 +6,7 @@
   "author": "Clank",
   "main": "dist-electron/main.js",
   "scripts": {
+    "predev": "node scripts/brand-dev-electron.mjs",
     "dev": "vite",
     "build:backend": "uv run python backend/scripts/freeze_backend.py",
     "build": "npm run build:backend && tsc -b && vite build && electron-builder",

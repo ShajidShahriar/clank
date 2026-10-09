@@ -20,12 +20,14 @@
     }
   ],
   "mac": {
+    "icon": "icons/icon.icns",
     "target": [
       "dmg"
     ],
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
+    "icon": "icons/icon.png",
     "target": [
       {
         "target": "nsis",
@@ -43,6 +45,7 @@
     "deleteAppDataOnUninstall": false
   },
   "linux": {
+    "icon": "icons/icon.png",
     "target": [
       "AppImage"
     ],
