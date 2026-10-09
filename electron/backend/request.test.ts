@@ -125,7 +125,13 @@ test('a request that takes too long is cut off with its own error', async () => 
     ...base, method: 'GET', path: '/health', timeoutMs: 20,
     fetchFn: ((_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
       signal = init.signal
-      init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' })))
+      // A ref'd timer keeps the event loop alive while this fetch "waits": the timer behind AbortSignal.timeout does not, and whether Node then waits for it has
+      // differed between versions. It is cleared when the request is aborted, so the test leaves nothing running (a timer that is never cleared would keep the whole test run from ending).
+      const keepAlive = setInterval(() => {}, 1000)
+      init.signal.addEventListener('abort', () => {
+        clearInterval(keepAlive)
+        reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' }))
+      })
     })) as never,
   })
   assert.ok(signal)
