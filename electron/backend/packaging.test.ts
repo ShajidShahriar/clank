@@ -6,7 +6,7 @@
 // - `npm run build` freezes the backend BEFORE it packs the app, so an installer can never be made without one.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { backendCommand } from './env.ts'
 
@@ -49,4 +49,40 @@ test('the build script freezes the backend with the project script, and the full
 
 test('the build script writes where the installer reads', () => {
   assert.match(python, /DEFAULT_OUT = HERE\.parent \/ "build" \/ "backend"/)
+})
+
+// ---- the app icon: one picture, made into the files each system wants
+
+const exists = (file: string) => existsSync(new URL(file, root))
+const bytes = (file: string) => readFileSync(new URL(file, root))
+const pngSize = (file: string) => {
+  const data = bytes(file)
+  assert.equal(data.subarray(1, 4).toString(), 'PNG', `${file} is not a PNG`)
+  return { width: data.readUInt32BE(16), height: data.readUInt32BE(20), colorType: data[25] }          // from the IHDR header
+}
+
+test('the installer names an icon for macOS, Windows and Linux, and each file is there', () => {
+  assert.equal(builder.mac?.icon, 'icons/icon.icns')
+  assert.equal(builder.win?.icon, 'icons/icon.png')
+  assert.equal(builder.linux?.icon, 'icons/icon.png')
+  for (const file of [builder.mac.icon, builder.win.icon, builder.linux.icon]) assert.ok(exists(file), `${file} is missing`)
+})
+
+test('the master icon is a square 1024 px PNG with a transparent background (RGBA)', () => {
+  assert.deepEqual(pngSize('icons/icon.png'), { width: 1024, height: 1024, colorType: 6 })
+})
+
+test('the .icns file is a real icns file with every size macOS asks for, up to 1024 px', () => {
+  const icns = bytes('icons/icon.icns')
+  assert.equal(icns.subarray(0, 4).toString(), 'icns')
+  assert.equal(icns.readUInt32BE(4), icns.length, 'the length in the header is not the length of the file')
+  const text = icns.toString('latin1')
+  for (const tag of ['ic07', 'ic08', 'ic09', 'ic10', 'ic11', 'ic12', 'ic13', 'ic14']) assert.ok(text.includes(tag), `no ${tag} picture in the icns file`)
+})
+
+test('the window and the Dock use a 512 px icon that is shipped with the page, not the old logo', () => {
+  assert.deepEqual(pngSize('public/icon.png'), { width: 512, height: 512, colorType: 6 })
+  const main = read('electron/main.ts')
+  assert.match(main, /icon: path\.join\(process\.env\.VITE_PUBLIC, 'icon\.png'\)/)
+  assert.match(main, /app\.dock\?\.setIcon\(/)
 })
